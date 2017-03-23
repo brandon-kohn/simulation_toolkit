@@ -22,10 +22,18 @@ CMAKE_GENERATOR=$2
 
 # Build the release
 cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR"
+ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
+
+# Install it
 cmake --build "cmake.build" --target install
+ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
 
 # Build the debug
 cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=DEBUG -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR"
+ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
+
+# Install it
 cmake --build "cmake.build" --target install
+ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
 
 # End
