@@ -15,7 +15,10 @@ fi
 REPOSRC=https://github.com/brandon-kohn/simulation_suite.git
 
 git pull "$REPOSRC"
+ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
+
 git submodule update --init --recursive
+ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
 
 INSTALL_PATH=$1
 CMAKE_GENERATOR=$2
@@ -36,4 +39,5 @@ ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
 cmake --build "cmake.build" --target install
 ret=$?; if [[ $ret != 0 ]]; then exit $ret; fi
 
+exit 0
 # End
