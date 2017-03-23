@@ -1,8 +1,15 @@
 #!/bin/sh
 # `simulation_suite` update and build script.
-# This will pull down the suite from github if not already checked out.. or update it if is.
+# This script does a pull on simulation_suite at the URL below.
 # It will then invoke cmake to update and build the suite installing into the specified path.
 # Requires git and cmake on the path.
+# Note: Also requires the environment is configured for the specified CMAKE generator.
+
+if [ "$#" -ne 2 ]
+  then
+    echo "Usage: ./update.sh <Install Path Prefix> <\"CMake Generator\">"
+    exit 1
+fi
 
 # Update the repo
 REPOSRC=https://github.com/brandon-kohn/simulation_suite.git
