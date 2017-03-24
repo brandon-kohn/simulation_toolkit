@@ -5,7 +5,7 @@
 # Requires git and cmake on the path.
 # Note: Also requires the environment is configured for the specified CMAKE generator.
 
-function error_exit
+error_exit()
 {
     echo "$1" 1>&2
     exit 1
