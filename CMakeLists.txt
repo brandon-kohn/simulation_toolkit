@@ -7,6 +7,7 @@ set(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "Default relative lib path.")
 # Targets
 project(simulation_suite)
 
+add_subdirectory(stk/)
 add_subdirectory(clipper-lib/)
 add_subdirectory(geometrix/)
 add_subdirectory(nlopt/)
