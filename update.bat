@@ -26,7 +26,7 @@ cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX="%INST
 if ERRORLEVEL 1 goto error
 
 REM Build it
-cmake --build "cmake.build" --target install
+cmake --build "cmake.build" --config RELEASE --target install
 if ERRORLEVEL 1 goto error
 
 REM Build the debug
@@ -34,7 +34,7 @@ cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=DEBUG -DCMAKE_INSTALL_PREFIX="%INSTAL
 if ERRORLEVEL 1 goto error
 
 REM Build it
-cmake --build "cmake.build" --target install
+cmake --build "cmake.build" --config DEBUG --target install
 if ERRORLEVEL 1 goto error
 
 exit /B 0
