@@ -10,7 +10,7 @@
 #define STK_SEGMENT_HPP
 #pragma once
 
-#include "geometry_point.hpp"
+#include "point.hpp"
 
 #include <geometrix/primitive/segment.hpp>
 using segment2 = geometrix::segment<point2>;
@@ -38,6 +38,5 @@ namespace geometrix{
         return geometrix::numeric_sequence_equals_2d( lhs.get_start(), rhs.get_start(), cmp ) && geometrix::numeric_sequence_equals_2d( lhs.get_end(), rhs.get_end(), cmp );
     }
 }//! namespace geometrix
-
 
 #endif//STK_SEGMENT_HPP

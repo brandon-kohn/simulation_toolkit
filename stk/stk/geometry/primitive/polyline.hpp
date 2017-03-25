@@ -16,8 +16,7 @@
 using polyline2 = geometrix::polyline<point2>;
 using polyline3 = geometrix::polyline<point3>;
 
-#include <boost/range/adaptors.hpp>
-#include <boost/range/algorithm.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 template <typename Result, typename Polyline, typename Vector>
 inline Result translate_polyline(const Polyline& pline, const Vector& translation)
@@ -33,12 +32,5 @@ inline Result translate_polyline(const Polyline& pline, const Vector& translatio
 
     return poly;
 }
-
-//! Stream operators for geometry.
-namespace geometrix {
-
-    std::ostream& operator << (std::ostream& os, const polyline2& p);
-
-}//namespace geometrix.
 
 #endif//STK_POLYLINE_HPP

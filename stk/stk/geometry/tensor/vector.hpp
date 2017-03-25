@@ -10,7 +10,7 @@
 #define STK_VECTOR_HPP
 #pragma once
 
-#include <stk/utility/boost_units.hpp>
+#include <stk/units/boost_units.hpp>
 #include <geometrix/arithmetic/boost_units_arithmetic.hpp>
 #include <geometrix/space/neutral_reference_frame.hpp>
 #include <geometrix/tensor/index_operator_vector_access_policy.hpp>

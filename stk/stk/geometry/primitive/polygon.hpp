@@ -18,8 +18,7 @@
 using polygon2 = geometrix::polygon<point2>;
 using polygon3 = geometrix::polygon<point3>;
 
-#include <boost/range/adaptors.hpp>
-#include <boost/range/algorithm.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 template <typename Polygon>
 inline polygon2 make_polygon( const Polygon& polygon, geometrix::polygon_winding winding )
@@ -70,21 +69,6 @@ inline Result translate_polygon( const Polygon& polygon, const Vector& translati
     return poly;
 }
 
-template <typename Result, typename Polyline, typename Vector>
-inline Result translate_polyline(const Polyline& polyline, const Vector& translation)
-{
-    using namespace geometrix;
-    using namespace boost::adaptors;
-    BOOST_CONCEPT_ASSERT((PointSequenceConcept<Polyline>));
-    using access = geometrix::point_sequence_traits<Polyline>;
-    Result poly;
-
-    auto translate = [&translation](const typename access::point_type& p) { return geometrix::construct<point2>(p + translation); };
-    boost::copy(polyline | transformed(translate), std::back_inserter(poly));
-
-    return poly;
-}
-
 template <typename Result, typename PolygonRange, typename Vector>
 inline std::vector<Result> translate_polygons( const PolygonRange& range, const Vector& translation )
 {
@@ -97,37 +81,5 @@ inline std::vector<Result> translate_polygons( const PolygonRange& range, const 
 
     return polygons;
 }
-
-inline rectangle2 generateRectangle(const segment2& seg, units::length offset)
-{
-    using namespace geometrix;
-    vector2 parallel = offset * normalize(seg.get_end() - seg.get_start());
-    vector2 left_perp = left_normal(parallel);
-    vector2 right_perp = right_normal(parallel);
-    return std::array<point2, 4>{{
-            point2{ seg.get_start() + (right_perp - parallel) }
-          , point2{ seg.get_end() + (right_perp + parallel) }
-          , point2{ seg.get_end() + (left_perp + parallel) }
-          , point2{ seg.get_start() + (left_perp - parallel) }
-        }};
-}
-
-inline polygon2 generateSquare(const point2& center, const units::length& width)
-{
-    auto halfwidth = 0.5 * width;
-    auto xmax = get<0>(center) + halfwidth;
-    auto ymax = get<1>(center) + halfwidth;
-    auto xmin = get<0>(center) - halfwidth;
-    auto ymin = get<1>(center) - halfwidth;
-
-    return{ { xmin, ymin },{ xmax, ymin },{ xmax, ymax },{ xmin, ymax } };
-}
-
-//! Stream operators for geometry.
-namespace geometrix {
-
-    std::ostream& operator << (std::ostream& os, const polygon2& p);
-
-}//namespace geometrix.
 
 #endif//STK_POLYGON_HPP

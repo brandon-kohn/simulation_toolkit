@@ -10,8 +10,10 @@
 #define STK_TOLERANCE_POLICY_HPP
 #pragma once
 
+#include <stk/units/boost_units.hpp>
+
 //! Create access to number comparison policy
-#include <geometrix/utility/floating_point_comparison.hpp>
+#include <geometrix/numeric/number_comparison_policy.hpp>
 using tolerance_policy = geometrix::mapped_tolerance_comparison_policy<geometrix::absolute_tolerance_comparison_policy<double>, boost::fusion::pair<units::angle, geometrix::relative_tolerance_comparison_policy<double>>>;
 
 inline tolerance_policy make_tolerance_policy(double generalTol = 1e-10, double angleTol = 1e-6)
