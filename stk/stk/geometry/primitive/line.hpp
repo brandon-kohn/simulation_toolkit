@@ -8,13 +8,15 @@
 //
 #ifndef STK_LINE_HPP
 #define STK_LINE_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 #include <stk/geometry/tensor/vector.hpp>
 
 #include <geometrix/primitive/line.hpp>
 using line2 = geometrix::line<point2, dimensionless2>;
-
 
 #endif//STK_LINE_HPP

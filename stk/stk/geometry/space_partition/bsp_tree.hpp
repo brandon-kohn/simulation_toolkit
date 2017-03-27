@@ -8,7 +8,10 @@
 //
 #ifndef STK_BSP_TREE_HPP
 #define STK_BSP_TREE_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <stk/geometry/primitive/segment.hpp>
 #include <geometrix/algorithm/bsp_tree_2d.hpp>

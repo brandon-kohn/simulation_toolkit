@@ -8,7 +8,10 @@
 //
 #ifndef STK_LINEAR_DATA_INTERPOLATOR_HPP
 #define STK_LINEAR_DATA_INTERPOLATOR_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "line_function.hpp"
 

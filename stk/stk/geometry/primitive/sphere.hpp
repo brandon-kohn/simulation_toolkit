@@ -8,7 +8,10 @@
 //
 #ifndef STK_SPHERE_HPP
 #define STK_SPHERE_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 #include <geometrix/primitive/sphere.hpp>

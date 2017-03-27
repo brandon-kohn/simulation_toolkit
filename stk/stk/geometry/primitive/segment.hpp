@@ -8,7 +8,10 @@
 //
 #ifndef STK_SEGMENT_HPP
 #define STK_SEGMENT_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 

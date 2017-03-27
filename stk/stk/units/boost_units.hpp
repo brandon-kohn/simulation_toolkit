@@ -8,7 +8,10 @@
 //
 #ifndef STK_BOOST_UNITS_HPP
 #define STK_BOOST_UNITS_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <boost/units/quantity.hpp>
 #include <boost/units/pow.hpp>
@@ -61,7 +64,7 @@ namespace units {
     }
     
     template <typename X, typename Unit>
-    inline decltype(std::declval<X>() * std::declval<Unit>()) apply_unit(const X& x, Unit u) { return x * u; }
+    inline decltype(std::declval<X>() * std::declval<Unit>()) apply(const X& x, Unit u) { return x * u; }
 
     template <typename Unit>
     struct unit_applier

@@ -8,7 +8,10 @@
 //
 #ifndef STK_SIMULATED_ANNEALING_HPP
 #define STK_SIMULATED_ANNEALING_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <cmath>
 

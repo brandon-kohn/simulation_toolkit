@@ -8,7 +8,10 @@
 //
 #ifndef STK_ORIENTED_BOUNDING_BOX_HPP
 #define STK_ORIENTED_BOUNDING_BOX_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 #include <stk/geometry/tensor/vector.hpp>

@@ -8,7 +8,10 @@
 //
 #ifndef STK_VECTOR_HPP
 #define STK_VECTOR_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <stk/units/boost_units.hpp>
 #include <geometrix/arithmetic/boost_units_arithmetic.hpp>
@@ -18,9 +21,13 @@
 #include <geometrix/tensor/vector.hpp>
 namespace geometry_kernel_detail {
     using vector2 = geometrix::vector<units::length, 2>;//! define this one in a namespace to avoid confusion when specialized for boost.fusion (confusion with boost::fusion::vector2.)
+    using vector3 = geometrix::vector<units::length, 3>;//! define this one in a namespace to avoid confusion when specialized for boost.fusion (confusion with boost::fusion::vector3.)
 }
 using vector2 = ::geometry_kernel_detail::vector2;
 GEOMETRIX_DEFINE_VECTOR_TRAITS(::geometry_kernel_detail::vector2, (units::length), 2, units::dimensionless, units::length, neutral_reference_frame_2d, index_operator_vector_access_policy<::geometry_kernel_detail::vector2>);
+
+using vector3 = ::geometry_kernel_detail::vector3;
+GEOMETRIX_DEFINE_VECTOR_TRAITS(::geometry_kernel_detail::vector3, (units::length), 3, units::dimensionless, units::length, neutral_reference_frame_3d, index_operator_vector_access_policy<::geometry_kernel_detail::vector3>);
 
 using dimensionless2 = geometrix::vector<units::dimensionless, 2>;
 GEOMETRIX_DEFINE_VECTOR_TRAITS(dimensionless2, (units::dimensionless), 2, units::dimensionless, units::dimensionless, neutral_reference_frame_2d, index_operator_vector_access_policy<dimensionless2>);

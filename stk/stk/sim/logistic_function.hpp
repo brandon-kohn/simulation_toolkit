@@ -8,12 +8,15 @@
 //
 #ifndef STK_LOGISTIC_FUNCTION_HPP
 #define STK_LOGISTIC_FUNCTION_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <geometrix/utility/tagged_quantity.hpp>
 #include <geometrix/arithmetic/boost_units_arithmetic.hpp>
-#include <stk/utility/boost_units.hpp>
-#include <stk/utility/probability.hpp>
+#include <stk/units/boost_units.hpp>
+#include <stk/units/probability.hpp>
 
 GEOMETRIX_STRONG_TYPEDEF(units::probability, LowerAsymptote);
 GEOMETRIX_STRONG_TYPEDEF(units::probability, UpperAsymptote);

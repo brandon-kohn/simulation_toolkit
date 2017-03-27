@@ -8,7 +8,10 @@
 //
 #ifndef STK_POLYGON_WITH_HOLES_HPP
 #define STK_POLYGON_WITH_HOLES_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 
@@ -17,12 +20,5 @@
 
 using polygon_with_holes2 = geometrix::polygon_with_holes<point2>;
 using polygon_with_holes3 = geometrix::polygon_with_holes<point3>;
-
-//! Stream operators for geometry.
-namespace geometrix {
-
-    std::ostream& operator << (std::ostream& os, const polygon_with_holes2& p);
-
-}//namespace geometrix.
 
 #endif//STK_POLYGON_WITH_HOLES_HPP

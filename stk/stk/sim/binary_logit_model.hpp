@@ -8,9 +8,12 @@
 //
 #ifndef STK_BINARY_LOGIT_MODEL_HPP
 #define STK_BINARY_LOGIT_MODEL_HPP
-#pragma once
 
-#include <stk/utility/probability.hpp>
+#if defined(_MSC_VER)
+    #pragma once
+#endif
+
+#include <stk/units/probability.hpp>
 
 template <typename UtilityModel>
 struct binary_logit_model

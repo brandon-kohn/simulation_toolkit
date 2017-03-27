@@ -8,7 +8,10 @@
 //
 #ifndef STK_CURVE_DECOMPOSITION_HPP
 #define STK_CURVE_DECOMPOSITION_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "geometry_kernel.hpp"
 #include <geometrix/algorithm/point_sequence/curvature.hpp>

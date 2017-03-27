@@ -8,7 +8,10 @@
 //
 #ifndef STK_POINT_HPP
 #define STK_POINT_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <stk/units/boost_units.hpp>
 #include <stk/geometry/tolerance_policy.hpp>

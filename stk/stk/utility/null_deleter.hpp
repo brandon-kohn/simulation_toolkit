@@ -8,7 +8,10 @@
 //
 #ifndef STK_NULL_DELETER_HPP
 #define STK_NULL_DELETER_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 struct null_deleter
 {

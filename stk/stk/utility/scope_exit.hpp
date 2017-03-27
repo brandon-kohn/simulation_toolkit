@@ -8,7 +8,10 @@
 //
 #ifndef STK_SCOPEEXIT_HPP
 #define STK_SCOPEEXIT_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <boost/preprocessor/cat.hpp>
 

@@ -8,7 +8,10 @@
 //
 #ifndef STK_LINSPACE_HPP
 #define STK_LINSPACE_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <vector>
 

@@ -8,7 +8,10 @@
 //
 #ifndef STK_RECTANGLE_HPP
 #define STK_RECTANGLE_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 

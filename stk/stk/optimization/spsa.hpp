@@ -8,7 +8,10 @@
 //
 #ifndef STK_SPSA_HPP
 #define STK_SPSA_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <cmath>
 #include <geometrix/tensor/vector.hpp>

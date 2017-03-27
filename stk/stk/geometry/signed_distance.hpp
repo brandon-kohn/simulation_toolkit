@@ -8,7 +8,10 @@
 //
 #ifndef STK_SIGNED_DISTANCE_HPP
 #define STK_SIGNED_DISTANCE_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "geometry_kernel.hpp"
 

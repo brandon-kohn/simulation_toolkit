@@ -8,7 +8,10 @@
 //
 #ifndef STK_INFIX_ITERATOR_HPP
 #define STK_INFIX_ITERATOR_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 // Lifted from Jerry Coffin's 's prefix_ostream_iterator 
 #include <ostream> 

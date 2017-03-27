@@ -8,7 +8,10 @@
 //
 #ifndef STK_MATRIX_HPP
 #define STK_MATRIX_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <geometrix/tensor/matrix.hpp>
 

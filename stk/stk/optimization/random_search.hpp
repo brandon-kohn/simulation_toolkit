@@ -8,9 +8,10 @@
 //
 #ifndef STK_RANDOM_SEARCH_HPP
 #define STK_RANDOM_SEARCH_HPP
-#pragma once
 
-#include <cmath>
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 template<typename State, typename CostFunction, typename NeighborFn>
 inline State random_search(State currS, std::size_t k, const CostFunction& cost, const NeighborFn& neighbor) 

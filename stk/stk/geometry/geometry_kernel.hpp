@@ -8,7 +8,10 @@
 //
 #ifndef STK_GEOMETRY_KERNEL_HPP
 #define STK_GEOMETRY_KERNEL_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/utility/static_assert.hpp>

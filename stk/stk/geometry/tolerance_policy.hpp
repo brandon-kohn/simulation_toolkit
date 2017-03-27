@@ -8,7 +8,10 @@
 //
 #ifndef STK_TOLERANCE_POLICY_HPP
 #define STK_TOLERANCE_POLICY_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <stk/units/boost_units.hpp>
 

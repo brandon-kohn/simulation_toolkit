@@ -8,7 +8,10 @@
 //
 #ifndef STK_PROBABILITY_HPP
 #define STK_PROBABILITY_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <boost/units/quantity.hpp>
 #include <boost/units/pow.hpp>

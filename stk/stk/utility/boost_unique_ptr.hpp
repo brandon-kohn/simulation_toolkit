@@ -8,7 +8,10 @@
 //
 #ifndef STK_BOOST_UNIQUE_PTR_HPP
 #define STK_BOOST_UNIQUE_PTR_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <boost/move/unique_ptr.hpp>
 #include <boost/move/make_unique.hpp>

@@ -8,7 +8,10 @@
 //
 #ifndef STK_LINE_FUNCTION_HPP
 #define STK_LINE_FUNCTION_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include <geometrix/utility/tagged_quantity.hpp>
 

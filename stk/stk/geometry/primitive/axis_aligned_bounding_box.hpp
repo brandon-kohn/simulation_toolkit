@@ -8,7 +8,10 @@
 //
 #ifndef STK_AXIS_ALIGNED_BOUNDING_BOX_HPP
 #define STK_AXIS_ALIGNED_BOUNDING_BOX_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 #include <geometrix/primitive/axis_aligned_bounding_box.hpp>

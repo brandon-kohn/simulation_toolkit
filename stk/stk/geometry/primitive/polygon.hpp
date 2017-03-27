@@ -8,7 +8,10 @@
 //
 #ifndef STK_POLYGON_HPP
 #define STK_POLYGON_HPP
-#pragma once
+
+#if defined(_MSC_VER)
+    #pragma once
+#endif
 
 #include "point.hpp"
 
@@ -19,6 +22,9 @@ using polygon2 = geometrix::polygon<point2>;
 using polygon3 = geometrix::polygon<point3>;
 
 #include <boost/range/adaptor/reversed.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/algorithm/copy.hpp>
+#include <boost/range/value_type.hpp>
 
 template <typename Polygon>
 inline polygon2 make_polygon( const Polygon& polygon, geometrix::polygon_winding winding )
@@ -31,9 +37,9 @@ inline polygon2 make_polygon( const Polygon& polygon, geometrix::polygon_winding
     auto to_point2 = [](const typename access::point_type& p) { return point2{ p }; };
     auto signedArea = get_signed_area( polygon );
     if( (signedArea.value() >= 0. && winding == polygon_winding::counterclockwise) || (signedArea.value() <= 0. && winding == polygon_winding::clockwise) )
-        boost::copy(polygon | tranformed(to_point2), std::back_inserter( poly ));
+        boost::copy(polygon | transformed(to_point2), std::back_inserter( poly ));
     else
-        boost::copy(polygon | reversed | tranformed(to_point2), std::back_inserter( poly ));
+        boost::copy(polygon | reversed | transformed(to_point2), std::back_inserter( poly ));
     
     return clean_polygon(poly, make_tolerance_policy());
 }
@@ -44,9 +50,9 @@ inline std::vector<polygon2> make_polygons( const PolygonRange& range, geometrix
     using namespace boost::adaptors;
     std::vector<polygon2> polygons;
     
-    using polygon_t = boost::value_type<PolygonRange>::type;
+    using polygon_t = typename boost::range_value<PolygonRange>::type;
     
-    auto to_polygon2 = [&winding](const polygon_t& poly) { return make_polygon(poly, winding); };
+    auto to_polygon2 = [winding](const polygon_t& poly) { return make_polygon(poly, winding); };
     boost::copy(range | transformed(to_polygon2), std::back_inserter(polygons));
     
     return polygons;
@@ -63,8 +69,8 @@ inline Result translate_polygon( const Polygon& polygon, const Vector& translati
     using point_t = typename point_sequence_traits<Result>::point_type;
     Result poly;
 
-    auto translate = [&translation]( const typename access::point_type& p ){ return construct<point_t>( p + translation ); };
-    boost::copy(polygon | tranformed(translate), std::back_inserter( poly ));
+    auto translate = [translation]( const typename access::point_type& p ){ return construct<point_t>( p + translation ); };
+    boost::copy(polygon | transformed(translate), std::back_inserter( poly ));
 
     return poly;
 }
@@ -72,12 +78,9 @@ inline Result translate_polygon( const Polygon& polygon, const Vector& translati
 template <typename Result, typename PolygonRange, typename Vector>
 inline std::vector<Result> translate_polygons( const PolygonRange& range, const Vector& translation )
 {
-    using namespace boost::adaptors;
-    using polygon_t = boost::value_type<PolygonRange>::type;
-    
     std::vector<Result> polygons;
-    auto translate = [&translation](const polygon_t& p) { return translate_polygon(p, translation); }
-    boost::copy(polygons | transformed(translate), std::back_inserter(polygons));
+    for( const auto& p : range )
+        polygons.emplace_back(translate_polygon<Result>(p, translation));
 
     return polygons;
 }
