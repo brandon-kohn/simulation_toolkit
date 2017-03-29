@@ -31,5 +31,5 @@ add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
 
 # Tests
-enable_testing()
+include(CTest)
 add_subdirectory(test)
