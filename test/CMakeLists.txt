@@ -7,6 +7,9 @@ if(Boost_FOUND)
   add_definitions(-DBOOST_RESULT_OF_USE_TR1_WITH_DECLTYPE_FALLBACK -DBOOST_CHRONO_HEADER_ONLY -D"BOOST_PARAMETER_MAX_ARITY=20")
 endif()
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # link targets against gtest, gmock
 if(Boost_FOUND)
     add_executable(rtree_cache_tests rtree_cache_tests.cpp)
