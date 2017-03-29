@@ -15,6 +15,7 @@
 
 #include <stk/geometry/space_partition/rtree_triangle_cache.hpp>
 #include <stk/geometry/rtree_cache.ipp>
+#include <stk/geometry/tensor/vector.hpp>
 
 namespace stk {
 

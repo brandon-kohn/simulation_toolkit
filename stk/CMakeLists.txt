@@ -8,8 +8,8 @@ project(stk)
 
 add_library(stk INTERFACE)
 target_include_directories(stk INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/stk>
-  $<INSTALL_INTERFACE:include/stk>
+  $<BUILD_INTERFACE:${stk_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:include>
 )
 
 # Deployment

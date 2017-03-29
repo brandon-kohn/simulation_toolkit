@@ -1,0 +1,4 @@
+cmake.build
+/CPackConfig.cmake
+/CPackSourceConfig.cmake
+/GoogleTest.CMakeLists.txt.in
