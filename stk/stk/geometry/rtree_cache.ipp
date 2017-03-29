@@ -107,7 +107,7 @@ inline std::vector<Data> rtree_cache<Data, CacheTraits>::find(const aabb2& r) co
     auto toData = [&](std::size_t i) { return mData[i]; };
     boost::copy(candidates | transformed(toData), std::back_inserter(results));
     
-    return result;
+    return results;
 }
 
 template <typename Data, typename CacheTraits>
