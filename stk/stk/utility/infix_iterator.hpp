@@ -16,6 +16,9 @@
 // Lifted from Jerry Coffin's 's prefix_ostream_iterator 
 #include <ostream> 
 #include <iterator> 
+
+namespace stk {
+
 template <class T,
     class charT = char,
     class traits = std::char_traits<charT> >
@@ -55,5 +58,7 @@ public:
         return *this;
     }
 };
+
+}//! namespace stk;
 
 #endif//STK_INFIX_ITERATOR_HPP

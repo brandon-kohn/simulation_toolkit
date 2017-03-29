@@ -16,9 +16,14 @@
 #include "point.hpp"
 #include <geometrix/primitive/sphere.hpp>
 
+namespace stk {
+
 using circle2 = geometrix::sphere<2, point2>;
 using circle3 = geometrix::sphere<2, point3>;
-GEOMETRIX_DEFINE_SPHERE_TRAITS(2, point2, circle2);
-GEOMETRIX_DEFINE_SPHERE_ACCESS_TRAITS(circle2);
+
+}//! namespace stk;
+
+GEOMETRIX_DEFINE_SPHERE_TRAITS(2, stk::point2, stk::circle2);
+GEOMETRIX_DEFINE_SPHERE_ACCESS_TRAITS(stk::circle2);
 
 #endif//STK_SPHERE_HPP

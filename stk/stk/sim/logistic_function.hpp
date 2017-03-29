@@ -18,6 +18,8 @@
 #include <stk/units/boost_units.hpp>
 #include <stk/units/probability.hpp>
 
+namespace stk {
+
 GEOMETRIX_STRONG_TYPEDEF(units::probability, LowerAsymptote);
 GEOMETRIX_STRONG_TYPEDEF(units::probability, UpperAsymptote);
 GEOMETRIX_STRONG_TYPEDEF(units::dimensionless, GrowthSkew);
@@ -57,5 +59,7 @@ struct logistic_function
     const GrowthSkew v{ 1.0 };//! near which asymptote maximum growth happens (inversed for performance v == 1.0 / nu)
     const InterceptCoef Q{ 0.1 };//! y-intercept coefficient
 };
+
+}//! namespace stk;
 
 #endif//STK_LOGISTIC_FUNCTION_HPP

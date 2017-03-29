@@ -13,6 +13,8 @@
     #pragma once
 #endif
 
+namespace stk {
+    
 template<typename State, typename CostFunction, typename NeighborFn>
 inline State random_search(State currS, std::size_t k, const CostFunction& cost, const NeighborFn& neighbor) 
 {   
@@ -32,5 +34,7 @@ inline State random_search(State currS, std::size_t k, const CostFunction& cost,
 
     return sMin;
 }
+
+}//! namespace stk;
 
 #endif//STK_RANDOM_SEARCH_HPP

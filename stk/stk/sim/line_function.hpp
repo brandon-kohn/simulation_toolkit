@@ -15,6 +15,8 @@
 
 #include <geometrix/utility/tagged_quantity.hpp>
 
+namespace stk {
+
 GEOMETRIX_STRONG_TYPEDEF_TPL(Slope);
 GEOMETRIX_STRONG_TYPEDEF_TPL(YIntercept);
 
@@ -47,5 +49,7 @@ private:
     const YIntercept<y_type> intercept;
 
 };
+
+}//! namespace stk;
 
 #endif//STK_LINE_FUNCTION_HPP

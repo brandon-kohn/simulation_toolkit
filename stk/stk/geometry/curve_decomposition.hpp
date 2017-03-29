@@ -16,6 +16,8 @@
 #include "geometry_kernel.hpp"
 #include <geometrix/algorithm/point_sequence/curvature.hpp>
 
+namespace stk { 
+
 inline std::vector<polyline2> decompose_polyline_by_curvature(const polyline2& poly, const units::angle& totalCurvature)
 {
     using namespace geometrix;
@@ -58,5 +60,7 @@ inline std::vector<polyline2> decompose_polyline_by_curvature(const polyline2& p
 
     return results;
 }
+
+}//! namespace stk;
 
 #endif//STK_CURVE_DECOMPOSITION_HPP

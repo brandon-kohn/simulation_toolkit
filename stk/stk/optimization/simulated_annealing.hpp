@@ -15,6 +15,8 @@
 
 #include <cmath>
 
+namespace stk {
+
 namespace simulated_annealing_detail
 {
     template <int Step>
@@ -101,5 +103,7 @@ inline State runtime_simulated_annealing(State currS, std::size_t k, const CostF
 
     return sMin;
 }
+
+}//! namespace stk;
 
 #endif//STK_SIMULATED_ANNEALING_HPP

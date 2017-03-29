@@ -22,20 +22,25 @@
 #include <geometrix/tensor/index_operator_vector_access_policy.hpp>
 #include <geometrix/primitive/point.hpp>
 
+namespace stk {
+
 using point2 = geometrix::point<units::length,2>;
 using point3 = geometrix::point<units::length,3>;
-GEOMETRIX_DEFINE_POINT_TRAITS(point2, (units::length), 2, units::dimensionless, units::length, neutral_reference_frame_2d, index_operator_vector_access_policy<point2>);
-GEOMETRIX_DEFINE_POINT_TRAITS(point3, (units::length), 3, units::dimensionless, units::length, neutral_reference_frame_3d, index_operator_vector_access_policy<point3>);
+
+}//! namespace stk;
+
+GEOMETRIX_DEFINE_POINT_TRAITS(stk::point2, (stk::units::length), 2, stk::units::dimensionless, stk::units::length, neutral_reference_frame_2d, index_operator_vector_access_policy<stk::point2>);
+GEOMETRIX_DEFINE_POINT_TRAITS(stk::point3, (stk::units::length), 3, stk::units::dimensionless, stk::units::length, neutral_reference_frame_3d, index_operator_vector_access_policy<stk::point3>);
 
 namespace geometrix {
-    inline bool operator <(const point2& lhs, const point2& rhs)
+    inline bool operator <(const stk::point2& lhs, const stk::point2& rhs)
     {
-        return geometrix::lexicographically_less_than( lhs, rhs, make_tolerance_policy() );
+        return geometrix::lexicographically_less_than( lhs, rhs, stk::make_tolerance_policy() );
     }
     
-    inline bool operator ==(const point2& lhs, const point2& rhs)
+    inline bool operator ==(const stk::point2& lhs, const stk::point2& rhs)
     {
-        return geometrix::numeric_sequence_equals_2d( lhs, rhs, make_tolerance_policy() );
+        return geometrix::numeric_sequence_equals_2d( lhs, rhs, stk::make_tolerance_policy() );
     }
 }//! namespace geometrix
 

@@ -16,6 +16,10 @@
 #include "point.hpp"
 #include <geometrix/primitive/axis_aligned_bounding_box.hpp>
 
+namespace stk { 
+
 using aabb2 = geometrix::axis_aligned_bounding_box<point2>;
+
+}//! namespace stk;
 
 #endif//STK_AXIS_ALIGNED_BOUNDING_BOX_HPP

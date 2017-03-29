@@ -13,10 +13,14 @@
     #pragma once
 #endif
 
+namespace stk { 
+
 struct null_deleter
 {
     template <typename T>
     void operator()(T) const {}
 };
+
+}//! namespace stk;
 
 #endif//STK_NULL_DELETER_HPP

@@ -101,6 +101,7 @@ namespace boost {
     }
 }
 
+namespace stk {
 namespace units {
     using namespace boost::units;
     using namespace probability_system;
@@ -108,5 +109,6 @@ namespace units {
     using probability = quantity<probability_unit, double>;
     using percentage = quantity<percent_unit, double>;
 }//! namespace units;
+}//! namespace stk;
 
 #endif//STK_PROBABILITY_HPP

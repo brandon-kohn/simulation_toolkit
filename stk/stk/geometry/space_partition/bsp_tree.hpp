@@ -16,6 +16,10 @@
 #include <stk/geometry/primitive/segment.hpp>
 #include <geometrix/algorithm/bsp_tree_2d.hpp>
 
+namespace stk {
+
 using bsp_tree2 = geometrix::bsp_tree_2d<segment2>;
+
+}//! namespace stk;
 
 #endif//STK_BSP_TREE_HPP

@@ -17,6 +17,11 @@
 #include <stk/geometry/tensor/vector.hpp>
 
 #include <geometrix/primitive/line.hpp>
+
+namespace stk { 
+
 using line2 = geometrix::line<point2, dimensionless2>;
+
+}//! namespace stk;
 
 #endif//STK_LINE_HPP

@@ -15,6 +15,8 @@
 
 #include <stk/units/probability.hpp>
 
+namespace stk {
+
 template <typename UtilityModel>
 struct binary_logit_model
 {
@@ -43,5 +45,7 @@ inline binary_logit_model<Utility> make_binary_logit_model(const Utility& u)
 {
     return binary_logit_model<Utility>(u); 
 }
+
+}//! namespace stk;
 
 #endif//STK_BINARY_LOGIT_MODEL_HPP

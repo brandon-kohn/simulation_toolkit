@@ -18,13 +18,15 @@
 //! Polygon/Polyline type
 #include <geometrix/primitive/polygon.hpp>
 
-using polygon2 = geometrix::polygon<point2>;
-using polygon3 = geometrix::polygon<point3>;
-
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/range/value_type.hpp>
+
+namespace stk { 
+
+using polygon2 = geometrix::polygon<point2>;
+using polygon3 = geometrix::polygon<point3>;
 
 template <typename Polygon>
 inline polygon2 make_polygon( const Polygon& polygon, geometrix::polygon_winding winding )
@@ -84,5 +86,7 @@ inline std::vector<Result> translate_polygons( const PolygonRange& range, const 
 
     return polygons;
 }
+
+}//! namespace stk;
 
 #endif//STK_POLYGON_HPP

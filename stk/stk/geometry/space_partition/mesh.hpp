@@ -6,21 +6,22 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-#ifndef STK_RECTANGLE_HPP
-#define STK_RECTANGLE_HPP
+#ifndef STK_MESH_HPP
+#define STK_MESH_HPP
 
 #if defined(_MSC_VER)
     #pragma once
 #endif
 
-#include "point.hpp"
+#include <stk/units/boost_units.hpp>
 
-#include <geometrix/primitive/rectangle.hpp>
+#include <geometrix/algorithm/mesh_2d.hpp>
+#include "rtree_triangle_cache.hpp"
 
 namespace stk {
 
-using rectangle2 = geometrix::rectangle<point2>;
+using mesh2 = geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<rtree_triangle_cache>>;
 
 }//! namespace stk;
 
-#endif//STK_RECTANGLE_HPP
+#endif//STK_MESH_HPP

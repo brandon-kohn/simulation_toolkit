@@ -18,7 +18,11 @@
 //! Polygon/Polyline type
 #include <geometrix/primitive/polygon_with_holes.hpp>
 
+namespace stk {
+
 using polygon_with_holes2 = geometrix::polygon_with_holes<point2>;
 using polygon_with_holes3 = geometrix::polygon_with_holes<point3>;
+
+}//! namespace stk;
 
 #endif//STK_POLYGON_WITH_HOLES_HPP

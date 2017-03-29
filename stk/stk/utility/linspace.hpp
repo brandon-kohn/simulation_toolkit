@@ -15,6 +15,8 @@
 
 #include <vector>
 
+namespace stk {
+
 template <typename T>
 inline T linstep(T start, T stop, unsigned int num, bool endpoint = true)
 {
@@ -45,5 +47,7 @@ inline std::vector<T> linspace(T start, T stop, unsigned int num, bool endpoint 
     }
     return result;
 }
+
+}//! namespace stk;
 
 #endif//STK_LINSPACE_HPP

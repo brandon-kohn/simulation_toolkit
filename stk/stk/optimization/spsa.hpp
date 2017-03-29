@@ -16,6 +16,8 @@
 #include <cmath>
 #include <geometrix/tensor/vector.hpp>
 
+namespace stk {
+    
 namespace spsa_detail
 {
     template<typename T, T... Ints> 
@@ -92,5 +94,7 @@ inline geometrix::vector<double, N> runtime_spsa(geometrix::vector<double, N> th
 
     return theta;
 }
+
+}//! namespace stk;
 
 #endif//STK_SPSA_HPP

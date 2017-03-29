@@ -15,8 +15,12 @@
 
 #include <geometrix/tensor/matrix.hpp>
 
+namespace stk {
+
 using matrix22 = geometrix::matrix<double, 2, 2>;
 using matrix33 = geometrix::matrix<double, 3, 3>;
 using matrix44 = geometrix::matrix<double, 4, 4>;
+
+}//! namespace stk;
 
 #endif//STK_MATRIX_HPP

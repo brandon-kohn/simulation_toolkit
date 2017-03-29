@@ -15,6 +15,8 @@
 
 #include "line_function.hpp"
 
+namespace stk {
+
 template <typename X, typename Y>
 struct linear_data_interpolator
 {
@@ -56,5 +58,7 @@ private:
     const std::vector<y_type>   mYData;
 
 };
+
+}//! namespace stk;
 
 #endif//STK_LINEAR_DATA_INTERPOLATOR_HPP

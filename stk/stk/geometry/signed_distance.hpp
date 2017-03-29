@@ -15,6 +15,8 @@
 
 #include "geometry_kernel.hpp"
 
+namespace stk { 
+
 inline units::length signed_distance_point_line(const point2& p, const segment2& seg)
 {
     using namespace geometrix;
@@ -27,5 +29,7 @@ inline units::length signed_distance_point_line(const point2& p, const line2& l)
     using namespace geometrix;
     return scalar_projection(p - l.get_u(), left_normal(l.get_parallel_vector()));
 }
+
+}//! namespace stk;
 
 #endif//STK_SIGNED_DISTANCE_HPP

@@ -17,6 +17,11 @@
 #include <stk/geometry/tensor/vector.hpp>
 
 #include <geometrix/primitive/oriented_bounding_box.hpp>
+
+namespace stk { 
+
 using obb2 = geometrix::oriented_bounding_box<point2, dimensionless2>;
+
+}//! namespace stk;
 
 #endif//STK_ORIENTED_BOUNDING_BOX_HPP

@@ -24,6 +24,8 @@
 #include <boost/range/algorithm/copy.hpp>
 #include <iterator>
 
+namespace stk { 
+
 namespace units {
     using namespace boost::units;
 
@@ -90,5 +92,7 @@ namespace units {
     template <typename Unit>
     inline unit_applier<Unit> make_unit_applier(Unit) { return unit_applier<Unit>(); }
 }//! namespace units;
+
+}//! namespace stk;
 
 #endif//STK_BOOST_UNITS_HPP
