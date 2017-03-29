@@ -21,9 +21,17 @@ To run stk tests:
     
     e.g.:
     
+    //! On Unix:
     export BOOST_ROOT=/path/to/boost_1.60
-    ./update.sh "cmake.build" "Ninja"
-    cmake --build "cmake.build" --config RELEASE --target RUN_TESTS
+    ./update.sh "cmake.install" "Ninja"
+    
+    //! On Windows
+    set BOOST_ROOT /path/to/boost_1.60
+    ./update.bat "cmake.install" "NMake Makefiles"
+    
+    //! run the tests by:
+    cd cmake.build
+    ctest
 
 [1]: https://cmake.org/
 [2]: https://cmake.org/cmake/help/v3.0/module/FindBoost.html
