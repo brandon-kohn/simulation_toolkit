@@ -17,6 +17,7 @@
 
 //! Polygon/Polyline type
 #include <geometrix/primitive/polygon.hpp>
+#include <geometrix/algorithm/point_sequence/remove_collinear_points.hpp>
 
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/range/adaptor/transformed.hpp>
