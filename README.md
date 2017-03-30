@@ -29,9 +29,8 @@ To run stk tests:
     set BOOST_ROOT /path/to/boost_1.60
     ./update.bat "cmake.install" "NMake Makefiles"
     
-    //! run the tests by:
-    cd cmake.build
-    ctest
+    //! NOTE: IDE generators such as Xcode will not work with the update script as the `cmake --build --config <Config>` is not respected. 
+    //! Prefer makefile generators with the update script.
 
 [1]: https://cmake.org/
 [2]: https://cmake.org/cmake/help/v3.0/module/FindBoost.html
