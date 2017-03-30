@@ -9,6 +9,7 @@ execute_process(COMMAND ${CMAKE_COMMAND} --build . WORKING_DIRECTORY ${CMAKE_BIN
 # when building with Visual Studio
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "")
  
 # Add googletest directly to our build. This adds
 # the following targets: gtest, gtest_main, gmock
@@ -31,5 +32,7 @@ add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
 
 # Tests
-include(CTest)
-add_subdirectory(test)
+if(BUILD_TESTS)
+    include(CTest)
+    add_subdirectory(test)
+endif()

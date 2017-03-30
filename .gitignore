@@ -2,3 +2,5 @@ cmake.build
 /CPackConfig.cmake
 /CPackSourceConfig.cmake
 /GoogleTest.CMakeLists.txt.in
+cmake.build.debug
+cmake.build.release
