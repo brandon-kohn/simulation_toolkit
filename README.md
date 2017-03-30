@@ -1,6 +1,14 @@
 # Simulation ToolKit (STK)
 [CMake][1] superproject for geometrix, clipper, poly2tri, nlopt and miscellaneous utilities for simulations.
 
+Libraries included: 
+
+    clipper
+    geometrix
+    googletest
+    nlopt
+    poly2tri
+
 Build instructions:
 
     git clone https://github.com/brandon-kohn/simulation_toolkit.git
@@ -14,6 +22,8 @@ To link with the libraries use:
     -lclipper-lib
     -lnlopt
     -lpoly2tri
+    -lgtest
+    -lgmock
     
 To run stk tests:
 
