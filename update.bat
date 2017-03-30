@@ -22,19 +22,19 @@ set INSTALL_PATH=%1
 set CMAKE_GENERATOR=%2
 
 REM Build the release
-cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR%
+cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR%
 if ERRORLEVEL 1 goto error
 
 REM Build it
-cmake --build "cmake.build" --config RELEASE --target install
+cmake --build "cmake.build.release" --config release --target install
 if ERRORLEVEL 1 goto error
 
 REM Build the debug
-cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=DEBUG -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR%
+cmake -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR%
 if ERRORLEVEL 1 goto error
 
 REM Build it
-cmake --build "cmake.build" --config DEBUG --target install
+cmake --build "cmake.build.debug" --config debug --target install
 if ERRORLEVEL 1 goto error
 
 exit /B 0

@@ -23,16 +23,17 @@ git pull "$REPOSRC" || error_exit "Git pull failed. Aborting."
 
 git submodule update --init --recursive || error_exit "Git submodule update failed. Aborting."
 
-CONFIG=$1
+CONFIG=$( echo "$1" | tr -s  '[:upper:]'  '[:lower:]' )
+echo Running ${CONFIG} tests.
 CMAKE_GENERATOR=$2
 
 # Build the release
-cmake -H. -Bcmake.build -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE=$"CONFIG" -DCMAKE_INSTALL_PREFIX="cmake.install" -G"$CMAKE_GENERATOR" || error_exit "CMake Release Build failed. Aborting."
+cmake -H. -Bcmake.build.${CONFIG} -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE=$"CONFIG" -DCMAKE_INSTALL_PREFIX="cmake.install" -G"$CMAKE_GENERATOR" || error_exit "CMake Build failed. Aborting."
 
 # Install it
-cmake --build "cmake.build" --config $"CONFIG" || error_exit "CMake Install failled. Aborting"
+cmake --build "cmake.build.${CONFIG}" --config $"CONFIG" || error_exit "CMake Install failed. Aborting"
 
-cd cmake.build
+cd cmake.build.${CONFIG}
 ctest -C $"CONFIG" $3 $4 $5 $6 $7 $8 $9 || error_exit "CTest failed to run tests."
 
 exit 0

@@ -19,21 +19,30 @@ git submodule update --init --recursive
 if ERRORLEVEL 1 goto error
 
 set CONFIG=%1
+CALL :lo_case CONFIG
+set CONFIG
+echo running %CONFIG% tests.
 set CMAKE_GENERATOR=%2
 
 REM Build the release
-cmake -H. -Bcmake.build -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE=%CONFIG% -DCMAKE_INSTALL_PREFIX="cmake.install" -G%CMAKE_GENERATOR%
+cmake -H. -Bcmake.build.%CONFIG% -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE=%CONFIG% -DCMAKE_INSTALL_PREFIX="cmake.install" -G%CMAKE_GENERATOR%
 if ERRORLEVEL 1 goto error
 
 REM Build it
-cmake --build "cmake.build" --config %CONFIG%
+cmake --build cmake.build.%CONFIG% --config %CONFIG%
 if ERRORLEVEL 1 goto error
 
-cd cmake.build
+cd cmake.build.%CONFIG%
 ctest -C %CONFIG% %3 %4 %5 %6 %7 %8 %9
 if ERRORLEVEL 1 goto error
 
 exit /B 0
+
+:lo_case
+:: Subroutine to convert a variable VALUE to all lower case.
+:: The argument for this subroutine is the variable NAME.
+for %%i IN ("A=a" "B=b" "C=c" "D=d" "E=e" "F=f" "G=g" "H=h" "I=i" "J=j" "K=k" "L=l" "M=m" "N=n" "O=o" "P=p" "Q=q" "R=r" "S=s" "T=t" "U=u" "V=v" "W=w" "X=x" "Y=y" "Z=z") DO CALL SET "%1=%%%1:%%~i%%"
+goto:eof
 
 :usage
 @echo Usage: run_tests.bat ^<Config^> ^<"CMake Generator"^>

@@ -27,16 +27,16 @@ INSTALL_PATH=$1
 CMAKE_GENERATOR=$2
 
 # Build the release
-cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR" || error_exit "CMake Release Build failed. Aborting."
+cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR" || error_exit "CMake Release Build failed. Aborting."
 
 # Install it
-cmake --build "cmake.build" --config RELEASE --target install || error_exit "CMake Install failled. Aborting"
+cmake --build "cmake.build.release" --config release --target install || error_exit "CMake Install failled. Aborting"
 
 # Build the debug
-cmake -H. -Bcmake.build -DCMAKE_BUILD_TYPE=DEBUG -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR" || error_exit "CMake Debug Build failled. Aborting"
+cmake -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR" || error_exit "CMake Debug Build failled. Aborting"
 
 # Install it
-cmake --build "cmake.build" --config DEBUG --target install || error_exit "CMake Install failled. Aborting"
+cmake --build "cmake.build.debug" --config debug --target install || error_exit "CMake Install failled. Aborting"
 
 exit 0
 # End
