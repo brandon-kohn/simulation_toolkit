@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.0.2)
 
+if(NOT "${FORCE_MSVC_RUNTIME" STREQUAL "")
+    include(cmake/stk_force_msvc_runtime.cmake)
+    force_msvc_runtime()
+endif()
+
 # Download and unpack googletest at configure time
 configure_file(GoogleTest.CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )

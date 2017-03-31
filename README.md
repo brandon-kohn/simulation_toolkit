@@ -27,6 +27,8 @@ To link with the libraries use:
     -lgtest
     -lgmock
     
+    //! NOTE: Append a 'd' to the library name for libraries compiled against the debug c-runtime.
+    
 To run stk tests (slow):
 
     Boost version 1.60 or greater is required and must be specified via the environment before running the update.[sh/bat]. See [CMake.FindBoost][2] for details.
