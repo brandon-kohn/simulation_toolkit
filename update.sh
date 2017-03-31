@@ -11,9 +11,15 @@ error_exit()
     exit 1
 }
 
-if [ "$#" -ne 2 ]
+if [ "$#" -lt 2 ]
   then
     error_exit "Usage: ./update.sh <Install Path Prefix> <\"CMake Generator\">"
+fi
+
+FORCE_MSVC_RUNTIME=""
+if [ "$3" -ne "" ]
+  then
+    FORCE_MSVC_RUNTIME=$3
 fi
 
 # Update the repo
@@ -27,13 +33,13 @@ INSTALL_PATH=$1
 CMAKE_GENERATOR=$2
 
 # Build the release
-cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR" || error_exit "CMake Release Build failed. Aborting."
+cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -DFORCE_MSVC_RUNTIME=$FORCE_MSVC_RUNTIME -G"$CMAKE_GENERATOR" || error_exit "CMake Release Build failed. Aborting."
 
 # Install it
 cmake --build "cmake.build.release" --config release --target install || error_exit "CMake Install failled. Aborting"
 
 # Build the debug
-cmake -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -G"$CMAKE_GENERATOR" || error_exit "CMake Debug Build failled. Aborting"
+cmake -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -DFORCE_MSVC_RUNTIME=$FORCE_MSVC_RUNTIME -G"$CMAKE_GENERATOR" || error_exit "CMake Debug Build failled. Aborting"
 
 # Install it
 cmake --build "cmake.build.debug" --config debug --target install || error_exit "CMake Install failled. Aborting"
