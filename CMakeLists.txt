@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
 
 if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
+    message(STATUS Forcing msvc runtime to ${FORCE_MSVC_RUNTIME}")
     include(cmake/stk_force_msvc_runtime.cmake)
     force_msvc_runtime()
 endif()
