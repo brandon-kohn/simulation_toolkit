@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
 
-if(NOT "${FORCE_MSVC_RUNTIME" STREQUAL "")
+if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
     include(cmake/stk_force_msvc_runtime.cmake)
     force_msvc_runtime()
 endif()
