@@ -1,11 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
 
-if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
-    message(STATUS "Forcing msvc runtime to ${FORCE_MSVC_RUNTIME}")
-    include(cmake/stk_force_msvc_runtime.cmake)
-    force_msvc_runtime()
-endif()
-
 # Download and unpack googletest at configure time
 configure_file(GoogleTest.CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
@@ -16,6 +10,12 @@ execute_process(COMMAND ${CMAKE_COMMAND} --build . WORKING_DIRECTORY ${CMAKE_BIN
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "")
+
+if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
+    message(STATUS "Forcing msvc runtime to ${FORCE_MSVC_RUNTIME}")
+    include(cmake/stk_force_msvc_runtime.cmake)
+    force_msvc_runtime()
+endif()
  
 # Add googletest directly to our build. This adds
 # the following targets: gtest, gtest_main, gmock

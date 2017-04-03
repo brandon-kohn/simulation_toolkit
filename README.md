@@ -14,9 +14,12 @@ Build instructions:
     git clone https://github.com/brandon-kohn/simulation_toolkit.git
     cd simulation_toolkit
     ./update.[sh|bat] <install path> <"CMake generator">
+
     //! NOTE: IDE generators such as Xcode will not work with the update script as the `cmake --build --config <Config>` is not respected. 
     //! Prefer makefile generators with the update script.
-
+    
+    //! NOTE: A third parameter may be specified to set the MSVC runtime flag : /MT[d] /MD[d]
+    
 After running the above command the superproject and submodules will be built into the specified install path using "bin/include/lib/share" subdirectories.
 
 To link with the libraries use:
