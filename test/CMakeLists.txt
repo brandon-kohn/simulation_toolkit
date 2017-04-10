@@ -11,8 +11,22 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # link targets against gtest, gmock
+#if(Boost_FOUND)
+#    add_executable(rtree_cache_tests rtree_cache_tests.cpp)
+#    target_link_libraries(rtree_cache_tests gtest gmock_main clipper-lib stk geometrix poly2tri)
+#    add_test(NAME rtree_cache_tests COMMAND rtree_cache_tests)
+#endif()
+
 if(Boost_FOUND)
-    add_executable(rtree_cache_tests rtree_cache_tests.cpp)
-    target_link_libraries(rtree_cache_tests gtest gmock_main clipper-lib stk geometrix poly2tri)
-    add_test(NAME rtree_cache_tests COMMAND rtree_cache_tests)
+    set(tests
+        rtree_cache_tests
+        temporary_vertex_graph_adaptor_tests
+       )
+
+    foreach(test ${tests})
+        # add example executable
+        add_executable(${test} ${test}.cpp)
+        target_link_libraries(${test} gtest gmock_main clipper-lib stk geometrix poly2tri)
+        add_test(NAME ${test} COMMAND ${test})
+    endforeach()
 endif()
