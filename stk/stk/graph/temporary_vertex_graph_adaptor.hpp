@@ -53,7 +53,7 @@ namespace stk {
         inline void create_edge(VertexDescriptor u, VertexDescriptor v, const EdgePropertyType& p, EdgeContainer& edges, OutEdgeList& oel)
         {
             //! Note this only works for directed adjacency lists. Unidirection and bidirection are not supported.
-            using StoredEdge = OutEdgeList::value_type;
+            using StoredEdge = typename OutEdgeList::value_type;
             boost::graph_detail::push(oel, StoredEdge(v, p));
         }
 
