@@ -333,7 +333,7 @@ namespace boost {
         inline reference operator[](key_type v) const
         {
             auto pGraph = const_cast<Graph*>(mGraphPtr);
-            return pGraph->get_vertex_property_value<reference>(v, mTag);
+            return pGraph->template get_vertex_property_value<reference>(v, mTag);
         }
         
         inline Reference operator()(key_type v) const
