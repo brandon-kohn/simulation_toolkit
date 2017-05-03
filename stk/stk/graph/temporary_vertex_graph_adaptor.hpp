@@ -22,6 +22,10 @@ namespace stk {
     template <typename OutEdgeListS, typename VertexListS, typename VertexProperty, typename EdgeProperty, typename GraphProperty, typename EdgeListS>
     struct is_directed_adjacency_list<boost::adjacency_list<OutEdgeListS, VertexListS, boost::directedS, VertexProperty, EdgeProperty, GraphProperty, EdgeListS>> : std::true_type {};
 
+	template <typename T, typename EnableIf = void> struct has_vector_vertex_list : std::false_type {};
+	template <typename OutEdgeListS, typename Directed, typename VertexProperty, typename EdgeProperty, typename GraphProperty, typename EdgeListS>
+	struct has_vector_vertex_list<boost::adjacency_list<OutEdgeListS, boost::vecS, Directed, VertexProperty, EdgeProperty, GraphProperty, EdgeListS>> : std::true_type {};
+
     namespace detail {
         template <class Derived, class Config, class Base>
         inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const boost::adj_list_impl<Derived, Config, Base>&)
@@ -370,6 +374,32 @@ namespace boost {
         const Graph*    mGraphPtr;
     };
 
+	template <class Property, class Vertex>
+	struct adapted_graph_vertex_id_map : public boost::put_get_helper<Vertex, adapted_graph_vertex_id_map<Property, Vertex>>
+	{
+		typedef Vertex value_type;
+		typedef Vertex key_type;
+		typedef Vertex reference;
+		typedef boost::readable_property_map_tag category;
+		
+		adapted_graph_vertex_id_map() { }		
+		template <class Graph>
+		adapted_graph_vertex_id_map(const Graph&, vertex_index_t) { }
+		value_type operator[](key_type v) const { return v; }
+		value_type operator()(key_type v) const { return v; }
+	};
+
+	struct adapted_graph_vertex_id_pa
+	{
+		template <class Tag, class Graph, class Property>
+		struct bind_
+		{
+			using vertex_t = typename Graph::vertex_descriptor;
+			typedef adapted_graph_vertex_id_map<Property, vertex_t> type;
+			typedef adapted_graph_vertex_id_map<Property, vertex_t> const_type;
+		};
+	};
+
     struct adapted_graph_any_vertex_pa
     {
         template <class Tag, class Graph, class Property>
@@ -379,10 +409,8 @@ namespace boost {
             typedef value_type& reference;
             typedef const value_type& const_reference;
 
-            typedef adapted_graph_vertex_property_map
-            <Graph, value_type, reference, Tag> type;
-            typedef adapted_graph_vertex_property_map
-            <Graph, value_type, const_reference, Tag> const_type;
+            typedef adapted_graph_vertex_property_map<Graph, value_type, reference, Tag> type;
+            typedef adapted_graph_vertex_property_map<Graph, value_type, const_reference, Tag> const_type;
         };
     };
 
@@ -398,16 +426,19 @@ namespace boost {
     };
 
     namespace detail {
-        template <class Tag, class Graph, class Property>
-        struct adapted_graph_choose_vertex_pa
-        :   boost::mpl::if_<
-        boost::is_same<Tag, vertex_all_t>
-        ,   adapted_graph_all_vertex_pa
-        ,   adapted_graph_any_vertex_pa
-        >::type::template bind_<Tag, Graph, Property>
-        {};
-    } // namespace detail
+		template <class Tag, class Graph, class Property, class EnableIf=void>
+		struct adapted_graph_choose_vertex_pa : adapted_graph_any_vertex_pa::template bind_<Tag, Graph, Property>
+		{};
 
+		template <class Graph, class Property>
+		struct adapted_graph_choose_vertex_pa<vertex_all_t, Graph, Property> : adapted_graph_all_vertex_pa::template bind_<vertex_all_t, Graph, Property>
+		{};
+
+		template <class Graph, class Property>
+		struct adapted_graph_choose_vertex_pa<vertex_index_t, Graph, Property, typename std::enable_if<stk::has_vector_vertex_list<typename Graph::graph_t>::value>::type> : adapted_graph_vertex_id_pa::template bind_<vertex_index_t, Graph, Property>
+		{};
+    } // namespace detail
+	
     //=========================================================================
     // Edge Property Map
 

@@ -223,4 +223,6 @@ TEST(DynamicNavigationTestSuite, vertex_properties)
     
     t = boost::get(&VertexProperties::type, ag, v3);
     EXPECT_EQ(VertexType::Obstacle, t);
+
+	auto imap = boost::get(boost::vertex_index, ag);
 }
