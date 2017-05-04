@@ -21,6 +21,7 @@ if(Boost_FOUND)
     set(tests
         rtree_cache_tests
         temporary_vertex_graph_adaptor_tests
+        stoppable_astar_tests
        )
 
     foreach(test ${tests})

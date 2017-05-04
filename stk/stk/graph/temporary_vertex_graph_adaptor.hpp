@@ -155,7 +155,7 @@ namespace stk {
 
         out_edge_list_type& out_edge_list(vertex_descriptor v)
         {
-            if (!isAdaptedVertex(v)) {
+            if (!is_adapted_vertex(v)) {
                 return const_cast<graph_t&>(mGraph).out_edge_list(v);
             }
 
@@ -164,7 +164,7 @@ namespace stk {
 
         const out_edge_list_type& out_edge_list(vertex_descriptor v) const
         {
-            if (!isAdaptedVertex(v)) {
+            if (!is_adapted_vertex(v)) {
                 return mGraph.out_edge_list(v);
             }
 
@@ -199,7 +199,7 @@ namespace stk {
         template <typename Reference, typename Tag>
         Reference get_vertex_property_value(vertex_descriptor v, Tag t) 
         {
-            if (!isAdaptedVertex(v)) {
+            if (!is_adapted_vertex(v)) {
                 return boost::get_property_value(detail::get_stored_vertex(v, mGraph).m_property, t);
             }
             return boost::get_property_value(mNewVStorage.m_property, t);
@@ -207,14 +207,14 @@ namespace stk {
 
         const vertex_property_type& get_vertex_property(vertex_descriptor v) 
         {
-            if (!isAdaptedVertex(v)) {
+            if (!is_adapted_vertex(v)) {
                 return detail::get_stored_vertex(v, mGraph).m_property;
             }
             return mNewVStorage.m_property;
         }
         
-        bool isAdaptedVertex(vertex_descriptor v) const { return mNewV == v; }
-        vertex_descriptor getAdaptedVertex() const { return mNewV; }
+        bool is_adapted_vertex(vertex_descriptor v) const { return mNewV == v; }
+        vertex_descriptor get_adapted_vertex() const { return mNewV; }
 
         const graph_t&      mGraph;
         stored_vertex       mNewVStorage;
