@@ -17,12 +17,17 @@
 namespace boost {
 
 	template <class Visitor, class Graph>
-	struct StoppableAStarVisitorConcept : AStarVisitorConcept<Visitor, Graph> {
+	struct StoppableAStarVisitorConcept {
 		void constraints()
 		{
-			AStarVisitorConcept<Visitor, Graph>::constraints();
+			BOOST_CONCEPT_ASSERT((AStarVisitorConcept<Visitor, Graph>));
 			bool b = vis.should_stop(u, g);
 		}
+
+		Visitor vis;
+		Graph g;
+		typename graph_traits<Graph>::vertex_descriptor u;
+		typename graph_traits<Graph>::edge_descriptor e;
 	};
 	
 	template <typename Visitors = null_visitor>

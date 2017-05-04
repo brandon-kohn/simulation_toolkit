@@ -244,7 +244,7 @@ namespace boost {
     }
 
 	template <class Vertex, class Graph>
-	bool should_stop(Vertex v, Graph& g)
+	bool should_stop(Vertex u, Graph& g)
 	{
 		return invoke_should_stop_visitors(m_vis, u, g);
 	}
