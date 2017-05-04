@@ -53,8 +53,8 @@ namespace stk {
             return g.m_vertices[v];
         }
 
-        template <typename VertexDescriptor, typename EdgePropertyType, typename EdgeContainer, typename OutEdgeList>
-        inline void create_edge(VertexDescriptor u, VertexDescriptor v, const EdgePropertyType& p, EdgeContainer& edges, OutEdgeList& oel)
+        template <typename VertexDescriptor, typename EdgePropertyType, typename OutEdgeList>
+        inline void create_edge(VertexDescriptor u, VertexDescriptor v, const EdgePropertyType& p, OutEdgeList& oel)
         {
             //! Note this only works for directed adjacency lists. Unidirection and bidirection are not supported.
             using StoredEdge = typename OutEdgeList::value_type;
@@ -108,17 +108,17 @@ namespace stk {
             void increment()
             {
                 if (mIT != mEnd)
-                ++mIT;
+					++mIT;
                 else
-                mIsEnd = true;
+					mIsEnd = true;
             }
 
             void decrement()
             {
                 if (!mIsEnd)
-                --mIT;
+					--mIT;
                 else
-                mIsEnd = false;
+					mIsEnd = false;
             }
 
             base_vertex_iterator mIT;
@@ -143,9 +143,8 @@ namespace stk {
         , mNewVStorage(newV)
         , mNewV(detail::create_descriptor(mNewVStorage, graph))
         {
-            for (const auto& item : newAdjacencies) {
-                detail::create_edge(mNewV, item.first, item.second, mEdges, mNewVStorage.m_out_edges);
-            }
+            for (const auto& item : newAdjacencies) 
+			    detail::create_edge(mNewV, item.first, item.second, mNewVStorage.m_out_edges);            
         }
 
         temporary_vertex_graph_adaptor(const temporary_vertex_graph_adaptor&) = delete;
@@ -155,22 +154,19 @@ namespace stk {
 
         out_edge_list_type& out_edge_list(vertex_descriptor v)
         {
-            if (!is_adapted_vertex(v)) {
+            if (!is_adapted_vertex(v)) 
                 return const_cast<graph_t&>(mGraph).out_edge_list(v);
-            }
 
             return mNewVStorage.m_out_edges;
         }
 
         const out_edge_list_type& out_edge_list(vertex_descriptor v) const
         {
-            if (!is_adapted_vertex(v)) {
+            if (!is_adapted_vertex(v))
                 return mGraph.out_edge_list(v);
-            }
-
+            
             return mNewVStorage.m_out_edges;
-        }
-        
+        }        
 
         vertex_iterator vertices_begin() const
         {
@@ -199,9 +195,9 @@ namespace stk {
         template <typename Reference, typename Tag>
         Reference get_vertex_property_value(vertex_descriptor v, Tag t) 
         {
-            if (!is_adapted_vertex(v)) {
+            if (!is_adapted_vertex(v))
                 return boost::get_property_value(detail::get_stored_vertex(v, mGraph).m_property, t);
-            }
+
             return boost::get_property_value(mNewVStorage.m_property, t);
         }
 
@@ -219,7 +215,6 @@ namespace stk {
         const graph_t&      mGraph;
         stored_vertex       mNewVStorage;
         vertex_descriptor   mNewV;
-        EdgeContainer       mEdges;
     };
 
 }//! namespace stk;
