@@ -149,7 +149,7 @@ namespace boost {
   } // namespace detail
 
   template <class Visitor, class Rest, class T, class Graph>
-  inline void invoke_should_stop_visitors(std::pair<Visitor, Rest>& vlist, T x, Graph& g) 
+  inline bool invoke_should_stop_visitors(std::pair<Visitor, Rest>& vlist, T x, Graph& g) 
   {
 	  typedef typename Visitor::event_filter Category;
 	  typedef typename is_same<Category, ::boost::on_should_stop>::type IsSameTag;
