@@ -81,7 +81,7 @@ TEST(DynamicNavigationTestSuite, adjacency_iterator_iteration_over_base)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Target), { {0, props}, {1, props} });
-    auto v3 = ag.get_adapted_vertex();
+    auto v3 = ag.get_new_vertices()[0];
 
     adj_t ai, aend;
     boost::tie(ai, aend) = boost::adjacent_vertices(v1, ag);
@@ -106,7 +106,7 @@ TEST(DynamicNavigationTestSuite, adjacency_iterator_iteration_over_new)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Target), { { 0, props },{ 1, props } });
-    auto v3 = ag.get_adapted_vertex();
+	auto v3 = ag.get_new_vertices()[0];
 
     adj_t ai, aend;
     boost::tie(ai, aend) = boost::adjacent_vertices(v3, ag);
@@ -131,7 +131,7 @@ TEST(DynamicNavigationTestSuite, vertex_iterator_over_graph)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Target), { { 0, props },{ 1, props } });
-    auto v3 = ag.get_adapted_vertex();
+	auto v3 = ag.get_new_vertices()[0];
 
     iterator ai, aend;
     boost::tie(ai, aend) = boost::vertices(ag);
@@ -157,7 +157,7 @@ TEST(DynamicNavigationTestSuite, edge_iterator_over_graph)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Target), { { v1, props },{ v2, props } });
-    auto v3 = ag.get_adapted_vertex();
+	auto v3 = ag.get_new_vertices()[0];
 
     iterator ai, aend;
     boost::tie(ai, aend) = boost::edges(ag);
@@ -189,7 +189,7 @@ TEST(DynamicNavigationTestSuite, edge_properties)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Target), { { v1, props },{ v2, props } });
-    auto v3 = ag.get_adapted_vertex();
+	auto v3 = ag.get_new_vertices()[0];
 
     auto w = boost::get(&EdgeProperties::weight, ag, e);
     EXPECT_EQ(weight, w);
@@ -216,7 +216,7 @@ TEST(DynamicNavigationTestSuite, vertex_properties)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Obstacle), { { v1, props },{ v2, props } });
-    auto v3 = ag.get_adapted_vertex();
+	auto v3 = ag.get_new_vertices()[0];
 
     auto t = boost::get(&VertexProperties::type, ag, v1);
     EXPECT_EQ(VertexType::Target, t);
