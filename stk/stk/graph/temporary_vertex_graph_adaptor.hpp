@@ -149,6 +149,10 @@ namespace stk {
         
         static vertex_descriptor null_vertex() { return graph_t::null_vertex(); }
 
+		temporary_vertex_graph_adaptor(const graph_t& graph)
+			: mGraph(graph)
+		{}
+
         temporary_vertex_graph_adaptor(const graph_t& graph, const vertex_property_type& newV, const std::vector<std::pair<vertex_descriptor, edge_property_type>>& newAdjacencies)
         : mGraph(graph)
         {
@@ -232,7 +236,7 @@ namespace stk {
             return vertex_iterator(its.second, its.second, pThis->mOrderedNewVertices.end(), pThis);
         }
 
-        std::size_t num_vertices() const { return boost::num_vertices(mGraph) + 1; }
+        std::size_t num_vertices() const { return boost::num_vertices(mGraph) + mOrderedNewVertices.size(); }
         
         edge_iterator edges_begin() const
         {

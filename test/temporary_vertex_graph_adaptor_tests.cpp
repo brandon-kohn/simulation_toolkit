@@ -256,3 +256,30 @@ TEST(DynamicNavigationTestSuite, add_edge_OldVertex)
     EXPECT_DOUBLE_EQ(66.0, eWeight);
     EXPECT_EQ(eWeight, ag[e2].weight);
 }
+
+TEST(DynamicNavigationTestSuite, num_vertices_TwoOldTwoNew_Returns4)
+{
+	using iterator = temporary_vertex_graph_adaptor<Graph>::edge_iterator;
+
+	Graph g;
+	auto p1 = point2{ 0.* units::si::meters, 0.*units::si::meters };
+	auto p2 = point2{ 0.* units::si::meters, 1.*units::si::meters };
+	auto v1 = boost::add_vertex(VertexProperties(p1, true, VertexType::Target), g);
+	auto v2 = boost::add_vertex(VertexProperties(p2, true, VertexType::Target), g);
+	double weight = geometrix::point_point_distance(p1, p2).value();
+	EdgeProperties props = { weight, EdgeType::Virtual };
+	Edge e1; bool b;
+	boost::tie(e1, b) = boost::add_edge(v1, v2, props, g);
+
+	temporary_vertex_graph_adaptor<Graph> ag(g);
+
+	auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
+	ag.add_vertex(VertexProperties(p3, true, VertexType::Obstacle));
+
+	auto p4 = point2{ 4.* units::si::meters, 1.*units::si::meters };
+	ag.add_vertex(VertexProperties(p4, true, VertexType::Obstacle));
+
+	auto result = boost::num_vertices(ag);
+	
+	EXPECT_EQ(4, result);
+}
