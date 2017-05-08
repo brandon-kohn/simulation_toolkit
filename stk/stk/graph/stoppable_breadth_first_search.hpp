@@ -32,14 +32,14 @@ namespace boost {
       vis.gray_target(e, g);
       vis.black_target(e, g);
       vis.finish_vertex(u, g);
-	  bool result = vis.should_stop(u, g);
+      bool result = vis.should_stop(u, g);
     }
     Visitor vis;
     Graph g;
     typename graph_traits<Graph>::vertex_descriptor u;
     typename graph_traits<Graph>::edge_descriptor e;
   };
-  
+
   // Multiple-source version
   template <class IncidenceGraph, class Buffer, class BFSVisitor,
             class ColorMap, class SourceIterator>
@@ -64,10 +64,10 @@ namespace boost {
     }
     while (! Q.empty()) {
       Vertex u = Q.top(); Q.pop();
-	  if (vis.should_stop(u, g))
-		  return; 
-	  vis.examine_vertex(u, g);
-	  
+      if (vis.should_stop(u, g))
+          return;
+      vis.examine_vertex(u, g);
+
       for (boost::tie(ei, ei_end) = out_edges(u, g); ei != ei_end; ++ei) {
         Vertex v = target(*ei, g);            vis.examine_edge(*ei, g);
         ColorValue v_color = get(color, v);
@@ -128,43 +128,43 @@ namespace boost {
   namespace graph { struct stoppable_bfs_visitor_event_not_overridden {}; }
 
   struct on_should_stop {
-	  enum { num = detail::on_edge_not_minimized_num + 1 };
+      enum { num = detail::on_edge_not_minimized_num + 1 };
   };
 
   //========================================================================
   // The invoke_visitors() function
 
   namespace detail {
-	  template <class Visitor, class T, class Graph>
-	  inline bool invoke_should_stop_dispatch(Visitor& v, T x, Graph& g, mpl::true_) 
-	  {
-		  return v(x, g);
-	  }
+      template <class Visitor, class T, class Graph>
+      inline bool invoke_should_stop_dispatch(Visitor& v, T x, Graph& g, mpl::true_)
+      {
+          return v(x, g);
+      }
 
-	  template <class Visitor, class T, class Graph>
-	  inline bool invoke_should_stop_dispatch(Visitor&, T, Graph&, mpl::false_)
-	  {
-		  return false;
-	  }
+      template <class Visitor, class T, class Graph>
+      inline bool invoke_should_stop_dispatch(Visitor&, T, Graph&, mpl::false_)
+      {
+          return false;
+      }
   } // namespace detail
 
   template <class Visitor, class Rest, class T, class Graph>
-  inline bool invoke_should_stop_visitors(std::pair<Visitor, Rest>& vlist, T x, Graph& g) 
+  inline bool invoke_should_stop_visitors(std::pair<Visitor, Rest>& vlist, T x, Graph& g)
   {
-	  typedef typename Visitor::event_filter Category;
-	  typedef typename is_same<Category, ::boost::on_should_stop>::type IsSameTag;
-	  if (detail::invoke_should_stop_dispatch(vlist.first, x, g, IsSameTag()))
-		  return true;
-	  return invoke_should_stop_visitors(vlist.second, x, g);
+      typedef typename Visitor::event_filter Category;
+      typedef typename is_same<Category, ::boost::on_should_stop>::type IsSameTag;
+      if (detail::invoke_should_stop_dispatch(vlist.first, x, g, IsSameTag()))
+          return true;
+      return invoke_should_stop_visitors(vlist.second, x, g);
   }
   template <class Visitor, class T, class Graph>
-  inline bool invoke_should_stop_visitors(Visitor& v, T x, Graph& g) 
+  inline bool invoke_should_stop_visitors(Visitor& v, T x, Graph& g)
   {
-	  typedef typename Visitor::event_filter Category;
-	  typedef typename is_same<Category, ::boost::on_should_stop>::type IsSameTag;
-	  return detail::invoke_should_stop_dispatch(v, x, g, IsSameTag());
+      typedef typename Visitor::event_filter Category;
+      typedef typename is_same<Category, ::boost::on_should_stop>::type IsSameTag;
+      return detail::invoke_should_stop_dispatch(v, x, g, IsSameTag());
   }
-  
+
   template <class Visitors = null_visitor>
   class stoppable_bfs_visitor {
   public:
@@ -243,11 +243,11 @@ namespace boost {
       return graph::stoppable_bfs_visitor_event_not_overridden();
     }
 
-	template <class Vertex, class Graph>
-	bool should_stop(Vertex u, Graph& g)
-	{
-		return invoke_should_stop_visitors(m_vis, u, g);
-	}
+    template <class Vertex, class Graph>
+    bool should_stop(Vertex u, Graph& g)
+    {
+        return invoke_should_stop_visitors(m_vis, u, g);
+    }
 
     BOOST_GRAPH_EVENT_STUB(on_initialize_vertex,stoppable_bfs)
     BOOST_GRAPH_EVENT_STUB(on_discover_vertex,stoppable_bfs)
@@ -258,7 +258,7 @@ namespace boost {
     BOOST_GRAPH_EVENT_STUB(on_gray_target,stoppable_bfs)
     BOOST_GRAPH_EVENT_STUB(on_black_target,stoppable_bfs)
     BOOST_GRAPH_EVENT_STUB(on_finish_vertex,stoppable_bfs)
-	BOOST_GRAPH_EVENT_STUB(on_should_stop, stoppable_bfs)
+    BOOST_GRAPH_EVENT_STUB(on_should_stop, stoppable_bfs)
 
   protected:
     Visitors m_vis;
@@ -422,7 +422,7 @@ namespace boost {
           boost::queue<typename boost::graph_traits<Graph>::vertex_descriptor> Q;
           boost::stoppable_breadth_first_search(g,
                                       &sources[0],
-                                      &sources[1], 
+                                      &sources[1],
                                       boost::unwrap_ref(arg_pack[_buffer | boost::ref(Q)]),
                                       arg_pack[_visitor | make_stoppable_bfs_visitor(null_visitor())],
                                       boost::detail::make_color_map_from_arg_pack(g, arg_pack));
