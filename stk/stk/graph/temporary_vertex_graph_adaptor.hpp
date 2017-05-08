@@ -187,8 +187,11 @@ namespace stk {
 			stored_vertex* pSV = nullptr;
 			if (!map_lower_bound_contains(u, mAdaptedVertices, it))
 			{
+				//! assume it is a static vertex from the original graph.
 				auto pStorage = boost::make_unique<stored_vertex>(get_vertex_property(u));
 				pSV = pStorage.get();
+				auto oldStorage = detail::get_stored_vertex(u, mGraph);
+				pStorage->m_out_edges = oldStorage.m_out_edges;
 				mAdaptedVertices.insert(it, std::make_pair(u, std::move(pStorage)));
 			}
 			else
@@ -251,7 +254,7 @@ namespace stk {
             return boost::get_property_value(it->second->m_property, t);
         }
 
-        const vertex_property_type& get_vertex_property(vertex_descriptor v) 
+        const vertex_property_type& get_vertex_property(vertex_descriptor v) const
         {
 			auto it = mAdaptedVertices.find(v);
             if (it == mAdaptedVertices.end())
@@ -259,7 +262,22 @@ namespace stk {
             
             return it->second->m_property;
         }
-        
+
+		const vertex_property_type& operator[](vertex_descriptor v) const
+		{
+			return get_vertex_property(v);
+		}
+
+		const edge_property_type& get_edge_property(edge_descriptor e) const
+		{
+			return *(edge_property_type const*)e.get_property();
+		}
+
+		const edge_property_type& operator[](edge_descriptor e) const
+		{
+			return get_edge_property(e);
+		}
+		        
         bool is_adapted_vertex(vertex_descriptor v) const { return mAdaptedVertices.find(v) != mAdaptedVertices.end(); }
 		std::vector<vertex_descriptor> const& get_new_vertices() const { return mOrderedNewVertices; }
 	
@@ -324,14 +342,14 @@ namespace boost {
 	template <typename T>
 	inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> add_edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, const typename stk::temporary_vertex_graph_adaptor<T>::edge_property_type& p, stk::temporary_vertex_graph_adaptor<T>& g)
 	{
-		g.add_edge(u, v, p);
+		return g.add_edge(u, v, p);
 	}
 
 	template <typename T>
 	inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> add_edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, stk::temporary_vertex_graph_adaptor<T>& g)
 	{
 		typename stk::temporary_vertex_graph_adaptor<T>::edge_property_type p;
-		g.add_edge(u, v, p);
+		return g.add_edge(u, v, p);
 	}
 
     template <typename T>
