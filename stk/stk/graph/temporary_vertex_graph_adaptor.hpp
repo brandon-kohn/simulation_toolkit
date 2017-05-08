@@ -15,6 +15,9 @@
 #include <boost/graph/properties.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/iterator/iterator_adaptor.hpp>
+#include <boost/container/flat_map.hpp>
+#include <stk/utility/boost_unique_ptr.hpp>
+#include <stk/utility/associative_insert.hpp>
 
 namespace stk {
 
@@ -27,17 +30,17 @@ namespace stk {
 	struct has_vector_vertex_list<boost::adjacency_list<OutEdgeListS, boost::vecS, Directed, VertexProperty, EdgeProperty, GraphProperty, EdgeListS>> : std::true_type {};
 
     namespace detail {
-        template <class Derived, class Config, class Base>
-        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const boost::adj_list_impl<Derived, Config, Base>&)
+        template <class NewVertexContainer, class Derived, class Config, class Base>
+        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const NewVertexContainer&, const boost::adj_list_impl<Derived, Config, Base>&)
         {
             return &v;
         }
         
-        template <class Graph, class Config, class Base>
-        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex&, const boost::vec_adj_list_impl<Graph, Config, Base>& g_)
+        template <class NewVertexContainer, class Derived, class Config, class Base>
+        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const NewVertexContainer& ag, const boost::vec_adj_list_impl<Derived, Config, Base>& g_)
         {
-            const Graph& g = static_cast<const Graph&>(g_);
-            return g.m_vertices.size();
+            const Derived& g = static_cast<const Derived&>(g_);
+            return g.m_vertices.size() + ag.size();
         }
 
         template <class Derived, class Config, class Base>
@@ -53,13 +56,16 @@ namespace stk {
             return g.m_vertices[v];
         }
 
-        template <typename VertexDescriptor, typename EdgePropertyType, typename OutEdgeList>
-        inline void create_edge(VertexDescriptor u, VertexDescriptor v, const EdgePropertyType& p, OutEdgeList& oel)
+        template <typename EdgeDescriptor, typename VertexDescriptor, typename EdgePropertyType, typename OutEdgeList>
+        inline std::pair<EdgeDescriptor, bool> create_edge(VertexDescriptor u, VertexDescriptor v, const EdgePropertyType& p, OutEdgeList& oel)
         {
             //! Note this only works for directed adjacency lists. Unidirection and bidirection are not supported.
             using StoredEdge = typename OutEdgeList::value_type;
-            boost::graph_detail::push(oel, StoredEdge(v, p));
-        }
+			typename OutEdgeList::iterator i;
+			bool inserted;
+            boost::tie(i, inserted) = boost::graph_detail::push(oel, StoredEdge(v, p));
+			return std::make_pair(EdgeDescriptor(u, v, &(*i).get_property()), inserted);
+		}
 
     }
 
@@ -82,27 +88,31 @@ namespace stk {
         using out_edge_iterator = typename graph_t::out_edge_iterator;
         using adjacency_iterator = typename boost::adjacency_iterator_generator<temporary_vertex_graph_adaptor<T>, vertex_descriptor, out_edge_iterator>::type;
         using base_vertex_iterator = typename boost::graph_traits<graph_t>::vertex_iterator;
+		using new_vertex_iterator = typename std::vector<vertex_descriptor>::iterator;
         class vertex_iterator : public boost::iterator_facade<vertex_iterator, vertex_descriptor, boost::bidirectional_traversal_tag, vertex_descriptor>
         {
         public:
-            vertex_iterator(base_vertex_iterator it = base_vertex_iterator(), base_vertex_iterator end = base_vertex_iterator(), vertex_descriptor newV = null_vertex(), bool isEnd = true)
+            vertex_iterator(base_vertex_iterator it = base_vertex_iterator(), base_vertex_iterator end = base_vertex_iterator(), new_vertex_iterator nit = new_vertex_iterator(), temporary_vertex_graph_adaptor<T>* pGraph = nullptr)
             : mIT(it)
             , mEnd(end)
-            , mNewV(newV)
-            , mIsEnd(isEnd)
+			, mNewIT(nit)
+            , mGraph(pGraph)
             {}
 
         private:
 
             vertex_descriptor dereference() const
             {
-                GEOMETRIX_ASSERT(!mIsEnd);
-                return (mIT != mEnd) ? *mIT : (!mIsEnd ? mNewV : null_vertex());
+                GEOMETRIX_ASSERT(mNewIT != mGraph->mOrderedNewVertices.end());
+				if (mIT != mEnd)
+					return *mIT;
+				return *mNewIT;
             }
 
             bool equal(const vertex_iterator& other) const
             {
-                return mIT == other.mIT && mIsEnd == other.mIsEnd && mNewV == other.mNewV;
+				GEOMETRIX_ASSERT(mGraph == other.mGraph);
+                return mIT == other.mIT && mNewIT == other.mNewIT;
             }
 
             void increment()
@@ -110,21 +120,21 @@ namespace stk {
                 if (mIT != mEnd)
 					++mIT;
                 else
-					mIsEnd = true;
+					++mNewIT;
             }
 
             void decrement()
             {
-                if (!mIsEnd)
+                if (mNewIT == mGraph->mOrderedNewVertices.begin())
 					--mIT;
                 else
-					mIsEnd = false;
+					--mNewIT;
             }
 
             base_vertex_iterator mIT;
             base_vertex_iterator mEnd;
-            vertex_descriptor mNewV;
-            bool mIsEnd;
+            new_vertex_iterator mNewIT;
+			temporary_vertex_graph_adaptor<T>* mGraph;
 
             friend class boost::iterator_core_access;
         };
@@ -135,16 +145,17 @@ namespace stk {
         using edge_bundled = typename graph_t::edge_bundled;
         using graph_bundled = typename graph_t::graph_bundled;
         using directed_category = typename graph_t::directed_category;
-
-        static vertex_descriptor null_vertex() { return graph_t::null_vertex(); }
+		using new_vertex_map_t = boost::container::flat_map<vertex_descriptor, boost::unique_ptr<stored_vertex>>;
+		
+		static vertex_descriptor null_vertex() { return graph_t::null_vertex(); }
 
         temporary_vertex_graph_adaptor(const graph_t& graph, const vertex_property_type& newV, const std::vector<std::pair<vertex_descriptor, edge_property_type>>& newAdjacencies)
         : mGraph(graph)
-        , mNewVStorage(newV)
-        , mNewV(detail::create_descriptor(mNewVStorage, graph))
         {
+			auto v = add_vertex(newV);
+			stored_vertex* vs = mAdaptedVertices.begin()->second.get();
             for (const auto& item : newAdjacencies) 
-			    detail::create_edge(mNewV, item.first, item.second, mNewVStorage.m_out_edges);            
+			    detail::create_edge<edge_descriptor>(v, item.first, item.second, vs->m_out_edges);
         }
 
         temporary_vertex_graph_adaptor(const temporary_vertex_graph_adaptor&) = delete;
@@ -152,32 +163,73 @@ namespace stk {
         temporary_vertex_graph_adaptor(temporary_vertex_graph_adaptor&&) = delete;
         temporary_vertex_graph_adaptor& operator=(temporary_vertex_graph_adaptor&&) = delete;
 
+		vertex_descriptor add_vertex()
+		{
+			auto pStorage = boost::make_unique<stored_vertex>();
+			auto v = detail::create_descriptor(*pStorage, mOrderedNewVertices, mGraph);
+			mOrderedNewVertices.push_back(v);
+			mAdaptedVertices[v] = boost::move(pStorage);
+			return v;
+		}
+
+		vertex_descriptor add_vertex(const vertex_property_type& p)
+		{
+			auto pStorage = boost::make_unique<stored_vertex>(p);
+			auto v = detail::create_descriptor(*pStorage, mOrderedNewVertices, mGraph);
+			mOrderedNewVertices.push_back(v);
+			mAdaptedVertices[v] = boost::move(pStorage);
+			return v;
+		}
+
+		std::pair<edge_descriptor, bool> add_edge(vertex_descriptor u, vertex_descriptor v, const edge_property_type& p)
+		{
+			auto it = mAdaptedVertices.lower_bound(u);
+			stored_vertex* pSV = nullptr;
+			if (!map_lower_bound_contains(u, mAdaptedVertices, it))
+			{
+				//! assume it is a static vertex from the original graph.
+				auto pStorage = boost::make_unique<stored_vertex>(get_vertex_property(u));
+				pSV = pStorage.get();
+				auto oldStorage = detail::get_stored_vertex(u, mGraph);
+				pStorage->m_out_edges = oldStorage.m_out_edges;
+				mAdaptedVertices.insert(it, std::make_pair(u, std::move(pStorage)));
+			}
+			else
+				pSV = it->second.get();
+
+			return detail::create_edge<edge_descriptor>(u, v, p, pSV->m_out_edges);
+		}
+	
         out_edge_list_type& out_edge_list(vertex_descriptor v)
         {
-            if (!is_adapted_vertex(v)) 
+			auto it = mAdaptedVertices.find(v);
+			if (it == mAdaptedVertices.end())
                 return const_cast<graph_t&>(mGraph).out_edge_list(v);
 
-            return mNewVStorage.m_out_edges;
+            return it->second->m_out_edges;
         }
 
         const out_edge_list_type& out_edge_list(vertex_descriptor v) const
         {
-            if (!is_adapted_vertex(v))
+			auto it = mAdaptedVertices.find(v);
+			if (it == mAdaptedVertices.end())
                 return mGraph.out_edge_list(v);
             
-            return mNewVStorage.m_out_edges;
-        }        
+            return it->second->m_out_edges;
+        }
 
         vertex_iterator vertices_begin() const
         {
             auto its = boost::vertices(mGraph);
-            return vertex_iterator(its.first, its.second, mNewV, false);
+			auto pThis = const_cast<temporary_vertex_graph_adaptor<T>*>(this);
+            return vertex_iterator(its.first, its.second, pThis->mOrderedNewVertices.begin(), pThis);
         }
-
-        vertex_iterator vertices_end() const
+		
+		vertex_iterator vertices_end() const
         {
             auto its = boost::vertices(mGraph);
-            return vertex_iterator(its.second, its.second, mNewV, true);
+			auto pThis = const_cast<temporary_vertex_graph_adaptor<T>*>(this);
+            return vertex_iterator(its.second, its.second, pThis->mOrderedNewVertices.end(), pThis);
         }
 
         std::size_t num_vertices() const { return boost::num_vertices(mGraph) + 1; }
@@ -195,26 +247,47 @@ namespace stk {
         template <typename Reference, typename Tag>
         Reference get_vertex_property_value(vertex_descriptor v, Tag t) 
         {
-            if (!is_adapted_vertex(v))
+			auto it = mAdaptedVertices.find(v);
+			if (it == mAdaptedVertices.end()) 
                 return boost::get_property_value(detail::get_stored_vertex(v, mGraph).m_property, t);
 
-            return boost::get_property_value(mNewVStorage.m_property, t);
+            return boost::get_property_value(it->second->m_property, t);
         }
 
-        const vertex_property_type& get_vertex_property(vertex_descriptor v) 
+        const vertex_property_type& get_vertex_property(vertex_descriptor v) const
         {
-            if (!is_adapted_vertex(v)) {
+			auto it = mAdaptedVertices.find(v);
+            if (it == mAdaptedVertices.end())
                 return detail::get_stored_vertex(v, mGraph).m_property;
-            }
-            return mNewVStorage.m_property;
+            
+            return it->second->m_property;
         }
-        
-        bool is_adapted_vertex(vertex_descriptor v) const { return mNewV == v; }
-        vertex_descriptor get_adapted_vertex() const { return mNewV; }
 
-        const graph_t&      mGraph;
-        stored_vertex       mNewVStorage;
-        vertex_descriptor   mNewV;
+		const vertex_property_type& operator[](vertex_descriptor v) const
+		{
+			return get_vertex_property(v);
+		}
+
+		const edge_property_type& get_edge_property(edge_descriptor e) const
+		{
+			return *(edge_property_type const*)e.get_property();
+		}
+
+		const edge_property_type& operator[](edge_descriptor e) const
+		{
+			return get_edge_property(e);
+		}
+		        
+        bool is_adapted_vertex(vertex_descriptor v) const { return mAdaptedVertices.find(v) != mAdaptedVertices.end(); }
+		std::vector<vertex_descriptor> const& get_new_vertices() const { return mOrderedNewVertices; }
+	
+	private:
+
+		friend class vertex_iterator;
+
+        const graph_t&					mGraph;
+		new_vertex_map_t				mAdaptedVertices;
+		std::vector<vertex_descriptor>	mOrderedNewVertices;
     };
 
 }//! namespace stk;
@@ -244,6 +317,40 @@ namespace boost {
         using edges_size_type = std::size_t;
         using degree_size_type = std::size_t;
     };
+
+	// O(1)
+	template <typename T>
+	inline typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor add_vertex(stk::temporary_vertex_graph_adaptor<T>& g)
+	{
+		return g.add_vertex();
+	}
+	// O(1)
+	template <typename T>
+	inline typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor add_vertex(const typename stk::temporary_vertex_graph_adaptor<T>::vertex_property_type& p, stk::temporary_vertex_graph_adaptor<T>& g)
+	{
+		return g.add_vertex(p);
+	}
+	// O(V)
+	template <typename T>
+	inline typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor vertex(typename stk::temporary_vertex_graph_adaptor<T>::vertices_size_type n, const stk::temporary_vertex_graph_adaptor<T>& g)
+	{
+		auto i = vertices(g).first;
+		while (n--) ++i; // std::advance(i, n); (not VC++ portable)
+		return *i;
+	}
+
+	template <typename T>
+	inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> add_edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, const typename stk::temporary_vertex_graph_adaptor<T>::edge_property_type& p, stk::temporary_vertex_graph_adaptor<T>& g)
+	{
+		return g.add_edge(u, v, p);
+	}
+
+	template <typename T>
+	inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> add_edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, stk::temporary_vertex_graph_adaptor<T>& g)
+	{
+		typename stk::temporary_vertex_graph_adaptor<T>::edge_property_type p;
+		return g.add_edge(u, v, p);
+	}
 
     template <typename T>
     inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator, typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator> out_edges(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g_)
