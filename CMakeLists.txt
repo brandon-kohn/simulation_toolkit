@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
 
 # Download and unpack googletest at configure time
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 configure_file(GoogleTest.CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
 execute_process(COMMAND ${CMAKE_COMMAND} --build . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
