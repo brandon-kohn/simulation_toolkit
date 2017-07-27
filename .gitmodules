@@ -7,9 +7,6 @@
 [submodule "nlopt"]
 	path = nlopt
 	url = https://github.com/brandon-kohn/nlopt.git
-[submodule "geometrix"]
-	path = geometrix
-	url = https://github.com/brandon-kohn/geometrix.git
 [submodule "clipper-lib"]
 	path = clipper-lib
 	url = https://github.com/brandon-kohn/clipper-lib.git
