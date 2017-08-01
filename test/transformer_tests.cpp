@@ -73,7 +73,8 @@ TEST(TransformerTestSuite, VectorTranslationTest)
     auto orientationA = normalize(end - start);
     auto orientationB = normalize(end2 - start2);
 
-    transformer2 sut(start, start2, orientationA, orientationB);
+	transformer2 sut;
+	sut.translate(start2).rotate(orientationA, orientationB).translate(-as_vector(start));
 
     vector2 v(1.0 * units::si::meters, 0.0 * units::si::meters);
     auto nv = sut(v);
@@ -94,7 +95,8 @@ TEST(TransformerTestSuite, VelocityTranslationTest)
     auto orientationA = normalize(end - start);
     auto orientationB = normalize(end2 - start2);
 
-    transformer2 sut(start, start2, orientationA, orientationB);
+    transformer2 sut;
+	sut.translate(start2).rotate(orientationA, orientationB).translate(-as_vector(start));
 
     velocity2 v(1.0 * units::si::meters_per_second, 0.0 * units::si::meters_per_second);
     auto nv = sut(v);
