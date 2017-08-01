@@ -25,18 +25,26 @@ namespace stk {
             BOOST_STATIC_CONSTANT(unsigned int, C = N % D);
             
             template <typename Matrix>
-            static void apply(Matrix& m, typename std::enable_if<R != C>::type* = nullptr)
+            static void apply(Matrix& m)
             {
-                m[R][C] = geometrix::constants::zero<typename geometrix::type_at<Matrix,R,C>::type>();
+                m[R][C] = get<typename geometrix::type_at<Matrix, R, C>::type, R, C>();
                 identity_setter<N-1, D>::apply(m);
             }
             
-            template <typename Matrix>
-            static void apply(Matrix& m, typename std::enable_if<R == C>::type* = nullptr)
+        private:
+
+            template <typename T, unsigned int I, unsigned int J>
+            static T get(typename std::enable_if<I != J>::type * = nullptr)
             {
-                m[R][C] = geometrix::constants::one<typename geometrix::type_at<Matrix,R,C>::type>();
-                identity_setter<N-1, D>::apply(m);
+                return geometrix::constants::zero<T>();
             }
+
+            template <typename T, unsigned int I, unsigned int J>
+            static T get(typename std::enable_if<I == J>::type * = nullptr)
+            {
+                return geometrix::constants::one<T>();
+            }
+
         };
         
         template <unsigned int D>
@@ -45,20 +53,23 @@ namespace stk {
             template <typename Matrix>
             static void apply(Matrix& m)
             {
-                m[0][0] = geometrix::constants::zero<typename geometrix::type_at<Matrix,0,0>::type>();
+                m[0][0] = geometrix::constants::one<typename geometrix::type_at<Matrix,0,0>::type>();
             }
         };
     }
     
     class transformer2
     {
-        BOOST_STATIC_CONSTANT(unsigned int, dimensionality = 2);
+        BOOST_STATIC_CONSTANT(unsigned int, dimensionality = 2 + 1);
         using element_type = double;
-        using transform_matrix = matrix<element_type, dimensionality, dimensionality);
+        using transform_matrix = geometrix::matrix<element_type, dimensionality, dimensionality>;
         
     public:
     
-        transformer2() = default;
+        transformer2()
+        {
+            reset();
+        }
         
         template <typename Matrix>
         transformer2(const Matrix& m)
@@ -94,8 +105,8 @@ namespace stk {
             
             transform_matrix t = 
             {
-                1.0, 0.0, - get<0>(origin).value()
-              , 0.0, 1.0, - get<1>(origin).value()
+                1.0, 0.0, get<0>(origin).value()
+              , 0.0, 1.0, get<1>(origin).value()
               , 0.0, 0.0, 1.0 
             };
             
@@ -110,8 +121,8 @@ namespace stk {
             
             transform_matrix tp = 
             {
-                1.0, 0.0, get<0>(origin).value()
-              , 0.0, 1.0, get<1>(origin).value()
+                1.0, 0.0, -get<0>(origin).value()
+              , 0.0, 1.0, -get<1>(origin).value()
               , 0.0, 0.0, 1.0 
             };
 
@@ -119,38 +130,58 @@ namespace stk {
             
             return *this;
         }
-        
+        		
+        transformer2& rotate(const units::angle& theta)
+        {
+            using namespace geometrix;
+            using std::cos;
+            using std::sin;
+                        
+            auto sint = sin(theta);
+            auto cost = cos(theta);
+            transform_matrix r = 
+            {
+                cost, -sint, 0.0
+              , sint, cost, 0.0
+              , 0.0, 0.0, 1.0
+            };
+            
+            m_transform = construct<transform_matrix>(m_transform * r);
+            
+            return *this;
+        }
+
         template <typename Geometry>
         Geometry operator()(const Geometry& p) const
         {
-            return transform(p, typename geometry_tag_of<Geometry>::type());
+            return transform(p, typename geometrix::geometry_tag_of<Geometry>::type());
         }
 
     private:
         
         template <typename Point>
-        Point transform(const Point& p, geometry_tags::point_tag) const
+        Point transform(const Point& p, geometrix::geometry_tags::point_tag) const
         {
             using namespace geometrix;
-            return construct<Point>(m_transform * as_positional_homogeneous(p));
+            return construct<Point>(m_transform * as_positional_homogeneous<typename arithmetic_type_of<Point>::type>(p));
         }
 
         template <typename Vector>
-        Vector transform(const Vector& v, geometry_tags::vector_tag) const
+        Vector transform(const Vector& v, geometrix::geometry_tags::vector_tag) const
         {
             using namespace geometrix;
-            return construct<Vector>(m_transform * as_positional_homogeneous(v));
+            return construct<Vector>(m_transform * as_positional_homogeneous<typename arithmetic_type_of<Point>::type>(v));
         }
 
         template <typename Segment>
-        Segment transform(const Segment& s, geometry_tags::segment_tag) const
+        Segment transform(const Segment& s, geometrix::geometry_tags::segment_tag) const
         {
             using namespace geometrix;
             return construct<Segment>(transform(get_start(s), geometry_tags::point_tag()), transform(get_end(s), geometry_tags::point_tag()));
         }
 
         template <typename Polyline>
-        Polyline transform(const Polyline& p, geometry_tags::polyline_tag) const
+        Polyline transform(const Polyline& p, geometrix::geometry_tags::polyline_tag) const
         {
             using namespace geometrix;
             using namespace boost::adaptors;
@@ -163,7 +194,7 @@ namespace stk {
         }
 
         template <typename Polygon>
-        Polygon transform(const Polygon& p, geometry_tags::polygon_tag) const
+        Polygon transform(const Polygon& p, geometrix::geometry_tags::polygon_tag) const
         {
             using namespace geometrix;
             using namespace boost::adaptors;
@@ -175,12 +206,7 @@ namespace stk {
             return result;
         }
 
-        transform_matrix m_transform = 
-        { 
-            1.0, 0.0, 0.0 
-          , 0.0, 1.0, 0.0 
-          , 0.0, 0.0, 1.0 
-        };
+        transform_matrix m_transform;
 
     };
 
