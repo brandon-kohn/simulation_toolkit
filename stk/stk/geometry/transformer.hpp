@@ -170,7 +170,7 @@ namespace stk {
         Vector transform(const Vector& v, geometrix::geometry_tags::vector_tag) const
         {
             using namespace geometrix;
-            return construct<Vector>(m_transform * as_positional_homogeneous<typename arithmetic_type_of<Point>::type>(v));
+            return construct<Vector>(m_transform * as_positional_homogeneous<typename arithmetic_type_of<Vector>::type>(v));
         }
 
         template <typename Segment>
