@@ -60,6 +60,48 @@ TEST(TransformerTestSuite, testOffsetRotatedAxes)
     EXPECT_TRUE(numeric_sequence_equals_2d(segyB.get_end(), point2{ 0.29289321881345243 * boost::units::si::meters, 1.7071067811865475 * boost::units::si::meters }, make_tolerance_policy()));
 }
 
+TEST(TransformerTestSuite, VectorTranslationTest)
+{
+    using namespace ::testing;
+    using namespace geometrix;
+    using namespace stk;
+    
+    point2 start(5.0* units::si::meters, 0.0* units::si::meters), end(10.0* units::si::meters, 0.0* units::si::meters);
+    point2 start2(-5.0* units::si::meters, 0.0* units::si::meters), end2(-5.0* units::si::meters, 5.0* units::si::meters);
+
+    vector2 translation = start2 - start;
+    auto orientationA = normalize(end - start);
+    auto orientationB = normalize(end2 - start2);
+
+    transformer2 sut(start, start2, orientationA, orientationB);
+
+    vector2 v(1.0 * units::si::meters, 0.0 * units::si::meters);
+    auto nv = sut(v);
+
+    EXPECT_TRUE(numeric_sequence_equals_2d(nv, vector2(0.0* units::si::meters, 1.0 * units::si::meters), make_tolerance_policy()));
+}
+
+TEST(TransformerTestSuite, VelocityTranslationTest)
+{
+    using namespace ::testing;
+    using namespace geometrix;
+    using namespace stk;
+    
+    point2 start(5.0* units::si::meters, 0.0* units::si::meters), end(10.0* units::si::meters, 0.0* units::si::meters);
+    point2 start2(-5.0* units::si::meters, 0.0* units::si::meters), end2(-5.0* units::si::meters, 5.0* units::si::meters);
+
+    vector2 translation = start2 - start;
+    auto orientationA = normalize(end - start);
+    auto orientationB = normalize(end2 - start2);
+
+    transformer2 sut(start, start2, orientationA, orientationB);
+
+    velocity2 v(1.0 * units::si::meters_per_second, 0.0 * units::si::meters_per_second);
+    auto nv = sut(v);
+
+    EXPECT_TRUE(numeric_sequence_equals_2d(nv, velocity2(0.0* units::si::meters_per_second, 1.0 * units::si::meters_per_second), make_tolerance_policy()));
+}
+
 TEST(TransformerTestSuite, testCase1)
 {
     using namespace ::testing;
