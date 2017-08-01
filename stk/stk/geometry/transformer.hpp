@@ -130,7 +130,7 @@ namespace stk {
             
             return *this;
         }
-        		
+                
         transformer2& rotate(const units::angle& theta)
         {
             using namespace geometrix;
@@ -139,6 +139,24 @@ namespace stk {
                         
             auto sint = sin(theta);
             auto cost = cos(theta);
+            transform_matrix r = 
+            {
+                cost, -sint, 0.0
+              , sint, cost, 0.0
+              , 0.0, 0.0, 1.0
+            };
+            
+            m_transform = construct<transform_matrix>(m_transform * r);
+            
+            return *this;
+        }
+        
+        transformer2& rotate(const dimensionless2& a, const dimensionless2& b)
+        {
+            using namespace geometrix;
+            
+            auto sint = exterior_product_area(a,b);
+            auto cost = dot_product(a,b);
             transform_matrix r = 
             {
                 cost, -sint, 0.0
