@@ -127,7 +127,7 @@ TEST(TransformerTestSuite, testCase1)
 
     transformer2 sut;
     sut.translate(dp).rotate(theta).translate(-as_vector(op));
-
+	
     auto r = sut(op);
     auto r2 = sut(from[0]);
     

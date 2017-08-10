@@ -13,6 +13,8 @@
 #include <geometrix/tags.hpp>
 #include <geometrix/tensor/homogeneous_adaptor.hpp>
 
+#include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/algorithm/copy.hpp>
 #include <type_traits>
 
 namespace stk {
