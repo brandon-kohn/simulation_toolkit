@@ -605,14 +605,14 @@ namespace stk {
 	template <unsigned int D, typename MultiplicationPolicy = postmultiplication_policy>
 	class transformer : public transformer_operation_layer<D, MultiplicationPolicy>
 	{
-
+		using base_t = transformer_operation_layer<D, MultiplicationPolicy>;
 	public:
 
 		transformer() = default;
 
 		template <typename Matrix>
 		transformer(const Matrix& m)
-			: transformer_operation_layer(m)
+			: base_t(m)
 		{}
 
 		template <typename Geometry>
