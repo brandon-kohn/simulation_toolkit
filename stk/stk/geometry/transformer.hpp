@@ -440,17 +440,12 @@ namespace stk {
 	};
 
 	template <unsigned int D, typename MultiplicationPolicy>
-	struct transformer_operation_layer
-	{
-
-	};
+	struct transformer_operation_layer {};
 
 	template <typename MultiplicationPolicy>
 	struct transformer_operation_layer<2, MultiplicationPolicy> : transformer_base<2>
 	{
-		transformer_operation_layer() 
-			: transformer_base()
-		{}
+		transformer_operation_layer() = default;
 
 		template <typename Matrix>
 		transformer_operation_layer(const Matrix& m)
@@ -515,9 +510,7 @@ namespace stk {
 	template <typename MultiplicationPolicy>
 	struct transformer_operation_layer<3, MultiplicationPolicy> : transformer_base<3>
 	{
-		transformer_operation_layer()
-			: transformer_base()
-		{}
+		transformer_operation_layer() = default;
 
 		template <typename Matrix>
 		transformer_operation_layer(const Matrix& m)
@@ -615,9 +608,7 @@ namespace stk {
 
 	public:
 
-		transformer()
-			: transformer_operation_layer()
-		{}
+		transformer() = default;
 
 		template <typename Matrix>
 		transformer(const Matrix& m)
