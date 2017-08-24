@@ -181,6 +181,36 @@ namespace {
 		return result;
 	}
 
+	template<int N, int M, int P>
+	inline geometrix::matrix<double, N, P> mm_mult(const geometrix::matrix<double, N, M>& A, const geometrix::matrix<double, M, P>& B)
+	{
+		geometrix::matrix<double, N, P> C;
+
+		for (auto i = 0; i < N; ++i)
+			for (auto j = 0; j < P; ++j)
+			{
+				double sum = 0.0;
+				for (auto k = 0; k < M; ++k)
+					sum += A[i][k] * B[k][j];
+				C[i][j] = sum;
+			}
+		
+		return C;
+	}
+
+	template <typename MatrixA, typename MatrixB, typename NumberComparisonPolicy>
+	inline bool compare_matrices(const MatrixA& A, const MatrixB& B, const NumberComparisonPolicy& cmp)
+	{
+		using namespace geometrix;
+		if (row_dimension_of<MatrixA>::value != row_dimension_of<MatrixB>::value || column_dimension_of<MatrixA>::value != column_dimension_of<MatrixB>::value)
+			return false;
+
+		for (auto j = 0; j < column_dimension_of<MatrixA>::value; ++j)
+			for (auto i = 0; i < row_dimension_of<MatrixA>::value; ++i)
+				if (!cmp.equals(A[i][j], B[i][j]))
+					return false;
+		return true;
+	}
 }
 TEST(TransformerTestSuite, test3DTransform)
 {
@@ -197,7 +227,42 @@ TEST(TransformerTestSuite, test3DTransform)
 	auto pitch = 0.312962 * (constants::pi<units::angle>() / 180.0);
 	auto yaw = -0.089251 * (constants::pi<units::angle>() / 180.0);
 	auto v = vector3{ -19.286012 * units::si::meters, -38.724455 * units::si::meters, -3.590890 * units::si::meters };
-	transformer3 xform = transformer3().translate(make_point3(originA)).translate(v).rotate_x(roll).rotate_y(pitch).rotate_z(yaw).translate(-as_vector(make_point3(originB)));
+
+	using xform_t = transformer<3, premultiplication_policy>;
+	//transformer3 xform = transformer3().translate(make_point3(originA)).translate(v).rotate_x(roll).rotate_y(pitch).rotate_z(yaw).translate(-as_vector(make_point3(originB)));
+	xform_t xform = xform_t()
+		.translate(-as_vector(make_point3(originB)))
+		.rotate_z(yaw)
+		.rotate_y(pitch)
+		.rotate_x(roll)		
+		.translate(v)
+		.translate(make_point3(originA))
+	;
+	using std::cos;
+	using std::sin;
+
+	auto cosx = cos(roll);
+	auto cosy = cos(pitch);
+	auto cosz = cos(yaw);
+	auto sinx = sin(roll);
+	auto siny = sin(pitch);
+	auto sinz = sin(yaw);
+
+// 	matrix44 mxyz = 
+// 	{
+// 		cosy*cosz,	-cosy*sinz,	siny,	0
+// 	  , cosx*sinz + sinx*siny*cosz,	cosx*cosz - sinx*siny*sinz,	-sinx*cosy, 0
+// 	  , sinx*sinz - cosx*siny*cosz,	sinx*cosz + cosx*siny*sinz,	cosz*cosy, 0
+// 	  , 0, 0, 0, 1
+// 	};
+// 	
+// 	matrix44 mzyx =
+// 	{
+// 		cosz*cosy, cosz*siny*sinx - sinz*cosx, cosz*siny*cosx + sinz*sinx, 0
+// 	  ,	sinz*cosy, sinz*siny*sinx + cosz*cosx, sinz*siny*cosx - cosz*sinx, 0
+// 	  ,	-siny, cosy*sinx, cosy*cosx, 0
+// 	  ,	0, 0, 0, 1
+// 	};
 
 	auto result = make_polygon2(xform(make_polygon3(B)));
 
