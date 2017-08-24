@@ -133,3 +133,73 @@ TEST(TransformerTestSuite, testCase1)
     
     EXPECT_TRUE(numeric_sequence_equals_2d(r, dp, make_tolerance_policy()));
 }
+
+namespace {
+
+	template <typename Point>
+	inline stk::point3 make_point3(const Point& p)
+	{
+		using namespace geometrix;
+		using namespace stk;
+		return point3{ get<0>(p), get<1>(p), 0.0 * units::si::meters };
+	}
+
+	template <typename Polygon>
+	inline stk::polygon3 make_polygon3(const Polygon& polygon)
+	{
+		using namespace geometrix;
+		using namespace boost::adaptors;
+		using namespace stk;
+
+		using point_t = typename point_sequence_traits<Polygon>::point_type;
+
+		polygon3 result;
+		boost::copy(polygon | transformed([](const point_t& p) { return make_point3(p); }), std::back_inserter(result));
+
+		return result;
+	}
+
+	template <typename Point>
+	inline stk::point2 make_point2(const Point& p)
+	{
+		using namespace geometrix;
+		using namespace stk;
+		return point2{ get<0>(p), get<1>(p) };
+	}
+
+	template <typename Polygon>
+	inline stk::polygon2 make_polygon2(const Polygon& polygon)
+	{
+		using namespace geometrix;
+		using namespace boost::adaptors;
+		using namespace stk;
+		using point_t = typename point_sequence_traits<Polygon>::point_type;
+
+		polygon2 result;
+		boost::copy(polygon | transformed([](const point_t& p) { return make_point2(p); }), std::back_inserter(result));
+
+		return result;
+	}
+
+}
+TEST(TransformerTestSuite, test3DTransform)
+{
+	using namespace geometrix;
+	using namespace stk;
+
+	auto A = polygon2{ { 414372.45361500001 * boost::units::si::meters, 3705830.9450559998 * boost::units::si::meters },{ 414372.46756899997 * boost::units::si::meters, 3705831.9419880002 * boost::units::si::meters },{ 414372.48152299999 * boost::units::si::meters, 3705832.9389200001 * boost::units::si::meters },{ 414372.49547700002 * boost::units::si::meters, 3705833.935852 * boost::units::si::meters },{ 414372.50943099998 * boost::units::si::meters, 3705834.9327839999 * boost::units::si::meters },{ 414372.52338500001 * boost::units::si::meters, 3705835.9297159999 * boost::units::si::meters },{ 414372.53733899997 * boost::units::si::meters, 3705836.9266479998 * boost::units::si::meters },{ 414372.551293 * boost::units::si::meters, 3705837.9235800002 * boost::units::si::meters },{ 414372.56541500002 * boost::units::si::meters, 3705839.3267470002 * boost::units::si::meters },{ 414372.593154 * boost::units::si::meters, 3705840.9143759999 * boost::units::si::meters },{ 414372.59961700003 * boost::units::si::meters, 3705841.8323169998 * boost::units::si::meters },{ 414372.60608 * boost::units::si::meters, 3705842.7502580001 * boost::units::si::meters },{ 414372.61254300002 * boost::units::si::meters, 3705843.6681989999 * boost::units::si::meters },{ 414372.61900599999 * boost::units::si::meters, 3705844.5861399998 * boost::units::si::meters },{ 414372.62258099997 * boost::units::si::meters, 3705845.5054680002 * boost::units::si::meters },{ 414369.60605100001 * boost::units::si::meters, 3705845.5492750001 * boost::units::si::meters },{ 414369.59149000002 * boost::units::si::meters, 3705844.5789180002 * boost::units::si::meters },{ 414369.57407899998 * boost::units::si::meters, 3705843.60984 * boost::units::si::meters },{ 414369.556668 * boost::units::si::meters, 3705842.6407619999 * boost::units::si::meters },{ 414369.53925700003 * boost::units::si::meters, 3705841.6716840002 * boost::units::si::meters },{ 414369.52184599999 * boost::units::si::meters, 3705840.702606 * boost::units::si::meters },{ 414369.50443500001 * boost::units::si::meters, 3705839.7335279998 * boost::units::si::meters },{ 414369.48702399997 * boost::units::si::meters, 3705838.7644500001 * boost::units::si::meters },{ 414369.46961299999 * boost::units::si::meters, 3705837.795372 * boost::units::si::meters },{ 414369.45220200001 * boost::units::si::meters, 3705836.8262939998 * boost::units::si::meters },{ 414369.43479099998 * boost::units::si::meters, 3705835.8572160001 * boost::units::si::meters },{ 414369.41738 * boost::units::si::meters, 3705834.8881379999 * boost::units::si::meters },{ 414369.39996900002 * boost::units::si::meters, 3705833.9190600002 * boost::units::si::meters },{ 414369.38255799998 * boost::units::si::meters, 3705832.949982 * boost::units::si::meters },{ 414369.365147 * boost::units::si::meters, 3705831.9809039999 * boost::units::si::meters },{ 414369.34773600003 * boost::units::si::meters, 3705831.0118260002 * boost::units::si::meters } };
+	auto B = polygon2{ { 414375.17473700002 * boost::units::si::meters, 3705842.5063820002 * boost::units::si::meters },{ 414375.17236899998 * boost::units::si::meters, 3705843.4983870001 * boost::units::si::meters },{ 414375.17577500001 * boost::units::si::meters, 3705844.4875909998 * boost::units::si::meters },{ 414375.17918199999 * boost::units::si::meters, 3705845.4767959998 * boost::units::si::meters },{ 414375.18258800003 * boost::units::si::meters, 3705846.466 * boost::units::si::meters },{ 414375.185994 * boost::units::si::meters, 3705847.4552040002 * boost::units::si::meters },{ 414375.18939999997 * boost::units::si::meters, 3705848.4444090002 * boost::units::si::meters },{ 414375.19280700001 * boost::units::si::meters, 3705849.433613 * boost::units::si::meters },{ 414375.19621299999 * boost::units::si::meters, 3705850.4228170002 * boost::units::si::meters },{ 414375.19961900002 * boost::units::si::meters, 3705851.4120220002 * boost::units::si::meters },{ 414375.203025 * boost::units::si::meters, 3705852.4012259999 * boost::units::si::meters },{ 414375.20643199998 * boost::units::si::meters, 3705853.3904300001 * boost::units::si::meters },{ 414375.20983800001 * boost::units::si::meters, 3705854.3796350001 * boost::units::si::meters },{ 414375.21324399998 * boost::units::si::meters, 3705855.3688389999 * boost::units::si::meters },{ 414375.21665000002 * boost::units::si::meters, 3705856.3580439999 * boost::units::si::meters },{ 414375.22005599999 * boost::units::si::meters, 3705857.3472480001 * boost::units::si::meters },{ 414375.22346299997 * boost::units::si::meters, 3705858.3364519998 * boost::units::si::meters },{ 414372.22438999999 * boost::units::si::meters, 3705858.3764769998 * boost::units::si::meters },{ 414372.21688199998 * boost::units::si::meters, 3705857.4250099999 * boost::units::si::meters },{ 414372.20937400003 * boost::units::si::meters, 3705856.4735440002 * boost::units::si::meters },{ 414372.20186600002 * boost::units::si::meters, 3705855.5220769998 * boost::units::si::meters },{ 414372.19435800001 * boost::units::si::meters, 3705854.5706099998 * boost::units::si::meters },{ 414372.18685100001 * boost::units::si::meters, 3705853.6191440001 * boost::units::si::meters },{ 414372.179343 * boost::units::si::meters, 3705852.6676770002 * boost::units::si::meters },{ 414372.17183499999 * boost::units::si::meters, 3705851.716211 * boost::units::si::meters },{ 414372.16996000003 * boost::units::si::meters, 3705850.8003230002 * boost::units::si::meters },{ 414372.16808600002 * boost::units::si::meters, 3705849.8844349999 * boost::units::si::meters },{ 414372.166211 * boost::units::si::meters, 3705848.9685479999 * boost::units::si::meters },{ 414372.16433599999 * boost::units::si::meters, 3705848.05266 * boost::units::si::meters },{ 414372.16246199998 * boost::units::si::meters, 3705847.1367720002 * boost::units::si::meters },{ 414372.16058700002 * boost::units::si::meters, 3705846.220884 * boost::units::si::meters },{ 414372.158712 * boost::units::si::meters, 3705845.3049960001 * boost::units::si::meters },{ 414372.156838 * boost::units::si::meters, 3705844.3891090001 * boost::units::si::meters },{ 414372.15496299998 * boost::units::si::meters, 3705843.4732209998 * boost::units::si::meters },{ 414372.158811 * boost::units::si::meters, 3705842.5547440001 * boost::units::si::meters } };
+
+	auto originA = point2{ 414348.862273 * units::si::meters, 3705824.230245 * units::si::meters };
+	auto originB = point2{ 414368.746286 * units::si::meters, 3705860.557236 * units::si::meters };
+
+	auto roll = 0.091437 * (constants::pi<units::angle>() / 180.0);
+	auto pitch = 0.312962 * (constants::pi<units::angle>() / 180.0);
+	auto yaw = -0.089251 * (constants::pi<units::angle>() / 180.0);
+	auto v = vector3{ -19.286012 * units::si::meters, -38.724455 * units::si::meters, -3.590890 * units::si::meters };
+	transformer3 xform = transformer3().translate(make_point3(originA)).translate(v).rotate_x(roll).rotate_y(pitch).rotate_z(yaw).translate(-as_vector(make_point3(originB)));
+
+	auto result = make_polygon2(xform(make_polygon3(B)));
+
+	EXPECT_TRUE(true);
+}
