@@ -413,15 +413,11 @@ namespace stk {
 	template <unsigned int D>
 	class transformer_base
 	{
-	protected:
+	public:
 		BOOST_STATIC_CONSTANT(unsigned int, dimensionality = D + 1);
 		using element_type = double;
 		using transform_matrix = geometrix::matrix<element_type, dimensionality, dimensionality>;
-
-		transform_matrix m_transform;
-
-	public:
-
+		
 		transformer_base()
 		{
 			reset();
@@ -437,10 +433,11 @@ namespace stk {
 			detail::identity_setter<dimensionality * dimensionality - 1, dimensionality>::apply(m_transform);
 		}
 		
+		transform_matrix m_transform;
 	};
 
 	template <unsigned int D, typename MultiplicationPolicy>
-	struct transformer_operation_layer {};
+	struct transformer_operation_layer;
 
 	template <typename MultiplicationPolicy>
 	struct transformer_operation_layer<2, MultiplicationPolicy> : transformer_base<2>
