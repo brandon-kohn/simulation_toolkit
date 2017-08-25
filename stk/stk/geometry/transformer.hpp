@@ -391,6 +391,76 @@ namespace stk {
         transform_matrix m_transform;
 
     };
+		
+	inline geometrix::matrix<double,4,4> translate3(const vector3& v)
+	{
+		using namespace geometrix;
+		using m_t = geometrix::matrix<double, 4, 4>;
+
+		return m_t
+			{
+				  1.0, 0.0, 0.0, get<0>(v).value()
+				, 0.0, 1.0, 0.0, get<1>(v).value()
+				, 0.0, 0.0, 1.0, get<2>(v).value()
+				, 0.0, 0.0, 0.0, 1.0
+			};
+	}
+
+	inline geometrix::matrix<double,4,4> rotate3_x(const units::angle& roll)
+	{
+		using namespace geometrix;
+		using std::cos;
+		using std::sin;
+		using namespace geometrix;
+		using m_t = geometrix::matrix<double, 4, 4>;
+
+		auto sinr = sin(roll);
+		auto cosr = cos(roll);
+
+		return m_t
+		{
+			    1,  0,  0,  0
+			,   0,  cosr,   -sinr,  0
+			,   0,  sinr,   cosr, 0
+			,   0,  0,  0,  1
+		};
+	}
+
+	inline geometrix::matrix<double, 4, 4> rotate3_y(const units::angle& pitch)
+	{
+		using namespace geometrix;
+		using std::cos;
+		using std::sin;
+		using m_t = matrix<double, 4, 4>;
+
+		auto sinp = sin(pitch);
+		auto cosp = cos(pitch);
+		return m_t
+			{
+				    cosp,   0,  sinp,   0
+				,   0,  1,  0,  0
+				,   -sinp,  0,  cosp, 0
+				,   0,  0,  0,  1
+			};
+	}
+
+	inline geometrix::matrix<double, 4, 4> rotate3_z(const units::angle& yaw)
+	{
+		using namespace geometrix;
+		using std::cos;
+		using std::sin;
+		using m_t = geometrix::matrix<double, 4, 4>;
+
+		auto sinw = sin(yaw);
+		auto cosw = cos(yaw);
+		return m_t
+			{
+				    cosw,   -sinw,  0,  0
+				,   sinw,   cosw,   0,  0
+				,   0,  0,  1,  0
+				,   0,  0,  0,  1
+			};
+	}
 
 	struct pre_multiplication_matrix_concatenation_policy
 	{
@@ -409,18 +479,8 @@ namespace stk {
 			return geometrix::construct<A>(a * b);
 		}
 	};
-
-	struct pre_multiplication_transformation_policy
-	{
-		template <typename Result, typename A, typename B>
-		Result apply(const A& a, const B& b) const
-		{
-			using namespace geometrix;
-			return geometrix::construct<Result>(trans(a) * b);
-		}
-	};
-
-	struct post_multiplication_transformation_policy
+	
+	struct column_vector_multiplication_transformation_policy
 	{
 		template <typename Result, typename A, typename B>
 		Result apply(const A& a, const B& b) const
@@ -451,6 +511,9 @@ namespace stk {
 		{
 			detail::identity_setter<dimensionality * dimensionality - 1, dimensionality>::apply(m_transform);
 		}
+		
+		transform_matrix& matrix() { return m_transform; }
+		transform_matrix const& matrix() const { return m_transform; }
 		
 		transform_matrix m_transform;
 	};
@@ -614,7 +677,7 @@ namespace stk {
 		}
 	};
 
-	template <unsigned int D, typename MatrixConcatenationPolicy = post_multiplication_matrix_concatenation_policy, typename TransformApplicationPolicy = post_multiplication_transformation_policy>
+	template <unsigned int D, typename MatrixConcatenationPolicy = post_multiplication_matrix_concatenation_policy, typename TransformApplicationPolicy = column_vector_multiplication_transformation_policy>
 	class transformer : public transformer_operation_layer<D, MatrixConcatenationPolicy>
 	{
 		using base_t = transformer_operation_layer<D, MatrixConcatenationPolicy>;
@@ -633,6 +696,20 @@ namespace stk {
 			using namespace geometrix;
 			static_assert(dimension_of<Geometry>::value == D, "transform called with incompatible geometry dimensions");
 			return transform(p, typename geometrix::geometry_tag_of<Geometry>::type());
+		}
+
+		transformer& transpose()
+		{
+			using namespace geometrix;
+			base_t::m_transform = construct<transform_matrix>(trans(base_t::m_transform));
+			return *this;
+		}
+
+		transformer& negate()
+		{
+			using namespace geometrix;
+			base_t::m_transform = construct<transform_matrix>(-base_t::m_transform);
+			return *this;
 		}
 
 	private:
