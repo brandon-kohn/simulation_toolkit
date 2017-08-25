@@ -274,7 +274,8 @@ namespace {
 		using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
 
 		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
-		auto xform = xform_t{ translate3(originA) * assign_translation(rot_transpose.matrix(), vector3{ -rot_transpose(v) }) * translate3(-as_vector(originB)) };
+		auto rv = vector3{ -rot_transpose(v) };
+		auto xform = xform_t{ translate3(originA) * assign_translation(rot_transpose.matrix(), rv) * translate3(-as_vector(originB)) };
 	
 		//! Estimate a 1 meter segment from originA along the x/y diagonal slope 1.
 		auto originAwrtB = point2{ xform(originA) };
