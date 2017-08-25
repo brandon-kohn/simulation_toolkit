@@ -681,6 +681,8 @@ namespace stk {
 	class transformer : public transformer_operation_layer<D, MatrixConcatenationPolicy>
 	{
 		using base_t = transformer_operation_layer<D, MatrixConcatenationPolicy>;
+		using transform_matrix = typename base_t::transform_matrix;
+
 	public:
 
 		transformer() = default;
