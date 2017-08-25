@@ -212,7 +212,7 @@ namespace {
         return true;
     }
 
-	template <unsigned int Rows, unsigned int Columns, typename T>
+	template <std::size_t Rows, std::size_t Columns, typename T>
 	inline geometrix::matrix<double, Rows + 1, Columns> concatenate_row(const geometrix::matrix<double, Rows, Columns>& m, geometrix::vector<T, Columns>& v)
 	{
 		using namespace geometrix;
@@ -227,7 +227,7 @@ namespace {
 		return r;
 	}
 
-	template <unsigned int Rows, unsigned int Columns, typename T>
+	template <std::size_t Rows, std::size_t Columns, typename T>
 	inline geometrix::matrix<double, Rows, Columns+1> concatenate_column(const geometrix::matrix<double, Rows, Columns>& m, geometrix::vector<T, Columns>& v)
 	{
 		using namespace geometrix;
@@ -243,7 +243,7 @@ namespace {
 		return r;
 	}
 
-	template <unsigned int Rows, unsigned int Columns, typename T>
+	template <std::size_t Rows, std::size_t Columns, typename T>
 	inline geometrix::matrix<double, Rows, Columns> assign_translation(const geometrix::matrix<double, Rows, Columns>& m, geometrix::vector<T, Rows-1>& v)
 	{
 		using namespace geometrix;
