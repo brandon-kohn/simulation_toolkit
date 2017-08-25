@@ -239,32 +239,6 @@ TEST(TransformerTestSuite, test3DTransform)
 		.translate(v)
 		.translate(make_point3(originA))
 	;
-// 	using std::cos;
-// 	using std::sin;
-// 
-// 	auto cosx = cos(roll);
-// 	auto cosy = cos(pitch);
-// 	auto cosz = cos(yaw);
-// 	auto sinx = sin(roll);
-// 	auto siny = sin(pitch);
-// 	auto sinz = sin(yaw);
-
-// 	matrix44 mxyz = 
-// 	{
-// 		cosy*cosz,	-cosy*sinz,	siny,	0
-// 	  , cosx*sinz + sinx*siny*cosz,	cosx*cosz - sinx*siny*sinz,	-sinx*cosy, 0
-// 	  , sinx*sinz - cosx*siny*cosz,	sinx*cosz + cosx*siny*sinz,	cosz*cosy, 0
-// 	  , 0, 0, 0, 1
-// 	};
-// 	
-// 	matrix44 mzyx =
-// 	{
-// 		cosz*cosy, cosz*siny*sinx - sinz*cosx, cosz*siny*cosx + sinz*sinx, 0
-// 	  ,	sinz*cosy, sinz*siny*sinx + cosz*cosx, sinz*siny*cosx - cosz*sinx, 0
-// 	  ,	-siny, cosy*sinx, cosy*cosx, 0
-// 	  ,	0, 0, 0, 1
-// 	};
-
 	auto result = make_polygon2(xform(make_polygon3(B)));
 
 	EXPECT_TRUE(true);
