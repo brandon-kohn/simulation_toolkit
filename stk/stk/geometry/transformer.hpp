@@ -392,21 +392,40 @@ namespace stk {
 
     };
 
-	struct premultiplication_policy
+	struct pre_multiplication_matrix_concatenation_policy
 	{
 		template <typename A, typename B>
-		void operator()(A& a, const B& b) const
+		A operator()(const A& a, const B& b) const
 		{
-			a = geometrix::construct<A>(b * a);
+			return geometrix::construct<A>(b * a);
 		}
 	};
 
-	struct postmultiplication_policy
+	struct post_multiplication_matrix_concatenation_policy
 	{
 		template <typename A, typename B>
-		void operator()(A& a, const B& b) const
+		A operator()(const A& a, const B& b) const
 		{
-			a = geometrix::construct<A>(a * b);
+			return geometrix::construct<A>(a * b);
+		}
+	};
+
+	struct pre_multiplication_transformation_policy
+	{
+		template <typename Result, typename A, typename B>
+		Result apply(const A& a, const B& b) const
+		{
+			using namespace geometrix;
+			return geometrix::construct<Result>(trans(a) * b);
+		}
+	};
+
+	struct post_multiplication_transformation_policy
+	{
+		template <typename Result, typename A, typename B>
+		Result apply(const A& a, const B& b) const
+		{
+			return geometrix::construct<Result>(a * b);
 		}
 	};
 
@@ -436,11 +455,11 @@ namespace stk {
 		transform_matrix m_transform;
 	};
 
-	template <unsigned int D, typename MultiplicationPolicy>
+	template <unsigned int D, typename MatrixConcatenationPolicy>
 	struct transformer_operation_layer;
 
-	template <typename MultiplicationPolicy>
-	struct transformer_operation_layer<2, MultiplicationPolicy> : transformer_base<2>
+	template <typename MatrixConcatenationPolicy>
+	struct transformer_operation_layer<2, MatrixConcatenationPolicy> : transformer_base<2>
 	{
 		transformer_operation_layer() = default;
 
@@ -455,12 +474,12 @@ namespace stk {
 
 			transform_matrix m =
 			{
-				1.0, 0.0, get<0>(v).value()
+			      1.0, 0.0, get<0>(v).value()
 				, 0.0, 1.0, get<1>(v).value()
 				, 0.0, 0.0, 1.0
 			};
 
-			MultiplicationPolicy()(m_transform, m);
+			m_transform = MatrixConcatenationPolicy()(m_transform, m);
 
 			return *this;
 		}
@@ -475,12 +494,12 @@ namespace stk {
 			auto cost = cos(theta);
 			transform_matrix r =
 			{
-				cost, -sint, 0.0
+				  cost, -sint, 0.0
 				, sint, cost, 0.0
 				, 0.0, 0.0, 1.0
 			};
 
-			MultiplicationPolicy()(m_transform, r);
+			m_transform = MatrixConcatenationPolicy()(m_transform, r);
 
 			return *this;
 		}
@@ -493,19 +512,19 @@ namespace stk {
 			auto cost = dot_product(a, b);
 			transform_matrix r =
 			{
-				cost, -sint, 0.0
+				  cost, -sint, 0.0
 				, sint, cost, 0.0
 				, 0.0, 0.0, 1.0
 			};
 
-			MultiplicationPolicy()(m_transform, r);
+			m_transform = MatrixConcatenationPolicy()(m_transform, r);
 
 			return *this;
 		}
 	};
 
-	template <typename MultiplicationPolicy>
-	struct transformer_operation_layer<3, MultiplicationPolicy> : transformer_base<3>
+	template <typename MatrixConcatenationPolicy>
+	struct transformer_operation_layer<3, MatrixConcatenationPolicy> : transformer_base<3>
 	{
 		transformer_operation_layer() = default;
 
@@ -520,14 +539,13 @@ namespace stk {
 
 			transform_matrix m =
 			{
-				1.0, 0.0, 0.0, get<0>(v).value()
+				  1.0, 0.0, 0.0, get<0>(v).value()
 				, 0.0, 1.0, 0.0, get<1>(v).value()
 				, 0.0, 0.0, 1.0, get<2>(v).value()
 				, 0.0, 0.0, 0.0, 1.0
 			};
 
-			//m_transform = construct<transform_matrix>(m_transform * m);
-			MultiplicationPolicy()(m_transform, m);
+			m_transform = MatrixConcatenationPolicy()(m_transform, m);
 
 			return *this;
 		}
@@ -543,14 +561,13 @@ namespace stk {
 
 			transform_matrix r =
 			{
-				1,  0,  0,  0
+				    1,  0,  0,  0
 				,   0,  cosr,   -sinr,  0
 				,   0,  sinr,   cosr, 0
 				,   0,  0,  0,  1
 			};
 
-			//m_transform = construct<transform_matrix>(m_transform * r);
-			MultiplicationPolicy()(m_transform, r);
+			m_transform = MatrixConcatenationPolicy()(m_transform, r);
 
 			return *this;
 		}
@@ -564,14 +581,13 @@ namespace stk {
 			auto cosp = cos(pitch);
 			transform_matrix r =
 			{
-				cosp,   0,  sinp,   0
+				    cosp,   0,  sinp,   0
 				,   0,  1,  0,  0
 				,   -sinp,  0,  cosp, 0
 				,   0,  0,  0,  1
 			};
 
-			//m_transform = construct<transform_matrix>(m_transform * r);
-			MultiplicationPolicy()(m_transform, r);
+			m_transform = MatrixConcatenationPolicy()(m_transform, r);
 
 			return *this;
 		}
@@ -586,23 +602,22 @@ namespace stk {
 			auto cosw = cos(yaw);
 			transform_matrix r =
 			{
-				cosw,   -sinw,  0,  0
+				    cosw,   -sinw,  0,  0
 				,   sinw,   cosw,   0,  0
 				,   0,  0,  1,  0
 				,   0,  0,  0,  1
 			};
 
-			//m_transform = construct<transform_matrix>(m_transform * r);
-			MultiplicationPolicy()(m_transform, r);
+			m_transform = MatrixConcatenationPolicy()(m_transform, r);
 
 			return *this;
 		}
 	};
 
-	template <unsigned int D, typename MultiplicationPolicy = postmultiplication_policy>
-	class transformer : public transformer_operation_layer<D, MultiplicationPolicy>
+	template <unsigned int D, typename MatrixConcatenationPolicy = post_multiplication_matrix_concatenation_policy, typename TransformApplicationPolicy = post_multiplication_transformation_policy>
+	class transformer : public transformer_operation_layer<D, MatrixConcatenationPolicy>
 	{
-		using base_t = transformer_operation_layer<D, MultiplicationPolicy>;
+		using base_t = transformer_operation_layer<D, MatrixConcatenationPolicy>;
 	public:
 
 		transformer() = default;
@@ -626,14 +641,14 @@ namespace stk {
 		Point transform(const Point& p, geometrix::geometry_tags::point_tag) const
 		{
 			using namespace geometrix;
-			return construct<Point>(base_t::m_transform * as_positional_homogeneous<typename arithmetic_type_of<Point>::type>(p));
+			return TransformApplicationPolicy().template apply<Point>(base_t::m_transform, as_positional_homogeneous<typename arithmetic_type_of<Point>::type>(p));
 		}
 
 		template <typename Vector>
 		Vector transform(const Vector& v, geometrix::geometry_tags::vector_tag) const
 		{
 			using namespace geometrix;
-			return construct<Vector>(base_t::m_transform * as_vectoral_homogeneous<typename arithmetic_type_of<Vector>::type>(v));
+			return TransformApplicationPolicy().template apply<Vector>(base_t::m_transform, as_vectoral_homogeneous<typename arithmetic_type_of<Vector>::type>(v));
 		}
 
 		template <typename Segment>

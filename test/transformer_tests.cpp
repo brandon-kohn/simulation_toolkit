@@ -228,26 +228,26 @@ TEST(TransformerTestSuite, test3DTransform)
 	auto yaw = -0.089251 * (constants::pi<units::angle>() / 180.0);
 	auto v = vector3{ -19.286012 * units::si::meters, -38.724455 * units::si::meters, -3.590890 * units::si::meters };
 
-	using xform_t = transformer<3, premultiplication_policy>;
-	//using xform_t = transformer<3, premultiplication_policy>;
+	using xform_t = transformer<3, pre_multiplication_matrix_concatenation_policy, post_multiplication_transformation_policy>;
+	//using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy, post_multiplication_transformation_policy>;
 	//transformer3 xform = transformer3().translate(make_point3(originA)).translate(v).rotate_x(roll).rotate_y(pitch).rotate_z(yaw).translate(-as_vector(make_point3(originB)));
 	xform_t xform = xform_t()
 		.translate(-as_vector(make_point3(originB)))
 		.rotate_z(yaw)
 		.rotate_y(pitch)
-		.rotate_x(roll)		
+		.rotate_x(roll)
 		.translate(v)
 		.translate(make_point3(originA))
 	;
-	using std::cos;
-	using std::sin;
-
-	auto cosx = cos(roll);
-	auto cosy = cos(pitch);
-	auto cosz = cos(yaw);
-	auto sinx = sin(roll);
-	auto siny = sin(pitch);
-	auto sinz = sin(yaw);
+// 	using std::cos;
+// 	using std::sin;
+// 
+// 	auto cosx = cos(roll);
+// 	auto cosy = cos(pitch);
+// 	auto cosz = cos(yaw);
+// 	auto sinx = sin(roll);
+// 	auto siny = sin(pitch);
+// 	auto sinz = sin(yaw);
 
 // 	matrix44 mxyz = 
 // 	{
