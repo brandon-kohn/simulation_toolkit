@@ -58,7 +58,7 @@ namespace stk {
                 m[0][0] = geometrix::constants::one<typename geometrix::type_at<Matrix,0,0>::type>();
             }
         };
-    }
+    }//! namespace detail;
     
     class transformer2
     {
@@ -89,7 +89,7 @@ namespace stk {
             
             transform_matrix m = 
             {
-                1.0, 0.0, construct<double>(get<0>(v)
+                1.0, 0.0, construct<double>(get<0>(v))
               , 0.0, 1.0, construct<double>(get<1>(v))
               , 0.0, 0.0, 1.0 
             };
@@ -107,8 +107,8 @@ namespace stk {
             
             transform_matrix t = 
             {
-                1.0, 0.0, construct<double>(get<0>(origin)
-              , 0.0, 1.0, construct<double>(get<1>(origin)
+                1.0, 0.0, construct<double>(get<0>(origin))
+              , 0.0, 1.0, construct<double>(get<1>(origin))
               , 0.0, 0.0, 1.0 
             };
             
@@ -123,8 +123,8 @@ namespace stk {
             
             transform_matrix tp = 
             {
-                1.0, 0.0, -construct<double>(get<0>(origin)
-              , 0.0, 1.0, -construct<double>(get<1>(origin)
+                1.0, 0.0, -construct<double>(get<0>(origin))
+              , 0.0, 1.0, -construct<double>(get<1>(origin))
               , 0.0, 0.0, 1.0 
             };
 
