@@ -89,8 +89,8 @@ namespace stk {
             
             transform_matrix m = 
             {
-                1.0, 0.0, get<0>(v).value()
-              , 0.0, 1.0, get<1>(v).value()
+                1.0, 0.0, construct<double>(get<0>(v)
+              , 0.0, 1.0, construct<double>(get<1>(v))
               , 0.0, 0.0, 1.0 
             };
             
@@ -107,8 +107,8 @@ namespace stk {
             
             transform_matrix t = 
             {
-                1.0, 0.0, get<0>(origin).value()
-              , 0.0, 1.0, get<1>(origin).value()
+                1.0, 0.0, construct<double>(get<0>(origin)
+              , 0.0, 1.0, construct<double>(get<1>(origin)
               , 0.0, 0.0, 1.0 
             };
             
@@ -123,8 +123,8 @@ namespace stk {
             
             transform_matrix tp = 
             {
-                1.0, 0.0, -get<0>(origin).value()
-              , 0.0, 1.0, -get<1>(origin).value()
+                1.0, 0.0, -construct<double>(get<0>(origin)
+              , 0.0, 1.0, -construct<double>(get<1>(origin)
               , 0.0, 0.0, 1.0 
             };
 
@@ -259,9 +259,9 @@ namespace stk {
 
             transform_matrix m =
             {
-                  1.0, 0.0, 0.0, get<0>(v).value()
-                , 0.0, 1.0, 0.0, get<1>(v).value()
-                , 0.0, 0.0, 1.0, get<2>(v).value()
+                  1.0, 0.0, 0.0, construct<double>(get<0>(v))
+                , 0.0, 1.0, 0.0, construct<double>(get<1>(v))
+                , 0.0, 0.0, 1.0, construct<double>(get<2>(v))
                 , 0.0, 0.0, 0.0, 1.0
             };
 
@@ -399,9 +399,9 @@ namespace stk {
 
 		return m_t
 			{
-				  1.0, 0.0, 0.0, get<0>(v).value()
-				, 0.0, 1.0, 0.0, get<1>(v).value()
-				, 0.0, 0.0, 1.0, get<2>(v).value()
+				  1.0, 0.0, 0.0, construct<double>(get<0>(v))
+				, 0.0, 1.0, 0.0, construct<double>(get<1>(v))
+				, 0.0, 0.0, 1.0, construct<double>(get<2>(v))
 				, 0.0, 0.0, 0.0, 1.0
 			};
 	}
@@ -537,8 +537,8 @@ namespace stk {
 
 			transform_matrix m =
 			{
-			      1.0, 0.0, get<0>(v).value()
-				, 0.0, 1.0, get<1>(v).value()
+			      1.0, 0.0, construct<double>(get<0>(v))
+				, 0.0, 1.0, construct<double>(get<1>(v))
 				, 0.0, 0.0, 1.0
 			};
 

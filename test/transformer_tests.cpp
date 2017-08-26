@@ -12,6 +12,7 @@
 
 #include <stk/geometry/geometry_kernel.hpp>
 #include <stk/geometry/transformer.hpp>
+#include <geometrix/arithmetic/matrix/trace.hpp>
 
 TEST(TransformerTestSuite, testBasicUsage)
 {
@@ -255,15 +256,16 @@ namespace {
 		return r;
 	}
 
-	inline stk::matrix44 make_transform_matrix44(const stk::point3& originA, const stk::point3& originB, const stk::vector3& v, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw)
+	inline stk::matrix44 make_transform_matrix44(const stk::vector3& AToUTM, const stk::vector3& UTMtoB, const stk::vector3& AToB, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw)
 	{
 		using namespace geometrix;
 		using namespace stk;
 		using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
 		
 		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
-		auto rv = vector3{ -rot_transpose(v) };
-		auto xform = xform_t{ translate3(originA) * assign_translation(rot_transpose.matrix(), rv) * translate3(-as_vector(originB)) };
+		auto rv = vector3{ -rot_transpose(AToB) };
+		auto xformMatrix = assign_translation(rot_transpose.matrix(), rv);
+		auto xform = xform_t{ translate3(AToUTM) * xformMatrix * translate3(UTMtoB) };
 		return xform.matrix();
 	}
 
@@ -303,6 +305,7 @@ TEST(TransformerTestSuite, test3DTransform)
     auto pitch = 0.312962 * (constants::pi<units::angle>() / 180.0);
     auto yaw = -0.089251 * (constants::pi<units::angle>() / 180.0);
     auto v = vector3{ -19.286012 * units::si::meters, -38.724455 * units::si::meters, -3.590890 * units::si::meters };
+	auto ba = vector3{ originA3 - originB3 };
 
     using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
     
@@ -336,6 +339,6 @@ TEST(TransformerTestSuite, test3DTransform)
 
 	auto xform2 = estimate_2d_transformer(originA3, originB3, v, roll, pitch, yaw);
 	auto result3 = xform2(B);
-
+	
     EXPECT_TRUE(true);
 }
