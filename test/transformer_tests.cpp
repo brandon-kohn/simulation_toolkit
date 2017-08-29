@@ -267,6 +267,7 @@ namespace {
 		BOOST_CONCEPT_ASSERT((SquareMatrixConcept<rot_t>));
 
 		using trans_rot_t = decltype(trans(std::declval<rot_t>()));
+		static_assert(is_square_matrix<trans_rot_t>::value, "This should be square.");
 		BOOST_CONCEPT_ASSERT((SquareMatrixConcept<trans_rot_t>));
 
 		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
