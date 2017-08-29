@@ -462,7 +462,7 @@ namespace stk {
 			BOOST_CONCEPT_ASSERT((SquareMatrixConcept<Matrix>()));
 		}
 
-		transformer(const transformer_operation_layer& ops)
+		transformer(const base_t& ops)
 			: base_t(ops)
 		{}
 
