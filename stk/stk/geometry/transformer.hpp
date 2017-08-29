@@ -459,8 +459,7 @@ namespace stk {
 			: base_t(m)
 		{
 			using namespace geometrix;
-			static_assert(is_square_matrix<Matrix>::value, "This should be square.");
-			//BOOST_CONCEPT_ASSERT((SquareMatrixConcept<Matrix>()));
+			BOOST_CONCEPT_ASSERT((SquareMatrixConcept<Matrix>));
 		}
 
 		transformer(const base_t& ops)
