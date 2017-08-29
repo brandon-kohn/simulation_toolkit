@@ -269,23 +269,27 @@ namespace {
 		return xform.matrix();
 	}
 
-	inline stk::transformer2 estimate_2d_transformer(const stk::point3& originA, const stk::point3& originB, const stk::vector3& v, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw)
+	inline stk::transformer2 estimate_2d_transformer(const geometrix::segment<stk::point3>& geometryA, const stk::vector3& utmToA, const stk::vector3& bToUTM, const stk::vector3& v, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw)
 	{
-		using namespace geometrix;
 		using namespace stk;
+		using namespace geometrix;
+
 		using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
 
 		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
 		auto rv = vector3{ -rot_transpose(v) };
-		auto xform = xform_t{ translate3(originA) * assign_translation(rot_transpose.matrix(), rv) * translate3(-as_vector(originB)) };
-	
+		auto xform = xform_t{ translate3(bToUTM) * assign_translation(rot_transpose.matrix(), rv) * translate3(utmToA) };
+
 		//! Estimate a 1 meter segment from originA along the x/y diagonal slope 1.
-		auto originAwrtB = point2{ xform(originA) };
+		auto geometryAwrtB = xform(geometryA);
 
-		auto orientationA = normalize(vector<double, 3>{ 1.0, 1.0, 0.0 });
-		auto orientationB = xform(orientationA);
+		auto ra = segment2{ geometryA.get_start(), geometryA.get_end() };
+		auto rb = segment2{ geometryAwrtB.get_start(), geometryAwrtB.get_end() };
 
-		return transformer2().translate(originAwrtB).rotate(dimensionless2{ orientationA[0], orientationA[1] }, dimensionless2{orientationB[0], orientationB[1]}).translate(-as_vector(point2{ originA }));
+		auto orientationA = normalize(geometryA.get_end() - geometryA.get_start());
+		auto orientationB = normalize(geometryAwrtB.get_end() - geometryAwrtB.get_start());
+
+		return transformer2().translate(vector2{ bToUTM }).translate(rb.get_start() - bToUTM).rotate(dimensionless2{ orientationA[0], orientationA[1] }, dimensionless2{ orientationB[0], orientationB[1] }).translate(-as_vector(ra.get_start() + utmToA)).translate(vector2{ utmToA });
 	}
 }
 TEST(TransformerTestSuite, test3DTransform)
@@ -301,6 +305,9 @@ TEST(TransformerTestSuite, test3DTransform)
 	auto originA3 = point3{ 414348.862273 * units::si::meters, 3705824.230245 * units::si::meters, 350.0 * units::si::meters };
 	auto originB3 = point3{ 414368.746286 * units::si::meters, 3705860.557236 * units::si::meters, 350.0 * units::si::meters };
 
+	auto UTMtoA = vector3{ -414348.862273 * units::si::meters, -3705824.230245 * units::si::meters, 0.0 * units::si::meters };
+	auto UTMtoB = vector3{ -414368.746286 * units::si::meters, -3705860.557236 * units::si::meters, 0.0 * units::si::meters };
+
 	auto roll = 0.091437 * (constants::pi<units::angle>() / 180.0);
 	auto pitch = 0.312962 * (constants::pi<units::angle>() / 180.0);
 	auto yaw = -0.089251 * (constants::pi<units::angle>() / 180.0);
@@ -313,10 +320,10 @@ TEST(TransformerTestSuite, test3DTransform)
 	auto rY = rotate3_y(pitch);
 	auto rX = rotate3_x(roll);
 
-	auto rot_transpose = xform_t{ trans(rX * rY * rZ) };
+	auto rot_transpose = xform_t{ transpose(rX * rY * rZ) };
 	vector3 neg_rot_transpose_trans = -rot_transpose(v);
 	auto RT = xform_t{ assign_translation(rot_transpose.matrix(), neg_rot_transpose_trans) };
-	auto xform = xform_t{ translate3(make_point3(originA)) * RT.matrix() * translate3(-as_vector(make_point3(originB))) };
+	auto xform = xform_t{ translate3(-UTMtoA) * RT.matrix() * translate3(UTMtoB) };
 
 	// correct pos_wrt_a = [8.2, -17.9, 348.4]
 	// correct pos_wrt_b = [25.531, 21.429, 352.102]
@@ -337,8 +344,83 @@ TEST(TransformerTestSuite, test3DTransform)
 
 	auto result1 = make_polygon2(xform(make_polygon3(B, 350.0 * units::si::meters)));
 
-	auto xform2 = estimate_2d_transformer(originA3, originB3, v, roll, pitch, yaw);
+	auto B3 = make_polygon3(B, 350.0 * units::si::meters);
+
+	auto xformer = [&A,&B, &result1](const geometrix::segment<stk::point3>& geometryA, const stk::vector3& utmToA, const stk::vector3& bToUTM, const stk::vector3& v, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw) ->stk::transformer2
+	{
+		using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
+
+		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
+		auto rv = vector3{ -rot_transpose(v) };
+		auto xform = xform_t{ translate3(bToUTM) * assign_translation(rot_transpose.matrix(), rv) * translate3(utmToA) };
+
+		//! Estimate a 1 meter segment from originA along the x/y diagonal slope 1.
+		auto geometryAwrtB = xform(geometryA);
+
+		auto ra = segment2{ geometryA.get_start(), geometryA.get_end() };
+		auto rb = segment2{ geometryAwrtB.get_start(), geometryAwrtB.get_end() };
+
+		auto orientationA = normalize(geometryA.get_end() - geometryA.get_start());
+		auto orientationB = normalize(geometryAwrtB.get_end() - geometryAwrtB.get_start());
+		
+		return transformer2().translate(vector2{ bToUTM }).translate(rb.get_start() - bToUTM).rotate(dimensionless2{ orientationA[0], orientationA[1] }, dimensionless2{ orientationB[0], orientationB[1] }).translate(-as_vector(ra.get_start() + utmToA)).translate(vector2{ utmToA });
+	};
+
+	auto xform2 = estimate_2d_transformer(segment<point3>{ B3[0], B3[1] }, UTMtoB, -UTMtoA, v, roll, pitch, yaw);
 	auto result3 = xform2(B);
 
 	EXPECT_TRUE(true);
+}
+
+TEST(TransformerTestSuite, test3DTransformPrePost)
+{
+	using namespace geometrix;
+	using namespace stk;
+
+	using postxform_t = transformer<2, post_multiplication_matrix_concatenation_policy>;
+	using prexform_t = transformer<2, pre_multiplication_matrix_concatenation_policy>;
+
+	auto theta = constants::half_pi<units::angle>() * 0.5;
+
+	auto prexform = prexform_t{ prexform_t().rotate(theta) };
+	auto postxform = postxform_t{ postxform_t().rotate(theta) };
+
+	auto seg = segment2{ point2{ 1.0 * units::si::meters, 0.0 * units::si::meters }, point2{ 2.0 * units::si::meters, 0.0 * units::si::meters } };
+	auto spre = prexform(seg);
+	auto spost = postxform(seg);
+
+}
+
+TEST(TransformerTestSuite, testFindRotationAxisThetaEqualsPi_4)
+{
+	using namespace geometrix;
+	using namespace stk;
+
+	using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
+
+	auto theta = constants::half_pi<units::angle>() * 0.5;
+
+	auto m = rotate3_y(theta);
+
+	auto v = rotation_axis_of(m);
+	EXPECT_TRUE(numeric_sequence_equals(v, vector<double, 3>(0.0, 2.0 * sin(theta), 0.0), make_tolerance_policy()));
+	auto a = rotation_angle_of(m);
+	EXPECT_TRUE(make_tolerance_policy().equals(theta, a));
+}
+
+TEST(TransformerTestSuite, testFindRotationAxisThetaEqualsPi)
+{
+	using namespace geometrix;
+	using namespace stk;
+
+	using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
+
+	auto theta = constants::pi<units::angle>();
+
+	auto m = rotate3_y(theta);
+
+	auto v = rotation_axis_of(m);
+	EXPECT_TRUE(numeric_sequence_equals(v, vector<double, 3>(0.0, 2.0 * sin(theta), 0.0), make_tolerance_policy()));
+	auto a = rotation_angle_of(m);
+	EXPECT_TRUE(make_tolerance_policy().equals(theta, a));
 }
