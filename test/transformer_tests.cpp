@@ -255,20 +255,7 @@ namespace {
 		
 		return r;
 	}
-
-	inline stk::matrix44 make_transform_matrix44(const stk::vector3& AToUTM, const stk::vector3& UTMtoB, const stk::vector3& AToB, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw)
-	{
-		using namespace geometrix;
-		using namespace stk;
-		using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
-		
-		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
-		auto rv = vector3{ -rot_transpose(AToB) };
-		auto xformMatrix = assign_translation(rot_transpose.matrix(), rv);
-		auto xform = xform_t{ translate3(AToUTM) * xformMatrix * translate3(UTMtoB) };
-		return xform.matrix();
-	}
-
+	
 	inline stk::transformer2 estimate_2d_transformer(const geometrix::segment<stk::point3>& geometryA, const stk::vector3& utmToA, const stk::vector3& bToUTM, const stk::vector3& v, const stk::units::angle& roll, const stk::units::angle& pitch, const stk::units::angle& yaw)
 	{
 		using namespace stk;

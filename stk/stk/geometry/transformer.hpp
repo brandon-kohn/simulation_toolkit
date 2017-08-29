@@ -437,7 +437,7 @@ namespace stk {
 	inline units::angle rotation_angle_of(const geometrix::matrix<double, I, I>& m)
 	{
 		using namespace geometrix;
-		GEOMETRIX_STATIC_ASSERT(I == 2 || I == 3 || I == 4);//! This is either a 2x2 matrix for 2D rotation, 3x3 matrix for 3D rotation or a 4x4 homogeneous matrix with 3D rotation.
+		GEOMETRIX_STATIC_ASSERT(I == 3 || I == 4);//! This is either a 3x3 matrix for 3D rotation or a 4x4 homogeneous matrix with 3D rotation.
 		auto cosTheta = detail::trace_to_cos_theta(m);
 		auto sinTheta = /*0.5 **/ magnitude(rotation_axis_of(m));
 		using std::atan2;
