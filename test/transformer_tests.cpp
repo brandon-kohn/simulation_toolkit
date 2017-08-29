@@ -263,6 +263,12 @@ namespace {
 
 		using xform_t = transformer<3, post_multiplication_matrix_concatenation_policy>;
 
+		using rot_t = decltype(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw));
+		BOOST_CONCEPT_ASSERT((SquareMatrixConcept<rot_t>));
+
+		using trans_rot_t = decltype(trans(std::declval<rot_t>()));
+		BOOST_CONCEPT_ASSERT((SquareMatrixConcept<trans_rot_t>));
+
 		auto rot_transpose = xform_t{ trans(rotate3_x(roll) * rotate3_y(pitch) * rotate3_z(yaw)) };
 		auto rv = vector3{ -rot_transpose(v) };
 		auto xform = xform_t{ translate3(bToUTM) * assign_translation(rot_transpose.matrix(), rv) * translate3(utmToA) };
