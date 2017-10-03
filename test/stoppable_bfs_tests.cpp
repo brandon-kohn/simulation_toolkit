@@ -125,7 +125,7 @@ TEST(StoppableBFSTestSuite, stoppable_bfs_search_ThreeNodeGraphSearchingFromV1To
 
     bool visitorTerminated = false;
 
-    stoppable_breadth_first_search(g, start, boost::visitor(astar_goal_visitor<Vertex>(goal, visitorTerminated)) );
+    stoppable_breadth_first_search(g, start, boost::visitor(bfs_goal_visitor<Vertex>(goal, visitorTerminated)) );
 
     EXPECT_TRUE(visitorTerminated);
 }
