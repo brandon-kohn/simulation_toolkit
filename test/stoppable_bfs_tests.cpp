@@ -19,37 +19,29 @@ using namespace stk;
 namespace {
     enum class VertexType
     {
-            Obstacle
-        ,   Target
+            Target
     };
 
     enum class EdgeType
     {
-            Real
-        ,   Virtual
+            Virtual
     };
 
     struct VertexProperties
     {
-        VertexProperties(const point2& p = point2(0 * units::si::meters, 0 * units::si::meters), bool isConcave = false, VertexType t = VertexType::Obstacle)
-            : position(p)
-            , isConcave(isConcave)
-            , type(t)
+        VertexProperties(VertexType t = VertexType::Target)
+            : type(t)
         {}
 
-        point2 position;
-        bool isConcave{ false };
         VertexType type;
     };
 
     struct EdgeProperties
     {
-        EdgeProperties(units::length weight = 0.0 * units::si::meters, EdgeType t = EdgeType::Virtual)
-            : weight(weight)
-            , type(t)
+        EdgeProperties(EdgeType t = EdgeType::Virtual)
+            : type(t)
         {}
 
-        units::length weight;
         EdgeType type;
     };
 
@@ -99,21 +91,16 @@ TEST(StoppableBFSTestSuite, stoppable_bfs_search_ThreeNodeGraphSearchingFromV1To
     using namespace boost;
 
     Graph g;
-    auto p1 = point2{ 0.* boost::units::si::meters, 0.* boost::units::si::meters };
-    auto p2 = point2{ 0.* boost::units::si::meters, 1.* boost::units::si::meters };
-    auto p3 = point2{ 1.* boost::units::si::meters, 1.* boost::units::si::meters };
-    auto v1 = boost::add_vertex(VertexProperties(p1, true, VertexType::Target), g);
-    auto v2 = boost::add_vertex(VertexProperties(p2, true, VertexType::Target), g);
-    auto v3 = boost::add_vertex(VertexProperties(p3, true, VertexType::Target), g);
+    auto v1 = boost::add_vertex(VertexProperties(VertexType::Target), g);
+    auto v2 = boost::add_vertex(VertexProperties(VertexType::Target), g);
+    auto v3 = boost::add_vertex(VertexProperties(VertexType::Target), g);
     {
-        auto weight = geometrix::point_point_distance(p1, p2);
-        EdgeProperties props = { weight, EdgeType::Virtual };
+        EdgeProperties props = { EdgeType::Virtual };
         Edge e; bool b;
         boost::tie(e, b) = boost::add_edge(v1, v2, props, g);
     }
     {
-        auto weight = geometrix::point_point_distance(p2, p3);
-        EdgeProperties props = { weight, EdgeType::Virtual };
+        EdgeProperties props = { EdgeType::Virtual };
         Edge e; bool b;
         boost::tie(e, b) = boost::add_edge(v2, v3, props, g);
     }
@@ -128,4 +115,33 @@ TEST(StoppableBFSTestSuite, stoppable_bfs_search_ThreeNodeGraphSearchingFromV1To
     stoppable_breadth_first_search(g, start, boost::visitor(bfs_goal_visitor<Vertex>(goal, visitorTerminated)) );
 
     EXPECT_TRUE(visitorTerminated);
+}
+
+TEST(StoppableBFSTestSuite, stoppable_bfs_search_using_make_stoppable_bfs_visitor)
+{
+	using namespace boost;
+
+	Graph g;
+	auto v1 = boost::add_vertex(VertexProperties(VertexType::Target), g);
+	auto v2 = boost::add_vertex(VertexProperties(VertexType::Target), g);
+	auto v3 = boost::add_vertex(VertexProperties(VertexType::Target), g);
+	auto v4 = boost::add_vertex(VertexProperties(VertexType::Target), g);
+
+	Edge e; bool b;
+	auto props = EdgeProperties{ EdgeType::Virtual };
+	boost::tie(e, b) = boost::add_edge(v1, v2, props, g);
+	boost::tie(e, b) = boost::add_edge(v2, v3, props, g);
+	boost::tie(e, b) = boost::add_edge(v3, v4, props, g);
+	auto start = v1;
+	auto goal = v2;
+
+	std::vector<Vertex> preds(num_vertices(g), (std::numeric_limits<Vertex>::max)());			
+	stoppable_breadth_first_search(g, start, boost::visitor(boost::make_stoppable_bfs_visitor(std::make_pair(record_predecessors(&preds[0], boost::on_tree_edge()), stop_at_goal(goal, boost::on_should_stop())))));
+
+	bool visitorTerminated = preds[v3] == (std::numeric_limits<Vertex>::max)();
+	EXPECT_TRUE(visitorTerminated);
+
+	stoppable_breadth_first_search(g, start, boost::visitor(boost::make_stoppable_bfs_visitor(record_predecessors(&preds[0], boost::on_tree_edge()))));
+	visitorTerminated = preds[v3] == (std::numeric_limits<Vertex>::max)();
+	EXPECT_FALSE(visitorTerminated);
 }

@@ -437,6 +437,29 @@ namespace boost {
   BOOST_GRAPH_MAKE_OLD_STYLE_PARAMETER_FUNCTION(stoppable_breadth_first_search, 2)
 #endif
 
+  template <typename Vertex, typename Tag>
+  struct goal_reached_stopper : public boost::base_visitor<goal_reached_stopper<Vertex, Tag>>
+  {
+	  using event_filter = Tag;
+	  goal_reached_stopper(Vertex goal)
+		  : m_goal(goal)
+	  {}
+
+	  template <typename Graph>
+	  bool operator()(Vertex e, const Graph&)
+	  {
+		  return e == m_goal;
+	  }
+
+	  Vertex m_goal;
+  };
+
+  template <typename Vertex, typename Tag>
+  inline goal_reached_stopper<Vertex, Tag> stop_at_goal(Vertex goal, Tag)
+  {
+	  return goal_reached_stopper<Vertex, Tag>(goal);
+  }
+
 } // namespace boost
 
 #endif // STK_GRAPH_BREADTH_FIRST_SEARCH_HPP
