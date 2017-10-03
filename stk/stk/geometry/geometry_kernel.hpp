@@ -44,7 +44,7 @@
 #include <geometrix/test/test.hpp>
 
 #include <geometrix/tensor/numeric_sequence.hpp>
-#include <geometrix/numeric/boost_units/quantity.hpp>
+#include <geometrix/numeric/boost_units_quantity.hpp>
 #include <geometrix/tensor/fusion_vector_access_policy.hpp>
 #include <geometrix/utility/member_function_fusion_adaptor.hpp>
 #include <geometrix/primitive/array_point_sequence.hpp>
