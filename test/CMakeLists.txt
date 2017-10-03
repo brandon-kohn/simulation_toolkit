@@ -22,6 +22,7 @@ if(Boost_FOUND)
         rtree_cache_tests
         temporary_vertex_graph_adaptor_tests
         stoppable_astar_tests
+        stoppable_bfs_tests
         transformer_tests
        )
 
