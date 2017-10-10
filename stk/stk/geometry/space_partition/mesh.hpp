@@ -16,7 +16,7 @@
 #include <stk/units/boost_units.hpp>
 
 #include <geometrix/algorithm/mesh_2d.hpp>
-#include "rtree_triangle_cache.ipp"
+#include "rtree_triangle_cache.hpp"
 
 namespace stk {
 
