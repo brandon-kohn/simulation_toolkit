@@ -30,6 +30,9 @@
 #include "tensor/vector.hpp"
 #include "tensor/matrix.hpp"
 
+#include "space_partition/bsp_tree.hpp"
+#include "space_partition/mesh.hpp"
+
 #include "tolerance_policy.hpp"
 
 //! Load the expression template headers and common algorithms
