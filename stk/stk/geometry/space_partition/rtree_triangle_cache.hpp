@@ -26,8 +26,8 @@ struct triangle_to_indexable
     aabb2 operator()(const std::array<point2, 3>& tri) const 
     {
         auto bounds = geometrix::get_bounds(tri, make_tolerance_policy());
-        return aabb2{point2{ boost::get<geometrix::e_xmin>(bounds), boost::get<geometrix::e_ymin>(bounds) }
-        ,   point2{ boost::get<geometrix::e_xmax>(bounds), boost::get<geometrix::e_ymax>(bounds) } };
+        return aabb2{point2{ std::get<geometrix::e_xmin>(bounds), std::get<geometrix::e_ymin>(bounds) }
+        ,   point2{ std::get<geometrix::e_xmax>(bounds), std::get<geometrix::e_ymax>(bounds) } };
     }
 };
 
