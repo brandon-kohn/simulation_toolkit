@@ -14,11 +14,11 @@
 #endif
 
 #include <stk/geometry/primitive/segment.hpp>
-#include <geometrix/algorithm/bsp_tree_2d.hpp>
+#include <geometrix/algorithm/node_bsp_tree_2d.hpp>
 
 namespace stk {
 
-using bsp_tree2 = geometrix::bsp_tree_2d<segment2>;
+using bsp_tree2 = geometrix::node_bsp_tree_2d<segment2>;
 
 }//! namespace stk;
 
