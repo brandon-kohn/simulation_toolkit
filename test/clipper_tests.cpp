@@ -11,12 +11,8 @@
 #include "gmock/gmock.h"
 
 #include <clipper/clipper.hpp>
-#include <poly2tri/poly2tri.h>
-#include <stk/geometry/geometry_kernel.hpp>
-#include <stk/geometry/space_partition/rtree_triangle_cache.ipp>
-#include <stk/geometry/apply_unit.hpp>
 
-TEST(RTreeTriangleCacheTestSuite, testBasicUsage_2TrianglesInMesh_PointInBothTrianglesBoundingBox)
+TEST(ClipperSuite, testCriticalPolygon)
 {
     using namespace ::testing;
     using namespace stk;
