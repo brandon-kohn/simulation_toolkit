@@ -15,7 +15,6 @@
 TEST(ClipperSuite, testCriticalPolygon)
 {
     using namespace ::testing;
-    using namespace stk;
 
     ClipperLib::Path path;
 
