@@ -27,7 +27,7 @@ inline units::length signed_distance_point_line(const point2& p, const segment2&
 inline units::length signed_distance_point_line(const point2& p, const line2& l)
 {
     using namespace geometrix;
-    return scalar_projection(p - l.get_u(), left_normal(l.get_parallel_vector()));
+    return scalar_projection(p - l.get_reference_point(), left_normal(l.get_parallel_vector()));
 }
 
 }//! namespace stk;
