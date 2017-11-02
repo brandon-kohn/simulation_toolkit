@@ -13,14 +13,6 @@
     #pragma once
 #endif
 
-#include <boost/move/unique_ptr.hpp>
-#include <boost/move/make_unique.hpp>
-
-namespace boost
-{
-    //! boost::unique_ptr makes more sense for maintenence and eventually moving to std::unique_ptr. Hoisted it.
-    using movelib::unique_ptr;
-    using movelib::make_unique;
-}
+#include <geometrix/utility/unique_ptr.hpp>
 
 #endif//STK_BOOST_UNIQUE_PTR_HPP
