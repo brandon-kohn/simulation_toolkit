@@ -145,7 +145,7 @@ namespace stk {
         using edge_bundled = typename graph_t::edge_bundled;
         using graph_bundled = typename graph_t::graph_bundled;
         using directed_category = typename graph_t::directed_category;
-        using new_vertex_map_t = boost::container::flat_map<vertex_descriptor, boost::unique_ptr<stored_vertex>>;
+        using new_vertex_map_t = boost::container::flat_map<vertex_descriptor, std::unique_ptr<stored_vertex>>;
         
         static vertex_descriptor null_vertex() { return graph_t::null_vertex(); }
 
