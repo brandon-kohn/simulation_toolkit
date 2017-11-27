@@ -10,3 +10,6 @@
 [submodule "clipper-lib"]
 	path = clipper-lib
 	url = https://github.com/brandon-kohn/clipper-lib.git
+[submodule "libcds"]
+	path = libcds
+	url = https://github.com/brandon-kohn/libcds.git

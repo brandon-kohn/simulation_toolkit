@@ -37,6 +37,7 @@ add_subdirectory(clipper-lib/)
 add_subdirectory(geometrix/)
 add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
+add_subdirectory(libcds/)
 
 # Tests
 if(BUILD_TESTS)
