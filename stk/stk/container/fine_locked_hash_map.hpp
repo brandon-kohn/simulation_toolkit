@@ -6,8 +6,8 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-#ifndef STK_CONTAINER_LOCKED_HASH_MAP_HPP
-#define STK_CONTAINER_LOCKED_HASH_MAP_HPP
+#ifndef STK_CONTAINER_FINE_LOCKED_HASH_MAP_HPP
+#define STK_CONTAINER_FINE_LOCKED_HASH_MAP_HPP
 
 #if defined(_MSC_VER)
     #pragma once
@@ -15,50 +15,46 @@
 
 #include <stk/container/locked_list.hpp>
 #include <boost/thread/shared_mutex.hpp>
-#include <boost/range/algorithm/find_if.hpp>
+#include <boost/optional.hpp>
 #include <functional>
 
 namespace stk {
 
+	//! A hash table which stores a shared_mutex per node in the list. Very memory intensive for many elements.
 	template <typename Key, typename Value, typename Hash = std::hash<Key>>
-	class locked_hash_map
+	class fine_locked_hash_map
 	{
 		class bucket_type
 		{
 			using bucket_value = std::pair<Key, Value>;
-			using bucket_data = std::list<bucket_value>;
-			using bucket_iterator = typename bucket_data::iterator;
-
+			using bucket_data = locked_list<bucket_value>;
+			
 			bucket_data data;
-			mutable boost::shared_mutex mutex;
-
-			bucket_iterator find_entry_for(Key const& key) const
+			
+			std::shared_ptr<bucket_value> find_entry_for(Key const& key) const
 			{
-				return boost::find_if(data, [&](bucket_value const& item) { return item.first == key; });
+				return data.find_first_if([&](bucket_value const& item) { return item.first == key; });
 			}
 
 		public:
 
 			Value value_for(Key const& key, Value const& default_value) const
 			{
-				boost::shared_lock<boost::shared_mutex> lock{ mutex };
 				const auto found_entry = find_entry_for(key);
-				return found_entry == data.end() ? default_value : found_entry->second;
+				return !found_entry ? default_value : found_entry->second;
 			}
 
 			boost::optional<Value> find(Key const& key) const
 			{
-				boost::shared_lock<boost::shared_mutex> lock{ mutex };
 				const auto found_entry = find_entry_for(key);
-				return found_entry == data.end() ? boost::optional<Value>() : boost::optional<Value>(found_entry->second);
+				return found_entry ? boost::optional<Value>(found_entry->second) : boost::optional<Value>();
 			}
 
 			void add_or_update_mapping(Key const& key, Value const& value)
 			{
-				std::unique_lock<boost::shared_mutex> lock{ mutex };
 				const auto found_entry = find_entry_for(key);
-				if (found_entry == data.end())
-					data.push_back(bucket_value{ key, value });
+				if (!found_entry)
+					data.push_front(bucket_value{ key, value });
 				else
 					found_entry->second = value;
 
@@ -66,10 +62,7 @@ namespace stk {
 
 			void remove_mapping(Key const& key)
 			{
-				std::unique_lock<boost::shared_mutex> lock{ mutex };
-				const auto found_entry = find_entry_for(key);
-				if (found_entry != data.end())
-					data.erase(found_entry);
+				data.remove_if([&](const bucket_value& item) { return key == item.first; });
 			}
 		};
 
@@ -88,7 +81,7 @@ namespace stk {
 		using mapped_type = Value;
 		using hash_type = Hash;
 
-		locked_hash_map(unsigned num_buckets = 19, Hash const& hasher = Hash())
+		fine_locked_hash_map(unsigned num_buckets = 19, Hash const& hasher = Hash())
 			: buckets(num_buckets)
 			, hasher(hasher)
 		{
@@ -96,8 +89,8 @@ namespace stk {
 				buckets[i].reset(new bucket_type);
 		}
 
-		locked_hash_map(const locked_hash_map&) = delete;
-		locked_hash_map& operator=(const locked_hash_map&) = delete;
+		fine_locked_hash_map(const fine_locked_hash_map&) = delete;
+		fine_locked_hash_map& operator=(const fine_locked_hash_map&) = delete;
 
 		mapped_type value_for(Key const& key, Value const& default_value = Value()) const
 		{
@@ -122,4 +115,4 @@ namespace stk {
 
 }//! namespace stk;
 
-#endif//! STK_CONTAINER_LOCKED_HASH_MAP_HPP
+#endif//! STK_CONTAINER_FINE_LOCKED_HASH_MAP_HPP
