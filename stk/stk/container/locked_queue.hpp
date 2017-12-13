@@ -1,19 +1,13 @@
-/////////////////////////////////////////////////////////////////////////////
 //
-// locked_queue.hpp
+//! Copyright © 2017
+//! Brandon Kohn
 //
-// Author(s): Brandon Kohn
+//  Distributed under the Boost Software License, Version 1.0. (See
+//  accompanying file LICENSE_1_0.txt or copy at
+//  http://www.boost.org/LICENSE_1_0.txt)
 //
-//* Distributed under the Boost Software License, Version 1.0. (See
-//* accompanying file LICENSE_1_0.txt or copy at
-//* http://www.std.org/LICENSE_1_0.txt)
-//
-// All rights are reserved. Reproduction in whole or part is prohibited
-// without the written consent of the copyright owner.
-//
-/////////////////////////////////////////////////////////////////////////////
-#ifndef LOCKED_QUEUE_HPP
-#define LOCKED_QUEUE_HPP
+#ifndef STK_LOCKED_QUEUE_HPP
+#define STK_LOCKED_QUEUE_HPP
 #pragma once
 
 #include <condition_variable>
@@ -24,9 +18,11 @@
 //! \brief A locked fifo queue.
 
 //!
-template < typename Item, typename Alloc = std::allocator<Item> >
+template <typename Item, typename Alloc = std::allocator<Item>, typename Mutex = std::mutex>
 class locked_queue
 {
+    using mutex_type = Mutex;
+    
 public:
         
     typedef std::deque<Item, Alloc> queue_type;
@@ -40,7 +36,7 @@ public:
         : m_maxSize(maxSize)
         , m_queue(alloc)
     {}
-
+    
     locked_queue( const locked_queue& rhs )
         : m_maxSize(rhs.m_maxSize)
         , m_queue(rhs.m_queue)
@@ -49,34 +45,34 @@ public:
     //! A waiting push operation. If the Q is full will wait until it has room before inserting and then returning.
     void push_or_wait(const Item& x)
     {
-        push_or_wait_priv(static_cast<const Item&>(x));
+        push_or_wait_impl(static_cast<const Item&>(x));
     }
 
     //! A waiting push operation. If the Q is full will wait until it has room before inserting and then returning.
     void push_or_wait(Item &&x)
     {
-        push_or_wait_priv(std::forward<Item>(x));
+        push_or_wait_impl(std::forward<Item>(x));
     }
 
     //! A non waiting push operation. If the Q is full returns false.
     //! @return bool - whether the insertion was successful.
     bool try_push(const Item& x)
     {
-        return try_push_priv(static_cast<const Item&>(x));
+        return try_push_impl(static_cast<const Item&>(x));
     }
 
     //! A non waiting push operation. If the Q is full returns false.
     //! @return bool - whether the insertion was successful.
     bool try_push(Item &&x)
     {
-        return try_push_priv(std::forward<Item>(x));
+        return try_push_impl(std::forward<Item>(x));
     }
     
     //! A waiting pop operation which returns the front item immediately if the Q is not empty. If the Q is empty, it blocks until an element is available.
     //! @return value_type
     Item pop_or_wait()
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
 
         while( m_queue.empty() )
             m_empty.wait(lock);
@@ -84,8 +80,11 @@ public:
         Item item = std::move(m_queue.front());
         m_queue.pop_front();
 
-        if( m_queue.size() < m_maxSize )
-            m_full.notify_one();
+		if (m_queue.size() < m_maxSize)
+		{
+			lock.unlock();
+			m_full.notify_one();
+		}
 
         return std::move(item);
     }
@@ -94,7 +93,7 @@ public:
     //! @return - whether an item was popped.
     bool try_pop( Item& item )
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
 
         if( m_queue.empty() )
             return false;
@@ -102,17 +101,20 @@ public:
         item = std::move(m_queue.front());
         m_queue.pop_front();
 
-        if( m_queue.size() < m_maxSize )
-            m_full.notify_one();
+		if (m_queue.size() < m_maxSize)
+		{
+			lock.unlock();
+			m_full.notify_one();
+		}
 
         return true;
     }
     
-    //! A non-blocking steal operation which gets the back item if the Q is not empty. If the Q is empty, returns false.
+    //! A steal operation which gets the back item if the Q is not empty. If the Q is empty, returns false.
     //! @return - whether an item was stolen.
     bool try_steal( Item& item )
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
 
         if( m_queue.empty() )
             return false;
@@ -120,21 +122,24 @@ public:
         item = std::move(m_queue.back());
         m_queue.pop_back();
 
-        if( m_queue.size() < m_maxSize )
-            m_full.notify_one();
+		if (m_queue.size() < m_maxSize)
+		{
+			lock.unlock();
+			m_full.notify_one();
+		}
 
         return true;
     }
 
     std::size_t size() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
         return m_queue.size();
     }
 
     bool empty() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
         return m_queue.empty();
     }
 
@@ -142,43 +147,50 @@ private:
 
     //! A waiting push operation. If the Q is full will wait until it has room before inserting and then returning.
     template <typename U>
-    void priv_push_or_wait(U&& item)
+    void push_or_wait_impl(U&& item)
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
 
         while (m_queue.size() == m_maxSize)
             m_full.wait(lock);
+		GEOMETRIX_ASSERT(lock.owns_lock());
 
         m_queue.emplace_back(std::forward<U>(item));
 
-        if (m_queue.size() == 1)
-            m_empty.notify_one();
+		if (m_queue.size() == 1)
+		{
+			lock.unlock();
+			m_empty.notify_one();
+		}
     }
 
     //! A non waiting push operation. If the Q is full returns false.
     //! @return bool - whether the insertion was successful.
     template <typename U>
-    bool priv_try_push(U&& item)
+    bool try_push_impl(U&& item)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<mutex_type> lock(m_mutex);
 
         if( m_queue.size() == m_maxSize )
             return false;
 
         m_queue.emplace_back( std::forward<U>(item) );
 
-        if( m_queue.size() == 1 )
-            m_empty.notify_one();
+		if (m_queue.size() == 1)
+		{
+			lock.unlock();
+			m_empty.notify_one();
+		}
 
         return true;
     }
 
-    std::condition_variable m_full;
-    std::condition_variable m_empty;
-    mutable std::mutex      m_mutex;
-    std::size_t             m_maxSize;
-    queue_type              m_queue;
+    std::condition_variable_any m_full;
+    std::condition_variable_any m_empty;
+    mutable mutex_type			m_mutex;
+    std::size_t					m_maxSize;
+    queue_type					m_queue;
 
 };
 
-#endif //LOCKED_QUEUE_HPP
+#endif //! STK_LOCKED_QUEUE_HPP

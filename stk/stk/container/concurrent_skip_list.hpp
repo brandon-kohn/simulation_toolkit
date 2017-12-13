@@ -16,6 +16,7 @@
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/utility/utilities.hpp>
 #include <stk/utility/boost_unique_ptr.hpp>
+#include <stk/utility/atomic_shared_ptr.hpp>
 
 #include <boost/iterator.hpp>
 #include <boost/iterator/iterator_facade.hpp>
@@ -24,21 +25,14 @@
 #include <boost/array.hpp>
 #include <boost/optional.hpp>
 
-#ifdef BOOST_NO_CXX11_THREAD_LOCAL
-#include <boost/thread/tss.hpp>
-#endif
-
 #include <random>
 #include <list>
 #include <mutex>
 #include <type_traits>
 #include <memory>
 
-//! This factor is the exponent that 2 is raised to and should cover the number of threads expected to use the skip list.
-//! e.g. default is 4 = 2^4 == 16 threads.
-#define STK_SKIPLIST_THREAD_IDS_FACTOR 4
-
-namespace stk { namespace detail {
+namespace stk { 
+    namespace detail {
 
     //! Associative map traits to make the lazy list behave like a map<key, value>
     template < typename Key,             //! key type
@@ -46,7 +40,8 @@ namespace stk { namespace detail {
         typename Pred,                   //! comparator predicate type
         typename Alloc,                  //! actual allocator type (should be value allocator)
         unsigned int MaxLevel,           //! Max level of the skip list node array.
-        bool allowMultipleKeys = false > //! true if multiple equivalent keys are permitted
+        bool allowMultipleKeys = false,  //! true if multiple equivalent keys are permitted
+		typename Mutex = std::recursive_mutex>
     struct associative_map_traits
     {
         typedef Key                                                key_type;
@@ -55,6 +50,7 @@ namespace stk { namespace detail {
         typedef typename Alloc::template rebind<value_type>::other allocator_type;
         typedef boost::mpl::int_<MaxLevel>                         max_level;
         typedef boost::mpl::bool_<allowMultipleKeys>               allow_multiple_keys;
+		typedef Mutex                                              mutex_type;
 
         associative_map_traits(Pred _Parg, Alloc _Al)
             : m_compare(_Parg)
@@ -62,7 +58,7 @@ namespace stk { namespace detail {
 
         class value_compare
         {
-            friend struct associative_map_traits<Key, Value, Pred, Alloc, allowMultipleKeys>;
+            friend struct associative_map_traits<Key, Value, Pred, Alloc, MaxLevel, allowMultipleKeys, Mutex>;
 
         public:
 
@@ -81,7 +77,7 @@ namespace stk { namespace detail {
             key_compare m_compare;  // the comparator predicate for keys
         };
 
-        static const Key& resolve_key( const value_type& v )
+        BOOST_FORCEINLINE static const Key& resolve_key( const value_type& v )
         {
             return (v.first);
         }
@@ -93,14 +89,16 @@ namespace stk { namespace detail {
     template < typename Key,             //! key type
         typename Pred,                   //! comparator predicate type
         typename Alloc,                  //! actual allocator type (should be value allocator)
-        unsigned int MaxLevel,           //! Max level of the skip list node array.
-        bool AllowMultipleKeys = false > //! true if multiple equivalent keys are permitted
+        unsigned int MaxLevel,           //! Max level of the skip list node array.		
+        bool AllowMultipleKeys = false,  //! true if multiple equivalent keys are permitted
+		typename Mutex = std::recursive_mutex> 
     struct associative_set_traits
     {
         typedef Key                                                key_type;
         typedef Key                                                value_type;
         typedef Pred                                               key_compare;
         typedef typename Alloc::template rebind<value_type>::other allocator_type;
+		typedef Mutex                                              mutex_type;
 
         typedef boost::mpl::bool_<AllowMultipleKeys>  allow_multiple_keys;
         typedef boost::mpl::int_<MaxLevel>            max_level;
@@ -110,14 +108,14 @@ namespace stk { namespace detail {
         {}
 
         typedef key_compare value_compare;
-        static const Key& resolve_key(const value_type& v)
+        BOOST_FORCEINLINE static const Key& resolve_key(const value_type& v)
         {
-            return (v);
+            return v;
         }
 
         Pred m_compare; // the comparator predicate for keys
     };
-
+    /*
     template <typename T, typename Alloc>
     class raii_allocator
     {
@@ -164,7 +162,7 @@ namespace stk { namespace detail {
     {
         return raii_allocator<T, Allocator>( al ).create(std::forward<Ts>(a)...);
     }
-
+    */
     // base list node type.
     template<typename AssociativeTraits>
     class skip_list_node : public AssociativeTraits
@@ -172,13 +170,14 @@ namespace stk { namespace detail {
     protected:
         struct          node;
         friend struct   node;
-        typedef node*   node_ptr;
+        typedef jss::atomic_shared_ptr<node> node_ptr;
 
         typedef AssociativeTraits                          traits;
         typedef typename AssociativeTraits::allocator_type allocator_type;
         typedef typename AssociativeTraits::key_compare    key_compare;
         typedef typename AssociativeTraits::value_type     value_type;
         typedef typename AssociativeTraits::key_type       key_type;
+		typedef typename AssociativeTraits::mutex_type     recursive_mutex_type;
 
         struct node : boost::totally_ordered< node, boost::totally_ordered< node, key_type > >
         {
@@ -211,25 +210,25 @@ namespace stk { namespace detail {
 
             bool operator < ( const node& rhs ) const
             {
-                return geometrix::lexicographical_compare( bound, key(), rhs.bound, rhs.key() );
+                return geometrix::lexicographical_compare(bound, rhs.bound, key(), rhs.key());
             }
 
             bool operator < ( const key_type& rhs ) const
             {
-                return geometrix::lexicographical_compare( bound, key(), static_cast<char>( e_middle ), rhs );
+                return geometrix::lexicographical_compare( bound, static_cast<char>( e_middle ), key(), rhs );
             }
 
             bool operator == ( const key_type& v ) const
             {
-                return ! geometrix::lexicographical_compare( static_cast<char>( e_middle ), v, bound, key() ) &&
-                       ! geometrix::lexicographical_compare( bound, key(), static_cast<char>( e_middle ), v );
+                return ! geometrix::lexicographical_compare( static_cast<char>( e_middle ), bound, v, key() ) &&
+                       ! geometrix::lexicographical_compare( bound, static_cast<char>( e_middle ), key(), v );
             }
 
             bool operator == ( const node& n ) const
             {
                 //return !( n.item_key() < item_key() ) && !( item_key() < n.item_key() );
-                return ! geometrix::lexicographical_compare( n.bound, n.key()_, bound, key() ) &&
-                       ! geometrix::lexicographical_compare( bound, key(), n.bound, key() );
+                return ! geometrix::lexicographical_compare( n.bound, bound, n.key(), key() ) &&
+                       ! geometrix::lexicographical_compare( bound, n.bound(), key(), n.key() );
             }
 
             const key_type&  key() const { return traits::resolve_key( value_ ); }
@@ -242,10 +241,10 @@ namespace stk { namespace detail {
             char                   bound;
             value_type             value_;
             node_levels            nexts;
-            volatile char          marked;
-            volatile char          fullyLinked;
+            std::atomic<bool>      marked;
+            std::atomic<bool>      fullyLinked;
             unsigned int           topLevel;
-            std::recursive_mutex   mutex;
+			recursive_mutex_type   mutex;
         };
 
         skip_list_node( key_compare p, allocator_type al )
@@ -294,43 +293,51 @@ namespace stk { namespace detail {
         allocator_type m_nodeValueAllocator;    // allocator object for values stored in nodes
     };
 
-    template <typename RandomNumberGenerator>
-    class thread_random_index_generator
-    {
-    public:
-
-        thread_random_index_generator(std::size_t maxIndex)
-            : m_distribution(0, maxIndex)
-        {}
-
-        //! Generate an integer on the interval [0,maxIndex).
-        std::size_t operator()() const { return m_distribution(get_generator()); }
-        void seed(unsigned long seed) { get_generator().seed(seed); m_distribution.reset(); }
-
-    private:
-
-        static RandomNumberGenerator& get_generator()
+    template <unsigned int MaxLevel>
+    class random_xor_shift_generator
+    {   
+        static_assert(MaxLevel && MaxLevel <= 32, "MaxLevel must be in the range of [2, 32].");
+        using max_level = std::integral_constant<unsigned int, MaxLevel>;
+//         template <unsigned int I>     
+//         BOOST_FORCEINLINE unsigned int bit_mod(unsigned int a)
+//         {
+//             using bit_mask = std::integral_constant<unsigned int, I - 1>;
+//             return a & bit_mask::value;
+//         }
+        //static_assert(MaxLevel && !(MaxLevel & (MaxLevel - 1)), "MaxLevel must be a power of 2.");
+        BOOST_FORCEINLINE unsigned int bit_mod(unsigned int a)
         {
-#ifndef BOOST_NO_CXX11_THREAD_LOCAL
-            thread_local RandomNumberGenerator generator;
-#else
-            static boost::thread_specific_ptr<RandomNumberGenerator> generator;
-            auto result = generator.get();
-            if (!result)
-            {
-                result = new RandomNumberGenerator();
-                generator.reset(result);
-            }
-            return *result;
-#endif
+            return a % max_level::value;
         }
 
-        std::uniform_int_distribution<std::size_t> m_distribution;
+    public:
+            
+        random_xor_shift_generator(unsigned int seed = 42)
+        {
+            m_state.store(seed, std::memory_order_relaxed);
+        }
+
+        BOOST_FORCEINLINE unsigned int operator()()
+        {
+            auto x = m_state.load(std::memory_order_relaxed);
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            m_state.store(x, std::memory_order_relaxed);
+
+            auto r = bit_mod(x);
+            GEOMETRIX_ASSERT(r < max_level::value);
+            
+            return r;
+        }
+    private:
+
+        std::atomic<unsigned int> m_state;
 
     };
 }
 
-template <typename AssociativeTraits, typename LevelSelectionPolicy = detail::thread_random_index_generator<std::mt19937>>
+template <typename AssociativeTraits, typename LevelSelectionPolicy = detail::random_xor_shift_generator<AssociativeTraits::max_level::value>>
 class lazy_concurrent_skip_list : public detail::skip_list_val<AssociativeTraits>
 {
 public:
@@ -366,7 +373,7 @@ public:
             : m_pNode()
         {}
 
-        explicit node_iterator( node* pNode )
+        explicit node_iterator( node_ptr pNode )
             : m_pNode( pNode )
         {}
 
@@ -387,13 +394,14 @@ public:
             return m_pNode == other.m_pNode;
         }
 
+		//! Not thread safe.
         T& dereference() const
         {
             GEOMETRIX_ASSERT( m_pNode );
             return m_pNode->item();
         }
 
-        node* m_pNode{ nullptr };
+        node_ptr m_pNode{ nullptr };
     };
 
     struct const_iterator;
@@ -404,7 +412,7 @@ public:
             : node_iterator< value_type >()
         {}
 
-        explicit iterator( node* pNode )
+        explicit iterator( node_ptr pNode )
             : node_iterator< value_type >( pNode )
         {}
 
@@ -435,7 +443,7 @@ public:
             : node_iterator< const value_type >()
         {}
 
-        explicit const_iterator( node* pNode )
+        explicit const_iterator( node_ptr pNode )
             : node_iterator< const value_type >( pNode )
         {}
 
@@ -473,11 +481,9 @@ public:
     lazy_concurrent_skip_list( const key_compare& pred = key_compare(), const allocator_type& al = allocator_type() )
         : detail::skip_list_val<AssociativeTraits>( pred, al )
         , m_selector( max_level() )
-        , m_pHead()
-        , m_pTail()
+        , m_pHead(std::allocate_shared<node>(m_nodeAllocator, node::e_first))
+        , m_pTail(std::allocate_shared<node>(m_nodeAllocator, node::e_last))
     {
-        m_pHead = stk::detail::construct_from_allocator<node>( m_nodeAllocator, node::e_first ), make_dealloc(m_nodeAllocator);
-        m_pTail = stk::detail::construct_from_allocator<node>( m_nodeAllocator, node::e_last ), make_dealloc(m_nodeAllocator);
         GEOMETRIX_ASSERT( m_pHead );
         if( m_pHead )
         {
@@ -489,13 +495,9 @@ public:
     lazy_concurrent_skip_list( const lazy_concurrent_skip_list& other )
         : detail::skip_list_val<AssociativeTraits>( other )
         , m_selector( max_level() )
-        , m_pHead()
-        , m_pTail()
+        , m_pHead(std::allocate_shared<node>(m_nodeAllocator, node::e_first))
+        , m_pTail(std::allocate_shared<node>(m_nodeAllocator, node::e_last))
     {
-
-
-        m_pHead.reset( construct_from_allocator<node>( m_nodeAllocator, node::e_first ), make_dealloc(m_nodeAllocator) );
-        m_pTail.reset( construct_from_allocator<node>( m_nodeAllocator, node::e_last ), make_dealloc(m_nodeAllocator) );
         GEOMETRIX_ASSERT( m_pHead );
         if( m_pHead )
         {
@@ -513,8 +515,8 @@ public:
     {
         release();
 
-        m_pHead.= construct_from_allocator<node>( m_nodeAllocator, node::e_first ), make_dealloc(m_nodeAllocator);
-        m_pTail = construct_from_allocator<node>( m_nodeAllocator, node::e_last ), make_dealloc(m_nodeAllocator);
+        m_pHead = std::allocate_shared<node>( m_nodeAllocator, node::e_first);
+        m_pTail = std::allocate_shared<node>( m_nodeAllocator, node::e_last);
         GEOMETRIX_ASSERT( m_pHead );
         if( m_pHead )
         {
@@ -557,17 +559,17 @@ public:
 
     iterator find( const key_type& x )
     {
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
 
         int lFound = find( x, preds, succs );
         if( lFound != -1 )
         {
-            node* pFound = succs[lFound];
+            node_ptr pFound = succs[lFound];
             GEOMETRIX_ASSERT( pFound );
             if( !pFound )
                 return end();
-            if( pFound->fullyLinked && !pFound->marked )
+            if( pFound->fullyLinked.load() && !pFound->marked.load() )
                 return iterator( pFound );
             else
                 return end();
@@ -578,8 +580,8 @@ public:
 
     const_iterator find( const key_type& x ) const
     {
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
 
         int lFound = find( x, preds, succs );
         if( lFound != -1 )
@@ -588,7 +590,7 @@ public:
             GEOMETRIX_ASSERT( pFound );
             if( !pFound )
                 return end();
-            if( pFound->fullyLinked && !pFound->marked )
+            if (pFound->fullyLinked.load() && !pFound->marked.load())
                 return const_iterator( pFound );
             else
                 return end();
@@ -599,8 +601,8 @@ public:
 
     iterator lower_bound( const key_type& x )
     {
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
 
         int lFound = lower_bound( x, preds, succs );
         if( lFound != -1 )
@@ -608,8 +610,8 @@ public:
             auto pFound = succs[lFound];
             GEOMETRIX_ASSERT( pFound );
             if( !pFound )
-                return end();
-            if( pFound->fullyLinked && !pFound->marked )
+                return end(); 
+            if (pFound->fullyLinked.load() && !pFound->marked.load())
                 return iterator( pFound );
             else
                 return end();
@@ -620,8 +622,8 @@ public:
 
     const_iterator lower_bound( const key_type& x ) const
     {
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
 
         int lFound = lower_bound( x, preds, succs );
         if( lFound != -1 )
@@ -630,7 +632,7 @@ public:
             GEOMETRIX_ASSERT( pFound );
             if( !pFound )
                 return end();
-            if( pFound->fullyLinked && !pFound->marked )
+            if (pFound->fullyLinked.load() && !pFound->marked.load())
                 return const_iterator( pFound );
             else
                 return end();
@@ -658,8 +660,8 @@ public:
 
     bool contains( const key_type& x ) const
     {
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
 
         int lFound = find( x, preds, succs );
         if( lFound != -1 )
@@ -668,40 +670,143 @@ public:
             GEOMETRIX_ASSERT( pFound );
             if( !pFound )
                 return false;
-            return (pFound->fullyLinked && !pFound->marked );
+            return (pFound->fullyLinked.load() && !pFound->marked.load());
         }
 
         return false;
     }
 
+    iterator erase(const key_type& x)
+    {
+        node_ptr pVictim;
+        bool isMarked = false;
+        int topLevel = -1;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
+
+        //! To unlock locks on exit...
+        lock_list locks;
+        lock victimLock;
+
+        while (true)
+        {
+            int lFound = find(x, preds, succs);
+            if (lFound != -1)
+            {
+                pVictim = succs[lFound];
+                GEOMETRIX_ASSERT(pVictim);
+            }
+
+            if (
+                isMarked ||
+                (
+                    lFound != -1 &&
+                    (pVictim->fullyLinked.load() && pVictim->topLevel == lFound && !pVictim->marked.load())
+                    )
+                )
+            {
+                if (!isMarked)
+                {
+                    topLevel = pVictim->topLevel;
+
+                    if (pVictim->marked.load())
+                        return end();
+                    
+					victimLock = lock{ pVictim->mutex };
+                    pVictim->marked.store(true);
+                    isMarked = true;
+                }
+
+                int highestLocked = -1;
+                node_ptr pPred;
+                bool valid = true;
+                for (int level = 0; valid && level <= topLevel; ++level)
+                {
+                    pPred = preds[level];
+
+                    GEOMETRIX_ASSERT(pPred);
+                    if (!pPred)
+                        return end();
+
+                    //! add to the exit locks.
+                    locks.emplace_back(pPred->mutex);
+
+                    highestLocked = level;
+                    valid = !pPred->marked.load() && pPred->next()[level] == pVictim;
+                }
+
+                if (!valid)
+                {
+                    locks.clear();
+                    continue;
+                }
+
+                for (int level = topLevel; level >= 0; --level)
+                    preds[level]->next()[level] = pVictim->next()[level];
+
+                //! Save return iterator.
+                iterator nextIT(pVictim->next()[0]);
+
+                victimLock.unlock();
+
+                pVictim.reset();
+                //destroy_node( pVictim );
+
+                return nextIT;
+            } else
+                return end();
+        }
+    }
+
+    iterator erase(const_iterator it)
+    {
+        if (it == end())
+            return end();
+
+        const value_type& x = *it;
+        return erase(resolve_key(x));
+    }
+
+    void clear()
+    {
+        for (iterator it(begin()); it != end(); )
+        {
+            const value_type& x = *it;
+
+            //! increment before removing it.
+            ++it;
+
+            erase(resolve_key(x));
+        }
+    }
+
 protected:
 
-    using lock = std::lock_guard<std::recursive_mutex>;
-    using lock_ptr = std::unique_ptr< lock >;
-    using lock_list = std::list< lock_ptr >;
-
-    template <typename Alloc>
-    struct deallocator
-    {
-        deallocator( Alloc& alloc )
-            : alloc(alloc)
-        {}
-
-        template <typename T>
-        void operator()( T* pT )
-        {
-            alloc.destroy(pT);
-            alloc.deallocate(pT, 1);
-        }
-
-        Alloc& alloc;
-    };
-
-    template <typename Alloc>
-    deallocator<Alloc> make_dealloc( Alloc& alloc ){ return deallocator<Alloc>(alloc); }
+    using lock = std::unique_lock<std::recursive_mutex>;
+    using lock_list = std::list<lock>;
+// 
+//     template <typename Alloc>
+//     struct deallocator
+//     {
+//         deallocator( Alloc& alloc )
+//             : alloc(alloc)
+//         {}
+// 
+//         template <typename T>
+//         void operator()( T* pT )
+//         {
+//             alloc.destroy(pT);
+//             alloc.deallocate(pT, 1);
+//         }
+// 
+//         Alloc& alloc;
+//     };
+// 
+//     template <typename Alloc>
+//     deallocator<Alloc> make_dealloc( Alloc& alloc ){ return deallocator<Alloc>(alloc); }
 
     //! Access the left most valid node.
-    node* left_most() const
+    node_ptr left_most() const
     {
         auto pNext = m_pHead->next()[0];
         GEOMETRIX_ASSERT( pNext );
@@ -711,49 +816,49 @@ protected:
             return m_pTail;
     }
 
-    node_ptr create_node( node* pNext, const value_type& v )
-    {
-        // allocate a node and set links and value
-        return stk::detail::construct_from_allocator<node>( m_nodeAllocator, resolve_key( v ), v, pNext );
-    }
+//     node_ptr create_node( node_ptr pNext, const value_type& v )
+//     {
+//         // allocate a node and set links and value
+//      return std::allocate_shared<node>(m_nodeAllocator, resolve_key(v), v, pNext);
+//     }
 
     node_ptr create_node( const value_type& v, unsigned int height )
     {
         // allocate a node and set links and value
-        return stk::detail::construct_from_allocator<node>( m_nodeAllocator, v, height );
+        return std::allocate_shared<node>(m_nodeAllocator, v, height);
     }
 
-    void destroy_node( node_ptr pNode )
-    {
-        m_nodeAllocator.destroy( pNode );
-        m_nodeAllocator.deallocate( pNode, 1 );
-    }
+//     void destroy_node( node_ptr pNode )
+//     {
+//         m_nodeAllocator.destroy( pNode );
+//         m_nodeAllocator.deallocate( pNode, 1 );
+//     }
 
     void release()
     {
         clear();
 
         GEOMETRIX_ASSERT( m_pHead );
-        //m_pHead.reset();
-        if( m_pHead )
-            destroy_node( m_pHead );
-        m_pHead = nullptr;
+        m_pHead.reset();
+        //if( m_pHead )
+        //    destroy_node( m_pHead );
+        //m_pHead = nullptr;
 
         GEOMETRIX_ASSERT( m_pTail );
-        //m_pTail.reset();
-        if( m_pTail )
-            destroy_node( m_pTail );
-        m_pTail = nullptr;
+        m_pTail.reset();
+        //if( m_pTail )
+        //    destroy_node( m_pTail );
+        //m_pTail = nullptr;
     }
 
     template <typename Preds, typename Succs>
     int find( const key_type& key, Preds& preds, Succs& succs ) const
     {
         int lFound = -1;
-        node* pPred = m_pHead;
+        node_ptr pPred = m_pHead;
         for( int level = max_level::value; level >= 0; --level )
         {
-            node* pCurr = pPred->next()[level];
+            node_ptr pCurr = pPred->next()[level];
             GEOMETRIX_ASSERT( pCurr );
             while( pCurr && *pCurr < key ) //key > curr.key
             {
@@ -779,10 +884,10 @@ protected:
     int lower_bound( const key_type& key, Preds& preds, Succs& succs ) const
     {
         int lFound = -1;
-        node* pPred = m_pHead;
+        node_ptr pPred = m_pHead;
         for( int level = max_level(); level >= 0; --level )
         {
-            node* pCurr = pPred->next()[level];
+            node_ptr pCurr = pPred->next()[level];
             GEOMETRIX_ASSERT( pCurr );
             while( pCurr && *pCurr < key ) //key > curr.key
             {
@@ -807,8 +912,8 @@ protected:
     std::pair< iterator, bool > add( const value_type& x )
     {
         int topLevel = m_selector();
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
+        boost::array<node_ptr, max_level::value + 1> preds;
+        boost::array<node_ptr, max_level::value + 1> succs;
 
         //! To unlock locks on exit...
         lock_list locks;
@@ -818,14 +923,14 @@ protected:
             int lFound = find( resolve_key(x), preds, succs );
             if( lFound != -1 )
             {
-                node* pFound = succs[lFound];
+                node_ptr pFound = succs[lFound];
                 GEOMETRIX_ASSERT( pFound );
                 if( !pFound )
                     return std::make_pair( end(), false );
 
-                if( !pFound->marked )
+                if( !pFound->marked.load() )
                 {
-                    while( !pFound->fullyLinked ){}
+                    while( !pFound->fullyLinked.load() ){}
                     return std::make_pair( iterator( pFound ), false );
                 }
 
@@ -833,8 +938,8 @@ protected:
             }
 
             int highestLocked = -1;
-            node* pPred;
-            node* pSucc;
+            node_ptr pPred;
+            node_ptr pSucc;
             bool valid = true;
             for( int level = 0; valid && level <= topLevel; ++level )
             {
@@ -842,9 +947,9 @@ protected:
                 pSucc = succs[level];
 
                 //! add to the exit locks.
-                locks.emplace_back( new lock(pPred->mutex ) );
+                locks.emplace_back(pPred->mutex);
                 highestLocked = level;
-                valid = !pPred->marked && !pSucc->marked && pPred->next()[level] == pSucc;
+                valid = !pPred->marked.load() && !pSucc->marked.load() && pPred->next()[level] == pSucc;
             }
 
             if( !valid )
@@ -853,127 +958,18 @@ protected:
                 continue;
             }
 
-            node* pNewNode = create_node( x, topLevel );
+            node_ptr pNewNode = create_node( x, topLevel );
             for( int level = 0; level <= topLevel; ++level )
                 pNewNode->next()[level] = succs[level];
             for( int level = 0; level <= topLevel; ++level )
                 preds[level]->next()[level] = pNewNode;
-            pNewNode->fullyLinked = true;
+            pNewNode->fullyLinked.store(true);
             return std::make_pair( iterator( pNewNode ), true );
         }
     }
 
-    iterator erase( const key_type& x )
-    {
-        node* pVictim;
-        bool isMarked = false;
-        int topLevel = -1;
-        boost::array<node*, max_level::value + 1> preds;
-        boost::array<node*, max_level::value + 1> succs;
-
-        //! To unlock locks on exit...
-        lock_list locks;
-        std::unique_ptr<lock> victimLock;
-
-        while( true )
-        {
-            int lFound = find( x, preds, succs );
-            if( lFound != -1 )
-            {
-                pVictim = succs[lFound];
-                GEOMETRIX_ASSERT( pVictim );
-            }
-
-            if(
-                isMarked ||
-                (
-                    lFound != -1 &&
-                    ( pVictim->fullyLinked && pVictim->topLevel == lFound && !pVictim->marked )
-                )
-              )
-            {
-                if( !isMarked )
-                {
-                    topLevel = pVictim->topLevel;
-
-                    //! add to the exit locks.
-                    victimLock = boost::make_unique<lock>( pVictim->mutex );
-                    if( pVictim->marked )
-                    {
-                        //! Unlock it.
-                        victimLock.reset();
-                        return end();
-                    }
-
-                    pVictim->marked = true;
-                    isMarked = true;
-                }
-
-                int highestLocked = -1;
-                node* pPred;
-                bool valid = true;
-                for( int level = 0; valid && level <= topLevel; ++level )
-                {
-                    pPred = preds[level];
-
-                    GEOMETRIX_ASSERT( pPred );
-                    if( !pPred )
-                        return end();
-
-                    //! add to the exit locks.
-                    locks.emplace_back(new lock{ pPred->mutex });
-
-                    highestLocked = level;
-                    valid = !pPred->marked && pPred->next()[level] == pVictim;
-                }
-
-                if( !valid )
-                {
-                    locks.clear();
-                    continue;
-                }
-
-                for( int level = topLevel; level >= 0; --level )
-                    preds[level]->next()[level] = pVictim->next()[level];
-
-                //! Save return iterator.
-                iterator nextIT( pVictim->next()[0] );
-
-                victimLock.reset();
-
-                destroy_node( pVictim );
-
-                return nextIT;
-            }
-            else
-                return end();
-        }
-    }
-
-    iterator erase( const_iterator it )
-    {
-        if( it == end() )
-            return end();
-
-        const value_type& x = *it;
-        return erase( resolve_key( x ) );
-    }
-
-    void clear()
-    {
-        for( iterator it(begin()); it != end(); )
-        {
-            const value_type& x = *it;
-
-            //! increment before removing it.
-            ++it;
-
-            erase( resolve_key( x ) );
-        }
-    }
-
-    node* m_pHead;
-    node* m_pTail;
+    node_ptr m_pHead;
+    node_ptr m_pTail;
 
     level_selector m_selector;
 };
