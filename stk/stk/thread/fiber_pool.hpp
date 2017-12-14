@@ -1,6 +1,6 @@
 
-#ifndef STK_THREAD_M_N_THREADPOOL_HPP
-#define STK_THREAD_M_N_THREADPOOL_HPP
+#ifndef STK_THREAD_FIBER_POOL_HPP
+#define STK_THREAD_FIBER_POOL_HPP
 #pragma once
 
 #include <stk/thread/function_wrapper.hpp>
@@ -19,10 +19,11 @@
 
 namespace stk { namespace thread {
 
-template <typename Allocator = boost::fibers::fixedsize_stack, typename Traits = boost_thread_traits>
+template <typename Allocator = boost::fibers::fixedsize_stack, typename QTraits = locked_queue_traits, typename ThreadTraits = boost_thread_traits>
 class fiber_pool : boost::noncopyable
 {
-    using thread_traits = Traits;
+    using thread_traits = ThreadTraits;
+	using queue_traits = QTraits;
     using allocator_type = Allocator;
 
     using thread_type = typename thread_traits::thread_type;
@@ -32,9 +33,9 @@ class fiber_pool : boost::noncopyable
     using packaged_task = boost::fibers::packaged_task<T>;
 
     using mutex_type = typename thread_traits::mutex_type;
-	using fiber_mutex_type = atomic_spin_lock</*fiber_yield_wait*/>;// boost::fibers::mutex;
+	using fiber_mutex_type = boost::fibers::mutex;
 
-    using queue_type = locked_queue<function_wrapper, std::allocator<function_wrapper>, fiber_mutex_type>;
+    using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, fiber_mutex_type>;
 
     void os_thread(std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx)
     {
@@ -50,8 +51,19 @@ class fiber_pool : boost::noncopyable
 			m_fibers[i] = boost::fibers::fiber(boost::fibers::launch::dispatch, std::allocator_arg, m_alloc, [this]() { worker_fiber(); });
 		
 		lock_type lk{ m_mtx };
-		m_cnd.wait(lk, [this]() { return m_done.load() > 1; });
+		m_shutdownCondition.wait(lk, [this]() { return m_done.load(); });
         GEOMETRIX_ASSERT(m_done);
+
+		for (std::size_t i = start; i < end; ++i)
+		{
+			try
+			{
+				if (m_fibers[i].joinable())
+					m_fibers[i].join();
+			} 
+			catch(...)
+			{}
+		}
     }
 
     void worker_fiber()
@@ -59,7 +71,7 @@ class fiber_pool : boost::noncopyable
 		function_wrapper task;
 		while (!m_done.load())
 		{
-			if (m_tasks.try_pop(task))
+			if (queue_traits::try_pop(m_tasks, task))
 				task();
 			boost::this_fiber::yield();
 		}
@@ -71,7 +83,7 @@ public:
     using future = boost::fibers::future<T>;
 
     fiber_pool(std::size_t nFibersPerThread, const allocator_type& alloc, unsigned int nOSThreads = std::thread::hardware_concurrency() - 1)
-        : m_done(0)
+        : m_done(false)
         , m_alloc(alloc)
 		, m_barrier(nOSThreads + 1)
     {
@@ -122,30 +134,18 @@ private:
         packaged_task<result_type()> task(std::forward<Action>(m));
         auto result = task.get_future();
 
-        function_wrapper wrapped(std::move(task));
-        m_tasks.push_or_wait(std::move(wrapped));
+        queue_traits::push(m_tasks, function_wrapper(std::move(task)));
 
         return std::move(result);
-    }
+    } 
 
     void shutdown()
     {
-        int b = 0;
-        if( m_done.compare_exchange_strong(b, 1) )
+        bool b = false;
+        if( m_done.compare_exchange_strong(b, true) )
         {
-            //! done=1 shutdown the fibers.
-            boost::for_each(m_fibers, [](fiber_type& t)
-            {
-                try
-                {
-                    if (t.joinable())
-                        t.join();
-                } catch(...)
-                {}
-            });
+            m_shutdownCondition.notify_all();
 
-            m_done = 2;//! shutdown the threads (after the fibers.)
-            m_cnd.notify_all();
             boost::for_each(m_threads, [](thread_type& t)
             {
                 try
@@ -161,17 +161,16 @@ private:
 
     std::vector<thread_type>                m_threads;
     std::vector<fiber_type>                 m_fibers;
-    std::atomic<int>                        m_done;
+    std::atomic<bool>                       m_done;
     queue_type                              m_tasks;
 
     using lock_type = std::unique_lock<mutex_type>;
     mutex_type                              m_mtx;
-    boost::fibers::condition_variable_any   m_cnd;
+    boost::fibers::condition_variable_any   m_shutdownCondition;
     allocator_type                          m_alloc;
 	barrier<mutex_type>						m_barrier;
 };
 
-
 }}//! namespace stk::thread;
 
-#endif // STK_THREAD_M_N_THREADPOOL_HPP
+#endif // STK_THREAD_FIBER_POOL_HPP

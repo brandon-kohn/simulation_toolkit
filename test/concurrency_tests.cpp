@@ -19,6 +19,8 @@
 
 #include <geometrix/utility/scope_timer.ipp>
 
+#include <stk/thread/concurrentqueue.h>
+
 #include <thread>
 #include <chrono>
 #include <exception>
@@ -168,6 +170,42 @@ TEST(thread_pool_test, construct)
 // 	}
 // }
 
+std::size_t nsubwork = 10;
+
+template <typename Mutex>
+void bash_map_sequential(const char* name)
+{
+	using namespace ::testing;
+	using namespace stk;
+
+	fine_locked_hash_map<int, int, std::hash<int>, Mutex> m(200000);
+
+	auto nItems = 10000;
+	for (auto i = 0; i < nItems; ++i)
+	{
+		m.add(i, i * 10);
+	}
+
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		for (unsigned i = 0; i < 100000; ++i) {
+			for (int q = 0; q < nsubwork; ++q)
+			{
+				m.add_or_update(i, i * 20);
+				m.remove(i);
+				m.add_or_update(i, i * 20);
+			}
+		}
+	}
+
+	for (auto i = 0; i < 100000; ++i)
+	{
+		auto r = m.find(i);
+		EXPECT_TRUE(r);
+		EXPECT_EQ(i * 20, *r);
+	}
+}
+
 template <typename Mutex, typename Pool>
 void bash_map(Pool& pool, const char* name)
 {
@@ -184,14 +222,18 @@ void bash_map(Pool& pool, const char* name)
 
 	using future_t = typename Pool::future<void>;
 	std::vector<future_t> fs;
+	fs.reserve(100000);
 	{
 		GEOMETRIX_MEASURE_SCOPE_TIME(name);
 		for (unsigned i = 0; i < 100000; ++i) {
 			fs.emplace_back(pool.send([&m, i]() -> void 
 			{
-				m.add_or_update(i, i * 20); 
-				m.remove(i); 
-				m.add_or_update(i, i * 20); 
+				for (int q = 0; q < nsubwork; ++q)
+				{
+					m.add_or_update(i, i * 20);
+					m.remove(i);
+					m.add_or_update(i, i * 20);
+				}
 			}));
 		}
 		boost::for_each(fs, [](const future_t& f) { f.wait(); });
@@ -205,52 +247,96 @@ void bash_map(Pool& pool, const char* name)
 	}
 }
 
-std::size_t nTimingRuns = 10;
-TEST(timing, fibers_tiny_spin_yield_wait)
+std::size_t nTimingRuns = 20;
+// TEST(timing, fibers_tiny_spin_yield_wait)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
+// 
+// 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
+// 	fiber_pool<> fibers{ 10, alloc };
+// 
+// 	for (int i = 0; i < nTimingRuns; ++i)
+// 	{
+// 		bash_map<tiny_atomic_spin_lock<fiber_yield_wait>>(fibers, "fiber pool/yield_wait");
+// 	}
+// 
+// 	EXPECT_TRUE(true);
+// }
+
+// TEST(timing, fibers_tiny_spin_eager_yield_wait)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
+// 
+// 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
+// 	fiber_pool<> fibers{ 10, alloc };
+// 	
+// 	for (int i = 0; i < nTimingRuns; ++i)
+// 	{
+// 		bash_map<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, "fiber pool/eager_yield_wait_5000");
+// 	}
+// 
+// 	EXPECT_TRUE(true);
+// }
+
+// TEST(timing, fibers_fibers_mutex)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
+// 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
+// 	fiber_pool<> fibers{ 10, alloc };
+// 	for (int i = 0; i < nTimingRuns; ++i)
+// 	{
+// 		bash_map<boost::fibers::mutex>(fibers, "fiber pool/fibers::mutex");
+// 	}
+// 
+// 	EXPECT_TRUE(true);
+// }
+
+TEST(timing, fibers_moodycamel_concurrentQ)
 {
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-
 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
-	fiber_pool<> fibers{ 10, alloc };
-
+	fiber_pool<boost::fibers::fixedsize_stack, moodycamel_concurrent_queue_traits> fibers{ 10, alloc };
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
-		bash_map<tiny_atomic_spin_lock<fiber_yield_wait>>(fibers, "fiber pool/yield_wait");
+		bash_map<boost::fibers::mutex>(fibers, "fiber pool moody-concurrent/fibers::mutex");
 	}
 
 	EXPECT_TRUE(true);
 }
 
-
-TEST(timing, fibers_tiny_spin_eager_yield_wait)
+TEST(timing, fibers_moodycamel_concurrentQ_tiny_atomic_spinlock_eager_fiber_yield_5000)
 {
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-
 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
-	fiber_pool<> fibers{ 10, alloc };
-	
+	fiber_pool<boost::fibers::fixedsize_stack, moodycamel_concurrent_queue_traits> fibers{ 10, alloc };
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
-		bash_map<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, "fiber pool/eager_yield_wait_5000");
+		bash_map<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, "fiber pool moody-concurrent/tiny_atomic_spin_lock<eager_yield_wait<5000>>");
 	}
 
 	EXPECT_TRUE(true);
 }
 
-TEST(timing, fibers_fibers_mutex)
+TEST(timing, fibers_moodycamel_concurrentQ_atomic_spinlock_eager_fiber_yield_5000)
 {
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
-	fiber_pool<> fibers{ 10, alloc };
+	fiber_pool<boost::fibers::fixedsize_stack, moodycamel_concurrent_queue_traits> fibers{ 10, alloc };
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
-		bash_map<boost::fibers::mutex>(fibers, "fiber pool/fibers::mutex");
+		bash_map<atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, "fiber pool moody-concurrent/atomic_spin_lock<eager_yield_wait<5000>>");
 	}
 
 	EXPECT_TRUE(true);
@@ -271,69 +357,158 @@ TEST(timing, threads)
 	EXPECT_TRUE(true);
 }
 
-// static std::atomic< bool > fini{ false };
+TEST(timing, threads_moodycamel_std_mutex)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	thread_pool<moodycamel_concurrent_queue_traits> threads(5);
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_map<std::mutex>(threads, "thread pool moody-camel/std::mutex");
+	}
+
+	EXPECT_TRUE(true);
+}
+
+TEST(timing, threads_moodycamel_atomic_spinlock_eager_5000)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	thread_pool<moodycamel_concurrent_queue_traits> threads(5);
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_map<std::mutex>(threads, "thread pool moody-camel/atomic_spinlock_eager_5000");
+	}
+
+	EXPECT_TRUE(true);
+}
+
+TEST(timing, threads_atomic_spinlock_eager_5000)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	thread_pool<> threads(5);
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_map<atomic_spin_lock<eager_fiber_yield_wait<5000>>>(threads, "thread pool/atomic_spin_lock<eager_yield_wait<5000>>");
+	}
+
+	EXPECT_TRUE(true);
+}
+
+#include <stk/thread/fiber_thread_system.hpp>
+template <typename Mutex>
+void bash_map_fibers_async(const char* name)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	fiber_thread_system<> fts(boost::fibers::fixedsize_stack{ 64 * 1024 });
+
+	fine_locked_hash_map<int, int, std::hash<int>, Mutex> m(200000);
+
+	auto nItems = 10000;
+	for (auto i = 0; i < nItems; ++i)
+	{
+		m.add(i, i * 10);
+	}
+
+	using future_t = boost::fibers::future<void>;
+	std::vector<future_t> fs;
+	fs.reserve(100000);
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		for (unsigned i = 0; i < 100000; ++i) {
+
+			auto f = fts.async([&m, i]() -> void
+			{
+				for (int q = 0; q < nsubwork; ++q)
+				{
+					m.add_or_update(i, i * 20);
+					m.remove(i);
+					m.add_or_update(i, i * 20);
+				}
+			});
+
+			fs.emplace_back(std::move(f));
+		}
+		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+	}
+
+	for (auto i = 0; i < 100000; ++i)
+	{
+		auto r = m.find(i);
+		EXPECT_TRUE(r);
+		EXPECT_EQ(i * 20, *r);
+	}
+}
+
+// TEST(timing, bash_map_bf_async_bf_mutex)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
 // 
-// boost::fibers::future< int > fibonacci(int);
-// 
-// int fibonacci_(int n) {
-// 	boost::this_fiber::yield();
-// 	if (0 == n) {
-// 		return 0;
-// 	} else if (1 == n || 2 == n) {
-// 		return 1;
-// 	} else {
-// 		boost::fibers::future< int > f1 = fibonacci(n - 1);
-// 		boost::fibers::future< int > f2 = fibonacci(n - 2);
-// 		return f1.get() + f2.get();
+// 	for (int i = 0; i < nTimingRuns; ++i)
+// 	{
+// 		bash_map_fibers_async<boost::fibers::mutex>("bf::async/bf::mutex");
 // 	}
-// }
 // 
-// boost::fibers::future< int > fibonacci(int n) {
-// 	boost::fibers::packaged_task< int() > pt(std::bind(fibonacci_, n));
-// 	boost::fibers::future< int > f(pt.get_future());
-// 	boost::fibers::fiber(boost::fibers::launch::dispatch, std::move(pt)).detach();
-// 	return f;
-// }
-// 
-// void thread(unsigned int max_idx, unsigned int idx, stk::thread::barrier * b) {
-// 	boost::fibers::use_scheduling_algorithm< boost::fibers::algo::work_stealing >(max_idx);
-// 	b->wait();
-// 	while (!fini) {
-// 		// To guarantee progress, we must ensure that
-// 		// threads that have work to do are not unreasonably delayed by (thief) threads
-// 		// which are idle except for task-stealing. 
-// 		// This call yields the thief ’s processor to another thread, allowing
-// 		// descheduled threads to regain a processor and make progress. 
-// 		std::this_thread::yield();
-// 		boost::this_fiber::yield();
-// 	}
+// 	EXPECT_TRUE(true);
 // }
 
-// TEST(bloost, owk)
-// {
-// 	using namespace stk::thread;
-// 	unsigned int max_idx = 6;
-// 	boost::fibers::use_scheduling_algorithm< boost::fibers::algo::work_stealing >(max_idx);
-// 	std::vector< std::thread > threads;
-// 	barrier b(max_idx);
-// 	// launch a couple threads to help process them
-// 	for (unsigned int idx = 0; idx < max_idx-1; ++idx) {
-// 		threads.push_back(std::thread(thread, max_idx, idx, &b));
-// 	};
-// 	b.wait();
-// 	int n = 25;
-// 	// main fiber computes fibonacci( n)
-// 	// wait on result
-// 	int result = fibonacci(n).get();
-// 	//    BOOST_ASSERT( 55 == result);
-// 	std::ostringstream buffer;
-// 	buffer << "fibonacci(" << n << ") = " << result << '\n';
-// 	std::cout << buffer.str() << std::flush;
-// 	// set termination flag
-// 	fini = true;
-// 	// wait for threads to terminate
-// 	for (std::thread & t : threads) {
-// 		t.join();
-// 	}
-// 	std::cout << "done." << std::endl;
-// }
+class null_mutex
+{
+public:
+
+	null_mutex() = default;
+
+	void lock()
+	{
+		
+	}
+
+	bool try_lock()
+	{
+		return true;
+	}
+
+	void unlock()
+	{
+	}
+};
+
+TEST(timing, bash_map_sequential_null_mutex)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_map_sequential<null_mutex>("sequential/null mutex");
+	}
+
+	EXPECT_TRUE(true);
+}
+
+TEST(timing, bash_map_sequential_std_mutex)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_map_sequential<std::mutex>("sequential/std::mutex");
+	}
+
+	EXPECT_TRUE(true);
+}

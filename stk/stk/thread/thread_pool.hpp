@@ -11,32 +11,32 @@
 
 namespace stk { namespace thread {
 
-template <typename Traits = boost_thread_traits>
+template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
 class thread_pool : boost::noncopyable
 {
     using thread_traits = Traits;
-    
+	using queue_traits = QTraits;
+
     using thread_type = typename thread_traits::thread_type;
-    using thread_ptr = std::unique_ptr<thread_type>;
         
     template <typename T>
     using packaged_task = typename Traits::template packaged_task_type<T>;
+	
+	using mutex_type = typename thread_traits::mutex_type;
+	using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>;
 
     void worker_thread()
     {
-        while(!m_done)
-            run_pending_task();
+		function_wrapper task;
+		while (!m_done)
+		{
+			if (queue_traits::try_pop(m_tasks, task))
+				task();
+			else
+				thread_traits::yield();
+		}
     }
-
-    void run_pending_task() 
-    {
-        function_wrapper task;
-        if(m_tasks.try_pop(task))
-            task();
-        else
-            thread_traits::yield();
-    }
-
+	
 public:
 
     template <typename T>
@@ -76,12 +76,7 @@ public:
     {
         return send_impl(std::forward<Action>(x));
     }
-
-    void send(function_wrapper&& m)
-    {
-        m_tasks.push_or_wait(std::forward<function_wrapper>(m));
-    }
-
+	
 private:
 
     template <typename Action>
@@ -90,16 +85,15 @@ private:
         using result_type = decltype(m());
         packaged_task<result_type> task(boost::forward<Action>(m));
         auto result = task.get_future();
-
-        function_wrapper wrapped(std::move(task));
-        m_tasks.push_or_wait(std::move(wrapped));
+		        
+        queue_traits::push(m_tasks, function_wrapper(std::move(task)));
 
         return std::move(result);
     }
 
     std::atomic<bool>               m_done;
     std::vector<thread_type>        m_threads;
-    locked_queue<function_wrapper>  m_tasks;
+    queue_type						m_tasks;
 
 };
 
