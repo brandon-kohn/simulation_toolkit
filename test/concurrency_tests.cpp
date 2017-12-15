@@ -398,7 +398,7 @@ TEST(timing, threads_atomic_spinlock_eager_5000)
 	{
 		bash_map<atomic_spin_lock<eager_fiber_yield_wait<5000>>>(threads, "thread pool/atomic_spin_lock<eager_yield_wait<5000>>");
 	}
-
+	
 	EXPECT_TRUE(true);
 }
 
@@ -449,6 +449,71 @@ void bash_map_fibers_async(const char* name)
 		EXPECT_EQ(i * 20, *r);
 	}
 }
+
+// #include <boost/job/all.hpp>
+// 
+// template <typename Mutex>
+// void bash_map_boost_job(const char* name)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
+// 
+// 	boost::jobs::scheduler s(boost::jobs::cpu_topology(),
+// 		boost::jobs::static_pool< 50 >(),
+// 		boost::jobs::fixedsize_stack());
+// 	
+// 	fine_locked_hash_map<int, int, std::hash<int>, Mutex> m(200000);
+// 
+// 	auto nItems = 10000;
+// 	for (auto i = 0; i < nItems; ++i)
+// 	{
+// 		m.add(i, i * 10);
+// 	}
+// 
+// 	using future_t = std::future<void>;
+// 	std::vector<future_t> fs;
+// 	fs.reserve(100000);
+// 	{
+// 		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+// 		for (unsigned i = 0; i < 100000; ++i) {
+// 
+// 			auto f = s.submit_preempt(0, [&m, i]() -> void
+// 			{
+// 				for (int q = 0; q < nsubwork; ++q)
+// 				{
+// 					m.add_or_update(i, i * 20);
+// 					m.remove(i);
+// 					m.add_or_update(i, i * 20);
+// 				}
+// 			});
+// 
+// 			fs.emplace_back(std::move(f));
+// 		}
+// 		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+// 	}
+// 
+// 	for (auto i = 0; i < 100000; ++i)
+// 	{
+// 		auto r = m.find(i);
+// 		EXPECT_TRUE(r);
+// 		EXPECT_EQ(i * 20, *r);
+// 	}
+// }
+
+// TEST(timing, bash_map_boost_jobs)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
+// 	
+// 	for (int i = 0; i < nTimingRuns; ++i)
+// 	{
+// 		bash_map_boost_job<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>("bj/tiny_atomic_spin-eager5000");
+// 	}
+// 
+// 	EXPECT_TRUE(true);
+// }
 
 // TEST(timing, bash_map_bf_async_bf_mutex)
 // {
