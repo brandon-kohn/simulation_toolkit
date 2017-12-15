@@ -17,6 +17,8 @@
 #include <stk/container/fine_locked_hash_map.hpp>
 #include <boost/thread/futures/wait_for_all.hpp>
 
+#include <boost/context/stack_traits.hpp>
+
 #include <geometrix/utility/scope_timer.ipp>
 
 #include <stk/thread/concurrentqueue.h>
@@ -28,6 +30,8 @@
 
 TEST(fine_locked_hash_map, construct)
 {
+	//! Had to put this verify in to stop this reference from being dropped on gcc in linux.
+	GEOMETRIX_VERIFY(boost::context::stack_traits::default_size() > 0 );
 	using namespace ::testing;
 	using namespace stk;
 
@@ -99,7 +103,7 @@ TEST(active_object_test, construct)
 	using namespace stk::thread;
 	active_object<> obj;
 
-	std::atomic<bool> isRun = false;
+	std::atomic<bool> isRun(false);
 	auto r = obj.send([&]() { return isRun = true; });
 	
 	EXPECT_TRUE(r.get() && isRun);
@@ -131,7 +135,7 @@ TEST(thread_pool_test, construct)
 
 	static_assert(sizeof(std::atomic<std::uint8_t>) == 1, "shit!");
 
-	std::atomic<bool> isRun = false;
+	std::atomic<bool> isRun(false);
 	auto r = boost::when_all( obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
 		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
 		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
@@ -220,7 +224,7 @@ void bash_map(Pool& pool, const char* name)
 		m.add(i, i * 10);
 	}
 
-	using future_t = typename Pool::future<void>;
+	using future_t = typename Pool::template future<void>;
 	std::vector<future_t> fs;
 	fs.reserve(100000);
 	{
