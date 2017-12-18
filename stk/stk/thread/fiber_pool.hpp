@@ -12,6 +12,7 @@
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/fiber/all.hpp>
 #include <cstdint>
+#include <stk/thread/set_thread_use_scheduling_algorithm.hpp>
 
 #ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
 #include <stk/thread/bind/bind_processor.hpp>
@@ -32,28 +33,33 @@ class fiber_pool : boost::noncopyable
     template <typename T>
     using packaged_task = boost::fibers::packaged_task<T>;
 
-    using mutex_type = typename thread_traits::mutex_type;
+    using thread_mutex_type = typename thread_traits::mutex_type;
+	using thread_lock_type = std::unique_lock<thread_mutex_type>;
+	
 	using fiber_mutex_type = boost::fibers::mutex;
+	using fiber_lock_type = std::unique_lock<fiber_mutex_type>;
 
     using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, fiber_mutex_type>;
-
+		
     void os_thread(std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx)
     {
 #ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
         bind_to_processor(idx);
 #endif
-        //boost::fibers::use_scheduling_algorithm<boost::fibers::algo::shared_work>(/*nThreads*/);
+		boost::fibers::use_scheduling_algorithm<boost::fibers::algo::round_robin>();
         m_barrier.wait();
-
+		
 		auto start = idx * nFibersPerThread;
 		auto end = start + nFibersPerThread;
 		for (std::size_t i = start; i < end; ++i)
 			m_fibers[i] = boost::fibers::fiber(boost::fibers::launch::dispatch, std::allocator_arg, m_alloc, [this]() { worker_fiber(); });
 		
-		lock_type lk{ m_mtx };
-		m_shutdownCondition.wait(lk, [this]() { return m_done.load(); });
+		{
+			fiber_lock_type lk{ m_fiberMtx };
+			m_shutdownCondition.wait(lk, [this]() { return m_done.load(); });
+		}
         GEOMETRIX_ASSERT(m_done);
-
+		
 		for (std::size_t i = start; i < end; ++i)
 		{
 			try
@@ -144,8 +150,8 @@ private:
         bool b = false;
         if( m_done.compare_exchange_strong(b, true) )
         {
-            m_shutdownCondition.notify_all();
-
+			m_shutdownCondition.notify_all();
+			
             boost::for_each(m_threads, [](thread_type& t)
             {
                 try
@@ -163,12 +169,10 @@ private:
     std::vector<fiber_type>                 m_fibers;
     std::atomic<bool>                       m_done;
     queue_type                              m_tasks;
-
-    using lock_type = std::unique_lock<mutex_type>;
-    mutex_type                              m_mtx;
-    boost::fibers::condition_variable_any   m_shutdownCondition;
-    allocator_type                          m_alloc;
-	barrier<mutex_type>						m_barrier;
+	fiber_mutex_type						m_fiberMtx;
+    boost::fibers::condition_variable_any	m_shutdownCondition;
+    allocator_type							m_alloc;
+	barrier<thread_mutex_type>				m_barrier;
 };
 
 }}//! namespace stk::thread;

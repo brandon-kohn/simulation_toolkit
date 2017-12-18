@@ -7,14 +7,15 @@
 #ifndef STK_MAKE_READY_FUTURE_HPP
 #define STK_MAKE_READY_FUTURE_HPP
 
-#include <boost/fibers/future/promise.hpp>
+#include <boost/fiber/future/promise.hpp>
 
 namespace boost { namespace fibers {
 
 template <typename T>
-inline future<T> make_ready_future(T&& value)
+inline future<typename std::decay<T>::type> make_ready_future(T&& value)
 {
-    boost::fibers::promise<T> pi;
+	using R = typename std::decay<T>::type;
+    boost::fibers::promise<R> pi;
     auto f = pi.get_future();
     pi.set_value(std::forward<T>(value));
     return std::move(f);

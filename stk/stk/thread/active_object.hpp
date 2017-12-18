@@ -30,12 +30,16 @@ namespace detail
     };
 }//! namespace detail;
 
-template <typename Traits = boost_thread_traits>
+template <typename Traits = boost_thread_traits, typename QTraits = locked_queue_traits>
 class active_object
 {
     using thread_traits = Traits;
+    using queue_traits = QTraits;
+   
     using thread_type = typename thread_traits::thread_type;
-        
+    using mutex_type = typename thread_traits::mutex_type;
+    using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>; 
+
     template <typename T>
     using future = typename Traits::template future_type<T>;
     
@@ -58,6 +62,21 @@ public:
         }
     }
 
+	template <typename ThreadCreationPolicy>
+	active_object(ThreadCreationPolicy&& creator)
+		: m_done(false)
+	{
+		try
+		{
+			m_thread = creator([this]() { run(); });
+		}
+		catch (...)
+		{
+			shutdown(false);
+			throw;
+		}
+	}
+
     ~active_object()
     {
         shutdown();
@@ -73,11 +92,6 @@ public:
     future<decltype(std::declval<Action>()())> send(Action&& x)
     {
         return send_impl(std::move(x));
-    }
-
-    void send(function_wrapper&& m)
-    {
-        m_actionQueue.push_or_wait(std::move(m));
     }
 
     void shutdown(bool finishActions = true)
@@ -103,8 +117,7 @@ private:
         packaged_task<result_type> task(std::forward<Action>(m));
         future<result_type> result(task.get_future());
 
-        function_wrapper wrapped(std::move(task));
-        m_actionQueue.push_or_wait(std::move(wrapped));
+        queue_traits::push(m_actionQueue, function_wrapper(std::move(task)));
 
         return std::move( result );
     }
@@ -113,16 +126,18 @@ private:
     {
         while( !m_done )
         {
-            function_wrapper action = m_actionQueue.pop_or_wait();
-            action();
+            function_wrapper action;
+            if(queue_traits::try_pop(m_actionQueue, action))
+                action();
+            thread_traits::yield();
             thread_traits::interruption_point();
         }
     }
 
     //! State used locally and not in thread(no synchronization needed)
-    std::atomic<bool>              m_done;
-    locked_queue<function_wrapper> m_actionQueue;
-    thread_type                    m_thread;
+    std::atomic<bool>  m_done;
+    queue_type         m_actionQueue;
+    thread_type        m_thread;
 
 };
 
