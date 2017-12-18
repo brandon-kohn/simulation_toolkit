@@ -48,8 +48,16 @@ namespace stk { namespace thread {
 
 	struct work_stealing_fiber_scheduler_args
 	{
-		std::uint32_t id;
-		std::vector<boost::intrusive_ptr<boost::fibers::algo::pool_work_stealing>>* schedulers;
+		work_stealing_fiber_scheduler_args() = default;
+
+		work_stealing_fiber_scheduler_args(std::uint32_t id, std::vector<boost::intrusive_ptr<boost::fibers::algo::pool_work_stealing>>* schedulers = nullptr, bool suspend = false )
+			: id(id)
+			, schedulers(schedulers)
+			, suspend(suspend)
+		{}
+
+		std::uint32_t id{ static_cast<std::uint32_t>(-1) };
+		std::vector<boost::intrusive_ptr<boost::fibers::algo::pool_work_stealing>>* schedulers{ nullptr };
 		bool			suspend{ false };
 	};
 
