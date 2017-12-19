@@ -18,7 +18,7 @@ namespace stk { namespace thread {
 
     inline bool bind_to_processor(unsigned int cpu) 
     {
-        thread_affinity_policy_data_t policy_data = { cpu };
+        thread_affinity_policy_data_t policy_data = { static_cast<int>(cpu) };
         thread_port_t threadport = pthread_mach_thread_np(pthread_self());
         return thread_policy_set(threadport, THREAD_AFFINITY_POLICY, (thread_policy_t)&policy_data, THREAD_AFFINITY_POLICY_COUNT) == KERN_SUCCESS;
     }
@@ -26,3 +26,4 @@ namespace stk { namespace thread {
 }}//! namespace stk::thread;
 
 #endif//! STK_THREAD_BIND_PROCESSOR_MACOS_HPP
+
