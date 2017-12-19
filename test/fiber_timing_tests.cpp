@@ -28,6 +28,7 @@
 #include <iostream>
 
 std::size_t nsubwork = 10;
+auto default_stack_size = boost::context::stack_traits::default_size();
 
 template <typename Mutex>
 void bash_map_sequential(const char* name)
