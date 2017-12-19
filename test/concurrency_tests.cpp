@@ -169,7 +169,7 @@ TEST(fiber_pool_test, construct)
 	{
 		fiber_pool<> obj{ 10, alloc };;
 
-		std::atomic<bool> isRun = false;
+		std::atomic<bool> isRun{ false };
 
 		std::vector<boost::fibers::future<void>> r;
 		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
