@@ -24,8 +24,6 @@
 #include <boost/fiber/detail/config.hpp>
 #include <boost/fiber/scheduler.hpp>
 #include <boost/fiber/detail/context_spinlock_queue.hpp>
-//#include <boost/fiber/detail/context_spmc_queue.hpp>
-#include <boost/context/detail/prefetch.hpp>
 #include <boost/fiber/type.hpp>
 #include <geometrix/utility/assert.hpp>
 
@@ -86,45 +84,7 @@ public:
         return !rqueue_.empty();
     }
 
-	virtual context* pick_next() noexcept 
-	{
-		context * victim = rqueue_.pop();
-		if (nullptr != victim) 
-		{
-			boost::context::detail::prefetch_range(victim, sizeof(context));
-			if (!victim->is_context(type::pinned_context)) 
-				context::active()->attach(victim);
-		} 
-		else 
-		{
-			std::uint32_t id = 0;
-			std::size_t count = 0, size = schedulers_->size();
-			static thread_local std::minstd_rand generator{ std::random_device{}() };
-			std::uniform_int_distribution< std::uint32_t > distribution{0, static_cast<std::uint32_t>(thread_count_ - 1)};
-			do 
-			{
-				do 
-				{
-					++count;
-					// random selection of one logical cpu
-					// that belongs to the local NUMA node
-					id = distribution(generator);
-					// prevent stealing from own scheduler
-				}
-				while (id == id_);
-				// steal context from other scheduler
-				victim = (*schedulers_)[id]->steal();
-			} 
-			while (nullptr == victim && count < size);
-			if (nullptr != victim) 
-			{
-				boost::context::detail::prefetch_range(victim, sizeof(context));
-				BOOST_ASSERT(!victim->is_context(type::pinned_context));
-				context::active()->attach(victim);
-			}
-		}
-		return victim;
-	}
+	virtual context* pick_next() noexcept;
 
 	virtual void suspend_until(std::chrono::steady_clock::time_point const& time_point) noexcept 
 	{

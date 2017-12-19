@@ -12,7 +12,6 @@
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/fiber/all.hpp>
 #include <cstdint>
-#include <stk/thread/set_thread_use_scheduling_algorithm.hpp>
 
 #ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
 #include <stk/thread/bind/bind_processor.hpp>
@@ -43,9 +42,6 @@ class fiber_pool : boost::noncopyable
 		
     void os_thread(std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx)
     {
-#ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
-        bind_to_processor(idx);
-#endif
 		boost::fibers::use_scheduling_algorithm<boost::fibers::algo::round_robin>();
         m_barrier.wait();
 		
