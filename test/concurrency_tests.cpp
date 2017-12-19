@@ -525,8 +525,11 @@ TEST(timing, boost_fibers_skynet_raw)
 #endif
 
 	std::vector<boost::intrusive_ptr<boost::fibers::algo::pool_work_stealing>> schedulers(std::thread::hardware_concurrency());
-	work_stealing_fiber_scheduler_args args{ 0, &schedulers, false };
-	fiber_thread_system<allocator_type, boost::fibers::algo::pool_work_stealing> fts(salloc, args);
+	
+	auto schedulerPolicy = [&schedulers](unsigned int id) {
+		boost::fibers::use_scheduling_algorithm<boost::fibers::algo::pool_work_stealing>(id, &schedulers, false);
+	};
+	fiber_thread_system<allocator_type> fts(salloc, std::thread::hardware_concurrency(), schedulerPolicy);
 	{
 		auto f = fts.async([this, &salloc]() {
 			GEOMETRIX_MEASURE_SCOPE_TIME("boost_fibers_skynet_raw");

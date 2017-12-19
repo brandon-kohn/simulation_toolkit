@@ -3,30 +3,21 @@
 #define STK_THREAD_FIBER_THREAD_SYSTEM_HPP
 #pragma once
 
-#include <stk/thread/function_wrapper.hpp>
 #include <stk/thread/barrier.hpp>
-#include <stk/container/locked_queue.hpp>
-#include <stk/thread/atomic_spin_lock.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
-#include <stk/thread/set_thread_use_scheduling_algorithm.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/fiber/all.hpp>
 #include <cstdint>
 
-#ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
-#include <stk/thread/bind/bind_processor.hpp>
-#endif
-
 namespace stk {	namespace thread {
 
-	template <typename Allocator = boost::fibers::fixedsize_stack, typename FiberScheduleAlgo = boost::fibers::algo::round_robin, typename ThreadTraits = boost_thread_traits>
+	template <typename Allocator = boost::fibers::fixedsize_stack, typename ThreadTraits = boost_thread_traits>
 	class fiber_thread_system : boost::noncopyable
 	{
 		using thread_traits = ThreadTraits;
 		using allocator_type = Allocator;
-        using schedule_algo_type = FiberScheduleAlgo;
-
+    
 		using thread_type = typename thread_traits::thread_type;
 		using fiber_type = boost::fibers::fiber;
 
@@ -36,15 +27,11 @@ namespace stk {	namespace thread {
 		using thread_mutex_type = typename thread_traits::mutex_type;
 		using fiber_mutex_type = boost::fibers::mutex;
 		using fiber_lock_type = std::unique_lock<fiber_mutex_type>;
-				
-        template <typename FiberSchedulingArgs>
-		void os_thread(std::size_t nThreads, FiberSchedulingArgs args, unsigned int idx)
-		{
-#ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
-			bind_to_processor(idx);
-#endif
-			args.id = idx;
-            set_thread_use_scheduling_algorithm<schedule_algo_type>(args);
+
+        void os_thread(std::size_t nThreads, unsigned int idx, std::function<void(unsigned int idx)> schedulerPolicy)
+		{		
+			if (schedulerPolicy)
+				schedulerPolicy(idx);
 			m_barrier.wait();
 
 			fiber_lock_type lk{ m_fiberMutex };
@@ -58,8 +45,7 @@ namespace stk {	namespace thread {
 		template <typename T>
 		using future = boost::fibers::future<T>;
 
-        template <typename FiberSchedulingArgs>
-		fiber_thread_system(const allocator_type& alloc, FiberSchedulingArgs fargs, unsigned int nOSThreads = std::thread::hardware_concurrency())
+		fiber_thread_system(const allocator_type& alloc, unsigned int nOSThreads = std::thread::hardware_concurrency(), std::function<void(unsigned int idx)> schedulerPolicy = std::function<void(unsigned int idx)>() )
 			: m_done(false)
 			, m_alloc(alloc)
 			, m_barrier(nOSThreads)
@@ -70,17 +56,14 @@ namespace stk {	namespace thread {
 
 			try
 			{
-#ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
-				bind_to_processor(0);
-#endif
 				auto nCPUS = std::thread::hardware_concurrency();
 				m_threads.reserve(nOSThreads - 1);
 
 				for (unsigned int i = 1; i < nOSThreads; ++i)
-					m_threads.emplace_back([this,&fargs](std::size_t nThreads, unsigned int idx) { os_thread(nThreads, fargs, idx); }, nOSThreads, i % nCPUS);
+					m_threads.emplace_back([this, schedulerPolicy](std::size_t nThreads, unsigned int idx) { os_thread(nThreads, idx, schedulerPolicy); }, nOSThreads, i);
 
-				fargs.id = 0;
-				set_thread_use_scheduling_algorithm<schedule_algo_type>(fargs);
+				if( schedulerPolicy )
+					schedulerPolicy(0);
 
 				m_barrier.wait();
 			}
