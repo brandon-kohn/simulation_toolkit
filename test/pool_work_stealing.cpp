@@ -1,4 +1,4 @@
-#include <stk/thread/pool_work_stealing.hpp>
+#include "pool_work_stealing.hpp"
 #include <boost/context/detail/prefetch.hpp>
 
 namespace boost { namespace fibers { namespace algo {
