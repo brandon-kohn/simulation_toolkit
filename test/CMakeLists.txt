@@ -30,7 +30,9 @@ if(Boost_FOUND)
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
 
-    add_executable(fiber_timing_tests fiber_timing_tests.cpp pool_work_stealing.cpp)
+    add_executable(fiber_timing_tests fiber_timing_tests.cpp)
     target_link_libraries(fiber_timing_tests gtest gmock_main stk geometrix ${Boost_LIBRARIES})
+    add_executable(skynet_tests skynet_tests.cpp pool_work_stealing.cpp)
+    target_link_libraries(skynet_tests gtest gmock_main stk geometrix ${Boost_LIBRARIES})
 
 endif()

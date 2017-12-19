@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <condition_variable>
 #include <mutex>
+#include <boost/config.hpp>
 
 #include <geometrix/utility/assert.hpp>
 

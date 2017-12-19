@@ -167,7 +167,7 @@ TEST(fiber_pool_test, construct)
 	
 	auto alloc = boost::fibers::fixedsize_stack{64 * 1024};
 	{
-		fiber_pool<> obj{ 10, alloc };;
+		fiber_pool<> obj{ 10, alloc };
 
 		std::atomic<bool> isRun{ false };
 
