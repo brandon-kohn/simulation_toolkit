@@ -225,54 +225,6 @@ TEST(timing, threads_atomic_spinlock_eager_5000)
 	EXPECT_TRUE(true);
 }
 
-#include <stk/thread/fiber_thread_system.hpp>
-template <typename Mutex>
-void bash_map_fibers_async(const char* name)
-{
-	using namespace ::testing;
-	using namespace stk;
-	using namespace stk::thread;
-
-	fiber_thread_system<> fts(boost::fibers::fixedsize_stack{ 64 * 1024 });
-
-	fine_locked_hash_map<int, int, std::hash<int>, Mutex> m(200000);
-
-	auto nItems = 10000;
-	for (auto i = 0; i < nItems; ++i)
-	{
-		m.add(i, i * 10);
-	}
-
-	using future_t = boost::fibers::future<void>;
-	std::vector<future_t> fs;
-	fs.reserve(100000);
-	{
-		GEOMETRIX_MEASURE_SCOPE_TIME(name);
-		for (unsigned i = 0; i < 100000; ++i) {
-
-			auto f = fts.async([&m, i]() -> void
-			{
-				for (int q = 0; q < nsubwork; ++q)
-				{
-					m.add_or_update(i, i * 20);
-					m.remove(i);
-					m.add_or_update(i, i * 20);
-				}
-			});
-
-			fs.emplace_back(std::move(f));
-		}
-		boost::for_each(fs, [](const future_t& f) { f.wait(); });
-	}
-
-	for (auto i = 0; i < 100000; ++i)
-	{
-		auto r = m.find(i);
-		EXPECT_TRUE(r);
-		EXPECT_EQ(i * 20, *r);
-	}
-}
-
 class null_mutex
 {
 public:
