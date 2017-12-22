@@ -17,9 +17,6 @@
 
 namespace stk {
 
-	//! \brief A locked fifo queue.
-
-	//!
 	template <typename Item, typename Alloc = std::allocator<Item>, typename Mutex = std::mutex>
 	class locked_queue
 	{
@@ -210,6 +207,12 @@ namespace stk {
 		static bool try_pop(locked_queue<T, Alloc, Mutex>& q, T& value)
 		{
 			return q.try_pop(value);
+		}
+
+		template <typename T, typename Alloc, typename Mutex>
+		static bool try_steal(locked_queue<T, Alloc, Mutex>& q, T& value)
+		{
+			return q.try_steal(value);
 		}
 	};
 

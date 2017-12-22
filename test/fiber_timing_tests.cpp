@@ -11,6 +11,7 @@
 
 #include <stk/thread/active_object.hpp>
 #include <stk/thread/thread_pool.hpp>
+#include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/fiber_pool.hpp> //-> requires C++11 with constexpr/noexcept etc. vs140 etc.
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/container/fine_locked_hash_map.hpp>
@@ -28,6 +29,9 @@
 #include <iostream>
 
 std::size_t nsubwork = 10;
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);//! for work_stealing_thread_pool.
+
+//! Pull this symbol in so gcc doesn't optimize away.
 auto default_stack_size = boost::context::stack_traits::default_size();
 
 template <typename Mutex>
@@ -106,20 +110,20 @@ void bash_map(Pool& pool, const char* name)
 }
 
 int nTimingRuns = 20;
-TEST(timing, fibers_fibers_mutex)
-{
-	using namespace ::testing;
-	using namespace stk;
-	using namespace stk::thread;
-	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
-	fiber_pool<> fibers{ 10, alloc };
-	for (int i = 0; i < 1/*nTimingRuns*/; ++i)
-	{
-		bash_map<boost::fibers::mutex>(fibers, "fiber pool/fibers::mutex");
-	}
-
-	EXPECT_TRUE(true);
-}
+// TEST(timing, fibers_fibers_mutex)
+// {
+// 	using namespace ::testing;
+// 	using namespace stk;
+// 	using namespace stk::thread;
+// 	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
+// 	fiber_pool<> fibers{ 10, alloc };
+// 	for (int i = 0; i < 1/*nTimingRuns*/; ++i)
+// 	{
+// 		bash_map<boost::fibers::mutex>(fibers, "fiber pool/fibers::mutex");
+// 	}
+// 
+// 	EXPECT_TRUE(true);
+// }
 
 TEST(timing, fibers_moodycamel_concurrentQ)
 {
@@ -205,7 +209,7 @@ TEST(timing, threads_moodycamel_atomic_spinlock_eager_5000)
 	thread_pool<moodycamel_concurrent_queue_traits> threads(5);
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
-		bash_map<std::mutex>(threads, "thread pool moody-camel/atomic_spinlock_eager_5000");
+		bash_map<atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, "thread pool moody-camel/atomic_spinlock_eager_5000");
 	}
 
 	EXPECT_TRUE(true);
@@ -220,9 +224,23 @@ TEST(timing, threads_atomic_spinlock_eager_5000)
 	thread_pool<> threads(5);
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
-		bash_map<atomic_spin_lock<eager_fiber_yield_wait<5000>>>(threads, "thread pool/atomic_spin_lock<eager_yield_wait<5000>>");
+		bash_map<atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, "thread pool/atomic_spin_lock<eager_yield_wait<5000>>");
 	}
 	
+	EXPECT_TRUE(true);
+}
+
+TEST(timing, work_stealing_thread_pool_moodycamel_concurrentQ_tiny_atomic_spinlock_eager_fiber_yield_5000)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{5};
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_map<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(pool, "work_stealing_thread_pool moody-concurrent/tiny_atomic_spin_lock<eager_yield_wait<5000>>");
+	}
+
 	EXPECT_TRUE(true);
 }
 

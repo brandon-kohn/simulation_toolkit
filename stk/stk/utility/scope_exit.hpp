@@ -46,7 +46,7 @@ namespace stk
 /***/
 
 #define STK_MEMBER_SCOPE_EXIT(...)                                                                               \
-    auto BOOST_PP_CAT(stk_member_scope_exit_, __LINE__) = stk::detail::make_scope_exit([this,&](){__VA_ARGS__;}) \
+    auto BOOST_PP_CAT(stk_member_scope_exit_, __LINE__) = stk::detail::make_scope_exit([&, this](){__VA_ARGS__;}) \
 /***/
 
 #endif// STK_SCOPEEXIT_HPP

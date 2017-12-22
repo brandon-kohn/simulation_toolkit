@@ -979,3 +979,27 @@ inline void swap(BlockingConcurrentQueue<T, Traits>& a, BlockingConcurrentQueue<
 }
 
 }	// end namespace moodycamel
+
+struct moodycamel_blocking_concurrent_queue_traits
+{
+	template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
+	using queue_type = moodycamel::BlockingConcurrentQueue<T>;
+
+	template <typename T, typename Traits, typename Value>
+	static void push(moodycamel::ConcurrentQueue<T, Traits>& q, Value&& value)
+	{
+		q.enqueue(std::forward<Value>(value));
+	}
+
+	template <typename T, typename Traits>
+	static bool try_pop(moodycamel::BlockingConcurrentQueue<T, Traits>& q, T& value)
+	{
+		return q.try_dequeue(value);
+	}
+
+	template <typename T, typename Traits>
+	static bool try_steal(moodycamel::BlockingConcurrentQueue<T, Traits>& q, T& value)
+	{
+		return q.try_dequeue(value);
+	}
+};

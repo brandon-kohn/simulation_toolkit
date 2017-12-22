@@ -159,6 +159,28 @@ TEST(thread_pool_test, construct)
 	EXPECT_TRUE(isRun);
 }
 
+#include <stk/thread/work_stealing_thread_pool.hpp>
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
+TEST(work_stealing_thread_pool_test, construct)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	work_stealing_thread_pool<> obj;
+
+	std::atomic<bool> isRun(false);
+	auto r = boost::when_all(obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([&]() -> bool { std::this_thread::sleep_for(std::chrono::milliseconds(10)); return isRun = true; }));
+
+	r.wait();
+
+	EXPECT_TRUE(isRun);
+}
+
 TEST(fiber_pool_test, construct)
 {
 	using namespace ::testing;
@@ -183,4 +205,171 @@ TEST(fiber_pool_test, construct)
 
 		EXPECT_TRUE(isRun);
 	}
+}
+
+#include <stk/thread/thread_specific.hpp>
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
+TEST(thread_specific_tests, thread_specific_int)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	thread_specific<int> sut{ []() { return std::make_shared<int>(10); } };
+
+	std::vector<std::thread> thds;
+	for(int i = 0; i < 10; ++i)
+	{
+		thds.emplace_back([i, &sut]() 
+		{
+			*sut = i; 
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			int v = *sut;
+			EXPECT_EQ(i, v);
+		});
+	}
+
+	boost::for_each(thds, [](auto& thd) { thd.join(); });
+}
+
+TEST(thread_specific_tests, const_thread_specific_int)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	const thread_specific<int> sut{ []() { return std::make_shared<int>(10); } };
+
+	std::vector<std::thread> thds;
+	for (int i = 0; i < 10; ++i)
+	{
+		thds.emplace_back([i, &sut]()
+		{
+			int v = *sut;
+			EXPECT_EQ(10, v);
+		});
+	}
+
+	boost::for_each(thds, [](auto& thd) { thd.join(); });
+}
+
+TEST(thread_specific_tests, thread_specific_unique_ptr)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	thread_specific<std::unique_ptr<int>> sut{ []() { return std::make_shared<std::unique_ptr<int>>(std::make_unique<int>(10)); } };
+
+	std::vector<std::thread> thds;
+	for (int i = 0; i < 10; ++i)
+	{
+		thds.emplace_back([i, &sut]()
+		{
+			std::unique_ptr<int>& p = *sut;
+			*p = i;
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			std::unique_ptr<int>& p2 = *sut;
+			EXPECT_EQ(p.get(), p2.get());
+			EXPECT_EQ(i, *p2);
+		});
+	}
+
+	boost::for_each(thds, [](auto& thd) { thd.join(); });
+}
+
+#include <stk/container/concurrent_skip_list.hpp>
+TEST(concurrent_skip_list_tests, construct)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	
+	EXPECT_NO_THROW((concurrent_map<int, int>()));
+}
+
+TEST(concurrent_skip_list_tests, find_on_empty_returns_end)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = concurrent_map<int, int>::iterator;
+	
+	concurrent_map<int, int> m;
+	auto it = m.find(10);
+
+	EXPECT_EQ(it, m.end());
+}
+
+TEST(concurrent_skip_list_tests, insert_to_empty)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = concurrent_map<int, int>::iterator;
+	
+	concurrent_map<int, int> m;
+	bool inserted = false;
+	iterator it;
+
+	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+	EXPECT_TRUE(inserted);
+	EXPECT_NE(it, m.end());
+	EXPECT_EQ(20, it->second);
+}
+
+TEST(concurrent_skip_list_tests, insert_two_no_replication)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = concurrent_map<int, int>::iterator;
+
+	concurrent_map<int, int> m;
+	bool inserted = false;
+	iterator it;
+
+	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+	EXPECT_TRUE(inserted);
+	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+	EXPECT_FALSE(inserted);
+
+	EXPECT_NE(it, m.end());
+	EXPECT_EQ(20, it->second);
+}
+
+TEST(concurrent_skip_list_tests, insert_two_find_second)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = concurrent_map<int, int>::iterator;
+
+	concurrent_map<int, int> m;
+	bool inserted = false;
+	iterator it;
+
+	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+	EXPECT_TRUE(inserted);
+	std::tie(it, inserted) = m.insert(std::make_pair(20, 30));
+	EXPECT_TRUE(inserted);
+	EXPECT_NE(it, m.end());
+	EXPECT_EQ(30, it->second);
+
+	it = m.find(10);
+	EXPECT_NE(it, m.end());
+	EXPECT_EQ(20, it->second);
+	it = m.find(20);
+	EXPECT_NE(it, m.end());
+	EXPECT_EQ(30, it->second);
+}
+
+TEST(concurrent_skip_list_tests, insert_two_remove_first_iterator_remains_valid)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = concurrent_map<int, int>::iterator;
+
+	concurrent_map<int, int> m;
+	bool inserted = false;
+	iterator it;
+
+	std::tie(it, inserted) = m.insert(std::make_pair(20, 30));
+	EXPECT_TRUE(inserted);
+	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+	EXPECT_TRUE(inserted);
+
+	auto nit = m.erase(10);
+
+	EXPECT_NE(it, m.end());
 }

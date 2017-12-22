@@ -42,6 +42,9 @@ class fiber_pool : boost::noncopyable
 		
     void os_thread(std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx)
     {
+#ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
+		bind_to_processor(idx % std::thread::hardware_concurrency());
+#endif
 		boost::fibers::use_scheduling_algorithm<boost::fibers::algo::round_robin>();
         m_barrier.wait();
 		
@@ -100,7 +103,7 @@ public:
 			m_fibers.resize(nFibersPerThread * nOSThreads);
 
             for(unsigned int i = 0; i < nOSThreads; ++i)
-                m_threads.emplace_back([this](std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx){ os_thread(nThreads, nFibersPerThread, idx); }, nOSThreads, nFibersPerThread, i % nCPUS);
+                m_threads.emplace_back([this](std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx){ os_thread(nThreads, nFibersPerThread, idx); }, nOSThreads, nFibersPerThread, i);
             m_barrier.wait();
         }
         catch(...)

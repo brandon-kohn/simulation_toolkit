@@ -3645,6 +3645,12 @@ struct moodycamel_concurrent_queue_traits
 	{
 		return q.try_dequeue(value);
 	}
+
+	template <typename T, typename Traits>
+	static bool try_steal(moodycamel::ConcurrentQueue<T, Traits>& q, T& value)
+	{
+		return q.try_dequeue(value);
+	}
 };
 
 #if defined(__GNUC__)
