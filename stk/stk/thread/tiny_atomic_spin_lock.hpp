@@ -1,5 +1,5 @@
 //
-//! Copyright Â© 2017
+//! Copyright © 2017
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
@@ -11,6 +11,7 @@
 
 #include <stk/thread/spin_lock_wait_strategies.hpp>
 #include <atomic>
+#include <cstdint>
 
 namespace stk { namespace thread {
 	
@@ -18,43 +19,41 @@ namespace stk { namespace thread {
 	template <typename WaitStrategy = null_wait_strategy>
 	class tiny_atomic_spin_lock
 	{
-		enum lock_state
+		enum lock_state : std::uint8_t
 		{
 			Free = 0
 		,   Locked = 1
 		};
 
 	public:
-
-	  tiny_atomic_spin_lock() = default;
-
-	  void lock()
-	  {
-		  WaitStrategy wait;
-		  do 
-		  {
-			  while (m_state.load() != Free)
-				  wait();
-		  } 
-		  while (!try_lock());
-	  }
-  
-	  bool try_lock()
-	  {
-		  return compare_and_set(Free, Locked);
-	  }
-  
-	  void unlock()
-	  {
-		  m_state.store(Free, std::memory_order_release);
-	  }
-  
-	private:
-
-		bool compare_and_set(std::uint8_t expected, std::uint8_t result)
+		
+		tiny_atomic_spin_lock() = default;
+		
+		void lock()
 		{
-			return std::atomic_compare_exchange_strong_explicit(&m_state, &expected, result, std::memory_order_acquire, std::memory_order_relaxed);
+			WaitStrategy wait;
+			do 
+			{
+				while (m_state.load() != Free)
+					wait();
+			} 
+			while (!try_lock());
+			GEOMETRIX_ASSERT(m_state.load() == Locked);
 		}
+		
+		bool try_lock()
+		{
+			std::uint8_t expected = Free;
+			std::uint8_t desired = Locked;
+			return std::atomic_compare_exchange_strong_explicit(&m_state, &expected, desired, std::memory_order_acquire, std::memory_order_relaxed);
+		}
+		
+		void unlock()
+		{
+			m_state.store(Free, std::memory_order_release);
+		}
+
+	private:
 
 		std::atomic<std::uint8_t> m_state{ Free };
 

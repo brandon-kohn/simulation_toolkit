@@ -118,22 +118,20 @@ namespace stk {
         Pred m_compare; // the comparator predicate for keys
     };
 
-	
-	/////////////////////////
     template<typename AssociativeTraits>
     class skip_list_node_manager : public AssociativeTraits
     {
     protected:
         struct          node;
         friend struct   node;
-        typedef node* node_ptr;
 
-        typedef AssociativeTraits                          traits;
-        typedef typename AssociativeTraits::allocator_type allocator_type;
-        typedef typename AssociativeTraits::key_compare    key_compare;
-        typedef typename AssociativeTraits::value_type     value_type;
-        typedef typename AssociativeTraits::key_type       key_type;
-		typedef typename AssociativeTraits::mutex_type     mutex_type;
+        using node_ptr = node*;
+        using traits = AssociativeTraits;
+		using allocator_type = typename traits::allocator_type;
+        using key_compare = typename traits::key_compare;
+        using value_type = typename traits::value_type;
+        using key_type = typename traits::key_type;
+		using mutex_type = typename traits::mutex_type;
 
         struct node 
         {
@@ -179,14 +177,11 @@ namespace stk {
 					new(&nexts[i]) std::atomic<node*>(nullptr);
 			}
 
-            value_type             value_;
-			
+            value_type			      value_;
             std::atomic<std::uint8_t> flags;
-
-			mutex_type   mutex;
-            
-			std::uint8_t           topLevel;
-            std::atomic<node*>     nexts[0];//! C trick for tight dynamic arrays.
+			mutex_type                mutex;
+			std::uint8_t              topLevel;
+            std::atomic<node*>        nexts[0];//! C trick for tight dynamic arrays.
         };
 
         skip_list_node_manager( key_compare p, allocator_type al )
@@ -198,6 +193,14 @@ namespace stk {
 		node_ptr create_node( Data&& v, std::uint8_t topLevel, bool isHead = false)
 		{
 			return m_scopeManager->create_node(v, topLevel, isHead);
+		}
+
+		void clone_head_node(node_ptr pHead, node_ptr pNew)
+		{
+			GEOMETRIX_ASSERT(pHead);
+			pNew->set_flags(pHead->get_flags());
+			for (std::size_t i = 0; i <= pHead->get_top_level(); ++i)
+				pNew->set_next(i, pHead->next(i));
 		}
 
 		void destroy_node( node_ptr pNode )
@@ -272,7 +275,7 @@ namespace stk {
 				STK_MEMBER_SCOPE_EXIT
 				(
 					GEOMETRIX_ASSERT(m_refCounter > 0);
-				    m_refCounter.fetch_add(-1, std::memory_order_relaxed);
+				    m_refCounter.fetch_sub(1, std::memory_order_relaxed);
 				);
 
 				if (m_hasNodes.load(std::memory_order_relaxed) && m_refCounter.load(std::memory_order_relaxed) < 1)
@@ -311,23 +314,29 @@ namespace stk {
 		std::shared_ptr<node_scope_manager> m_scopeManager;
     };
 
-	template <unsigned int MaxLevel>
     class random_xor_shift_generator
     {   
-        static_assert(MaxLevel && MaxLevel <= 32, "MaxLevel must be in the range of [2, 32].");
-        using max_level = std::integral_constant<unsigned int, MaxLevel>;
-
-        BOOST_FORCEINLINE unsigned int bit_mod(unsigned int a)
-        {
-            return a % max_level::value;
-        }
-
     public:
+
+		using result_type = unsigned int;
+		static result_type min BOOST_PREVENT_MACRO_SUBSTITUTION() { return 0; }
+		static result_type max BOOST_PREVENT_MACRO_SUBSTITUTION() { return (std::numeric_limits<result_type>::max)(); }
             
         random_xor_shift_generator(unsigned int seed = 42)
         {
             m_state.store(seed, std::memory_order_relaxed);
         }
+
+		random_xor_shift_generator(const random_xor_shift_generator&rhs)
+			: m_state(rhs.m_state.load())
+		{
+
+		}
+
+		random_xor_shift_generator& operator=(const random_xor_shift_generator&rhs)
+		{
+			m_state.store(rhs.m_state.load());
+		}
 
         BOOST_FORCEINLINE unsigned int operator()()
         {
@@ -336,32 +345,85 @@ namespace stk {
             x ^= x >> 17;
             x ^= x << 5;
             m_state.store(x, std::memory_order_relaxed);
-
-            auto r = bit_mod(x);
-            GEOMETRIX_ASSERT(r < max_level::value);
-            
-            return r;
+            return x;
         }
     private:
 
         std::atomic<unsigned int> m_state;
 
     };
+
+	template <std::uint8_t MaxHeight>
+	struct skip_list_level_selector
+	{
+		using max_level = std::integral_constant<std::uint8_t, MaxHeight - 1>;
+
+		struct probability_table
+		{
+			//! Skip list cookbook...
+			probability_table(double p = 0.5)
+			{
+				for (int i = 0; i < MaxHeight; ++i)
+				{
+					probabilities[i] = std::pow(p, i);
+					max_size[i] = (std::min)(std::size_t(std::pow(2.0, i)), (std::numeric_limits<std::size_t>::max)());
+				}
+			}
+
+			std::array<double, MaxHeight>        probabilities;
+			std::array<std::uint64_t, MaxHeight> max_size;
+		};
+
+		static probability_table const& get_probs()
+		{
+			static probability_table instance;
+			return instance;
+		}
+
+		std::size_t get_max_size(std::uint8_t lvl)
+		{
+			auto const& probs = get_probs();
+			return probs.max_size[lvl];
+		}
+
+		static random_xor_shift_generator create_generator()
+		{
+			std::random_device rd;
+			return random_xor_shift_generator(rd());
+		}
+
+		static double rnd()
+		{
+			static random_xor_shift_generator eng = create_generator();
+			static std::uniform_real_distribution<> dist;
+			return dist(eng);
+		}
+
+		std::uint8_t operator()(std::uint8_t maxLevel = max_level::value) const
+		{
+			auto lvl = std::uint8_t{ 1 };
+			auto const& probs = get_probs().probabilities;
+			while (rnd() < probs[lvl] && lvl < maxLevel)
+				++lvl;
+			return lvl;
+		}		
+	};
 }//! namespace detail;
 
-template <typename AssociativeTraits, typename LevelSelectionPolicy = detail::random_xor_shift_generator<AssociativeTraits::max_level::value>>
+template <typename AssociativeTraits, typename LevelSelectionPolicy = detail::skip_list_level_selector<AssociativeTraits::max_level::value+1>>
 class lazy_concurrent_skip_list : public detail::skip_list_node_manager<AssociativeTraits>
 {
+	static_assert(AssociativeTraits::max_height::value > 1 && AssociativeTraits::max_height::value <= 64, "MaxHeight should be in the range [2, 64]");
 public:
-    typedef AssociativeTraits                          traits_type;
+	using traits_type = AssociativeTraits;
 	using size_type = typename traits_type::size_type;
-    typedef typename traits_type::key_type       key_type;
-    typedef typename traits_type::value_type     value_type;
-    typedef typename traits_type::key_compare    key_compare;
-    typedef typename traits_type::allocator_type allocator_type;
-    typedef typename std::add_lvalue_reference<value_type>::type reference;
-    typedef typename std::add_const<reference>::type   const_reference;
-    typedef LevelSelectionPolicy                       level_selector;
+    using key_type = typename traits_type::key_type;
+    using value_type = typename traits_type::value_type;
+    using key_compare = typedef typename traits_type::key_compare;
+    using allocator_type = typename traits_type::allocator_type;
+    using reference = typename std::add_lvalue_reference<value_type>::type;
+    using const_reference = typename std::add_const<reference>::type;
+    using level_selector = LevelSelectionPolicy;
 
     template <typename T>
     class node_iterator;
@@ -386,7 +448,8 @@ public:
             : m_pNode()
         {}
 
-		node_iterator(const node_iterator& other)
+		template <typename U>
+		node_iterator(const node_iterator<U>& other)
 			: m_pNode(other.m_pNode)
 			, m_pNodeManager(other.m_pNodeManager)
 		{
@@ -396,12 +459,12 @@ public:
 
 		node_iterator& operator = (const node_iterator& rhs)
 		{
-			if (m_pNode)
+			if (m_pNode && !rhs.m_pNode)
 				release();
 			m_pNodeManager = rhs.m_pNodeManager;
-			m_pNode = rhs.m_pNode;
-			if (m_pNode)
+			if (!m_pNode && rhs.m_pNode)
 				aquire();
+			m_pNode = rhs.m_pNode;
 			return *this;
 		}
 
@@ -428,6 +491,15 @@ public:
         {
 			if (m_pNode)
 				pNodeManager->add_checkout();
+		}
+
+		//! Aquire the underlying lock of the node and execute v(*iter).
+		template <typename Visitor>
+		void exec_under_lock(Visitor&& v)
+		{
+			GEOMETRIX_ASSERT(m_pNode);
+			auto lk = std::unique_lock<mutex_type>{ m_pNode->get_mutex() };
+			v(dereference());
 		}
 
 		~node_iterator()
@@ -497,26 +569,18 @@ public:
             : node_iterator< value_type >()
         {}
 
-        explicit iterator( const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
+        iterator( const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
             : node_iterator< value_type >( pMgr, pNode )
         {}
 
-        bool operator ==( node_iterator< value_type > const& other ) const
+		template <typename U>
+        bool operator ==( node_iterator<U> const& other ) const
         {
             return m_pNode == other.m_pNode;
         }
 
-        bool operator ==( node_iterator< const value_type > const& other ) const
-        {
-            return m_pNode == other.m_pNode;
-        }
-
-        bool operator !=( node_iterator< value_type > const& other ) const
-        {
-            return m_pNode != other.m_pNode;
-        }
-
-        bool operator !=( node_iterator< const value_type > const& other ) const
+		template <typename U>
+        bool operator !=( node_iterator<U> const& other ) const
         {
             return m_pNode != other.m_pNode;
         }
@@ -528,12 +592,12 @@ public:
             : node_iterator< const value_type >()
         {}
 
-        explicit const_iterator(const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
+        const_iterator(const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
             : node_iterator< const value_type >(pMgr, pNode)
         {}
 
         const_iterator( iterator const& other )
-            : node_iterator< const value_type >( other.m_pNode )
+            : node_iterator< const value_type >( other )
         {}
 
         const_iterator operator =( iterator const& other )
@@ -563,10 +627,10 @@ public:
         }
     };
 
-    lazy_concurrent_skip_list( const key_compare& pred = key_compare(), const allocator_type& al = allocator_type() )
+    lazy_concurrent_skip_list( std::uint8_t topLevel = 1, const key_compare& pred = key_compare(), const allocator_type& al = allocator_type() )
         : detail::skip_list_node_manager<AssociativeTraits>( pred, al )
-        , m_selector( max_level() )
-        , m_pHead(create_node(value_type(), max_level(), true))
+        , m_selector()
+        , m_pHead(create_node(value_type(), topLevel, true))
     {
         GEOMETRIX_ASSERT( m_pHead );
     }
@@ -588,12 +652,12 @@ public:
 
     iterator end()
     {
-        return iterator(get_scope_manager(), nullptr);
+        return iterator(std::shared_ptr<node_scope_manager>(), nullptr);
     }
 
     const_iterator end() const
     {
-        return const_iterator(get_scope_manager(), nullptr);
+        return const_iterator(std::shared_ptr<node_scope_manager>(), nullptr);
     }
 
     iterator find( const key_type& x )
@@ -777,21 +841,21 @@ public:
         return erase(resolve_key(x));
     }
 
+	//! Clear is thread-safe in the strict sense of not invalidating iterators, but the results are 
+	//! not well defined in the presence of other writers.
+	//! If true atomic clear semantics are required, consider holding an atomic ptr
+	//! to the map instance and swapping that when required.
+	//! TODO: This is not optimal.
     void clear()
     {
-		auto pCurr = m_head.load(std::memory_order_relaxed);
-		while (pCurr = pCurr->next(0))
-		{
-			auto pNext = pCurr->next(0);
-			erase(pCurr->key());
-			pCurr = pNext;
-		}
-
-		auto newHead = create_node(value_type(), max_level(), true);
-		m_head.store(newHead, std::memory_order_release);
+		for (auto it = begin(); it != end(); ++it)
+			erase(it);
     }
-
+	
+	//! Returns the size at any given moment. This can be volatile in the presence of writers in other threads.
 	size_type size() const { return m_size.load(std::memory_order_relaxed); }
+	
+	//! Returns empty state at any given moment. This can be volatile in the presence of writers in other threads.
 	bool empty() const { return size() == 0; }
 
 protected:
@@ -817,12 +881,21 @@ protected:
     }
 
 	template <typename Preds, typename Succs>
-    int find( const key_type& key, Preds& preds, Succs& succs ) const
+	int find(const key_type& key, Preds& preds, Succs& succs)
+	{
+		auto pHead = m_pHead.load(std::memory_order_consume);
+		int topLevel = pHead->get_top_level();
+		return find(key, preds, succs, pHead, topLevel);
+	}
+
+	template <typename Preds, typename Succs>
+    int find( const key_type& key, Preds& preds, Succs& succs, node_ptr pHead, std::uint8_t topLevel ) const
     {
         int lFound = -1;
-        node_ptr pPred = m_pHead.load(std::memory_order_consume);
+        node_ptr pPred = pHead;
+        node_ptr pFound = nullptr;
 		GEOMETRIX_ASSERT(pPred);
-        for( int level = pPred->get_top_level()-1; level >= 0; --level )
+        for( int level = topLevel; level >= 0; --level )
         {
             node_ptr pCurr = pPred->next(level);
             while( pCurr && less(pCurr, key ))//key > curr.key
@@ -831,15 +904,18 @@ protected:
                 pCurr = pPred->next(level);
             }
 
-            if(pCurr && lFound == -1 && equal(pCurr, key))
-                lFound = level;
+			if (pCurr && lFound == -1 && equal(pCurr, key))
+			{
+				lFound = level;
+				pFound = pCurr;
+			}
 
             GEOMETRIX_ASSERT( static_cast<int>( preds.size() ) >= level );
             GEOMETRIX_ASSERT( static_cast<int>( succs.size() ) >= level );
-            if( static_cast<int>( preds.size() ) >= level )
-                preds[level] = pPred;
-            if( static_cast<int>( succs.size() ) >= level )
-                succs[level] = pCurr;
+            //if( static_cast<int>( preds.size() ) >= level )
+            preds[level] = pPred;
+            //if( static_cast<int>( succs.size() ) >= level )
+            succs[level] = !pFound ? pCurr : pFound;
         }
 
         return lFound;
@@ -854,36 +930,40 @@ protected:
         {
             node_ptr pCurr = pPred->next(level);
             GEOMETRIX_ASSERT( pCurr );
-            while( pCurr && *pCurr < key ) //key > curr.key
+            while( pCurr && less(pCurr, key)) //key > curr.key
             {
                 pPred = pCurr;
                 pCurr = pPred->next(level);
             }
 
-            if( pCurr && key <= *pCurr )
+            if( pCurr && !less(key, pCurr))
                 lFound = level;
 
             GEOMETRIX_ASSERT( static_cast<int>( preds.size() ) >= level );
             GEOMETRIX_ASSERT( static_cast<int>( succs.size() ) >= level );
-            if( static_cast<int>( preds.size() ) >= level )
-                preds[level] = pPred;
-            if( static_cast<int>( succs.size() ) >= level )
-                succs[level] = pCurr;
+            //if( static_cast<int>( preds.size() ) >= level )
+            preds[level] = pPred;
+            //if( static_cast<int>( succs.size() ) >= level )
+            succs[level] = pCurr;
         }
 
         return lFound;
     }
+
 	template <typename Value>
     std::pair< iterator, bool > add( Value&& x )
     {
-        int topLevel = m_selector();
+        //int topLevel = m_selector();
         std::array<node_ptr, max_height::value> preds;
         std::array<node_ptr, max_height::value> succs;
         using lock_array = std::array<lock_type, max_height::value>;
-
+		std::size_t newSize;
+		node_ptr pNewNode;
         while( true )
         {
-            int lFound = find( resolve_key(x), preds, succs );
+			auto pHead = m_pHead.load(std::memory_order_consume);
+			int topLevel = pHead->get_top_level();
+            int lFound = find( resolve_key(x), preds, succs, pHead, topLevel );
             if( lFound != -1 )
             {
                 node_ptr pFound = succs[lFound];
@@ -900,7 +980,9 @@ protected:
                 continue;
             }
 
-            node_ptr pPred, pPrevPred = nullptr;
+			topLevel = m_selector(topLevel);
+            node_ptr pPred;
+            node_ptr pPrevPred = nullptr;
             node_ptr pSucc;
             bool valid = true;
 			lock_array locks;
@@ -920,19 +1002,47 @@ protected:
             if( !valid )
                 continue;
 
-            node_ptr pNewNode = create_node( std::forward<Value>(x), topLevel );
-            for( int level = 0; level <= topLevel; ++level )
+            pNewNode = create_node( std::forward<Value>(x), topLevel );
+            
+			for( int level = 0; level <= topLevel; ++level )
                 pNewNode->set_next(level,succs[level]);
             for( int level = 0; level <= topLevel; ++level )
                 preds[level]->set_next(level,pNewNode);
+
             pNewNode->set_fully_linked();
-			increment_size();
-            return std::make_pair( iterator(get_scope_manager(), pNewNode), true );
+			newSize = increment_size();
+			break;
         }
+
+		auto tLvl = m_pHead.load(std::memory_order_relaxed)->get_top_level();
+		if ((tLvl + 1) < max_height::value && newSize > m_selector.get_max_size(tLvl))
+			increment_height(tLvl + 1);
+
+		return std::make_pair(iterator(get_scope_manager(), pNewNode), true);
     }
 
-	void increment_size() { m_size.fetch_add(1, std::memory_order_relaxed); }
-	void decrement_size() { m_size.fetch_add(-1, std::memory_order_relaxed); }
+	size_type increment_size() { return m_size.fetch_add(1, std::memory_order_relaxed) + 1; }
+	size_type decrement_size() { return m_size.fetch_sub(1, std::memory_order_relaxed) - 1; }
+	void increment_height(std::uint8_t tLvl)
+	{
+		auto pHead = m_pHead.load(std::memory_order_consume);
+		if (pHead->get_top_level() >= tLvl)
+			return;
+		GEOMETRIX_ASSERT(tLvl > pHead->get_top_level());
+		auto pNew = create_node(value_type(), tLvl, true);
+		{
+			auto lk = std::unique_lock<mutex_type>{ pHead->get_mutex() };
+			clone_head_node(pHead, pNew);
+			auto expected = pHead;
+			if (!m_pHead.compare_exchange_strong(expected, pNew, std::memory_order_release))
+			{
+				really_destroy_node(pNew);
+				return;
+			}
+			pHead->set_marked_for_removal();
+		}
+		destroy_node(pHead);
+	}
 
     std::atomic<node_ptr> m_pHead;
     level_selector m_selector;
@@ -948,7 +1058,7 @@ class concurrent_set : public lazy_concurrent_skip_list< detail::associative_set
 public:
 
     concurrent_set( const Compare& c = Compare() )
-        : BaseType( c )
+        : BaseType( 1, c )
     {}
 };
 
@@ -966,9 +1076,10 @@ public:
     typedef typename boost::add_const< mapped_type >::type     const_reference;
 
     concurrent_map( const Compare& c = Compare() )
-        : BaseType( c )
+        : BaseType( 1, c )
     {}
 
+	//! This interface admits concurrent reads to find a default constructed value for a given key if there is a writer using this.
     reference operator [] ( const key_type& k )
     {
         iterator it = find( k );
@@ -992,9 +1103,10 @@ public:
     typedef typename boost::add_const< mapped_type >::type     const_reference;
 
     skip_map( const Compare& c = Compare() )
-        : BaseType( c )
+        : BaseType( 1, c )
     {}
 
+	//! This interface admits concurrent reads to find a default constructed value for a given key if there is a writer using this.
     reference operator [] ( const key_type& k )
     {
         iterator it = find( k );
@@ -1005,6 +1117,5 @@ public:
 };
 
 }//! namespace stk;
-
 
 #endif//! STK_CONTAINER_CONCURRENT_SKIP_LIST_HPP
