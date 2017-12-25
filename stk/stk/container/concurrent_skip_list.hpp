@@ -1,11 +1,40 @@
 //
-//! Copyright © 2017
+//! Copyright © 2013-2017
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
+//! Original implementation from "The Art of Multiprocessor Programming", 
+//! @book{Herlihy:2008 : AMP : 1734069,
+//! author = { Herlihy, Maurice and Shavit, Nir },
+//! title = { The Art of Multiprocessor Programming },
+//! year = { 2008 },
+//! isbn = { 0123705916, 9780123705914 },
+//! publisher = { Morgan Kaufmann Publishers Inc. },
+//! address = { San Francisco, CA, USA },
+//}
+
+//! Multiple improvements were included from studying folly's ConcurrentSkipList:
+/*
+* Copyright 2017 Facebook, Inc.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+// @author: Xin Liu <xliux@fb.com>
+//
+
 #ifndef STK_CONTAINER_CONCURRENT_SKIP_LIST_HPP
 #define STK_CONTAINER_CONCURRENT_SKIP_LIST_HPP
 
@@ -27,6 +56,10 @@
 #include <mutex>
 #include <type_traits>
 #include <memory>
+
+//! A concurrent skip list implementation with map and set versions.
+
+#define STK_SKIP_LIST_MAX_HEIGHT 64
 
 namespace stk { 
     namespace detail {
@@ -354,63 +387,101 @@ namespace stk {
     };
 
 	template <std::uint8_t MaxHeight>
-	struct skip_list_level_selector
+	struct size_table : std::array<std::uint64_t, MaxHeight>
 	{
-		using max_level = std::integral_constant<std::uint8_t, MaxHeight - 1>;
-
-		struct probability_table
+		size_table()
 		{
-			//! Skip list cookbook...
-			probability_table(double p = 0.5)
-			{
-				for (int i = 0; i < MaxHeight; ++i)
-				{
-					probabilities[i] = std::pow(p, i);
-					max_size[i] = (std::min)(std::size_t(std::pow(2.0, i)), (std::numeric_limits<std::size_t>::max)());
-				}
-			}
-
-			std::array<double, MaxHeight>        probabilities;
-			std::array<std::uint64_t, MaxHeight> max_size;
-		};
-
-		static probability_table const& get_probs()
-		{
-			static probability_table instance;
-			return instance;
+			for (int i = 0; i < MaxHeight; ++i)
+				(*this)[i] = (std::min)(std::uint64_t(1ULL << i), (std::numeric_limits<std::uint64_t>::max)());
 		}
-
-		std::size_t get_max_size(std::uint8_t lvl)
-		{
-			auto const& probs = get_probs();
-			return probs.max_size[lvl];
-		}
-
-		static random_xor_shift_generator create_generator()
-		{
-			std::random_device rd;
-			return random_xor_shift_generator(rd());
-		}
-
-		static double rnd()
-		{
-			static random_xor_shift_generator eng = create_generator();
-			static std::uniform_real_distribution<> dist;
-			return dist(eng);
-		}
-
-		std::uint8_t operator()(std::uint8_t maxLevel = max_level::value) const
-		{
-			auto lvl = std::uint8_t{ 1 };
-			auto const& probs = get_probs().probabilities;
-			while (rnd() < probs[lvl] && lvl < maxLevel)
-				++lvl;
-			return lvl;
-		}		
 	};
+
+	static size_table<STK_SKIP_LIST_MAX_HEIGHT> const& get_size_table()
+	{
+		static size_table<STK_SKIP_LIST_MAX_HEIGHT> instance;
+		return instance;
+	}
 }//! namespace detail;
 
-template <typename AssociativeTraits, typename LevelSelectionPolicy = detail::skip_list_level_selector<AssociativeTraits::max_level::value+1>>
+
+template <std::uint8_t MaxHeight>
+struct skip_list_level_selector
+{
+	using max_level = std::integral_constant<std::uint8_t, MaxHeight - 1>;
+
+	struct probability_table
+	{
+		probability_table(double p = 0.5)
+		{
+			probabilities[0] = 1.0;
+			for (int i = 1; i < MaxHeight; ++i)
+				probabilities[i] = std::pow(p, i);
+		}
+
+		std::array<double, MaxHeight>        probabilities;
+	};
+
+	static probability_table const& get_probs()
+	{
+		static probability_table instance;
+		return instance;
+	}
+
+	static detail::random_xor_shift_generator create_generator()
+	{
+		std::random_device rd;
+		return detail::random_xor_shift_generator(rd());
+	}
+
+	static double rnd()
+	{
+		static detail::random_xor_shift_generator eng = create_generator();
+		static std::uniform_real_distribution<> dist;
+		return dist(eng);
+	}
+
+	std::uint8_t operator()(std::uint8_t maxLevel = max_level::value) const
+	{
+		auto lvl = std::uint8_t{ 0 };
+		auto const& probs = get_probs().probabilities;
+		while (rnd() < probs[lvl + 1] && lvl < maxLevel)
+			++lvl;
+		return lvl;
+	}
+};
+
+template <std::uint8_t MaxHeight>
+struct coin_flip_level_selector
+{
+	using max_level = std::integral_constant<std::uint8_t, MaxHeight - 1>;
+
+	static detail::random_xor_shift_generator create_generator()
+	{
+		std::random_device rd;
+		return random_xor_shift_generator(rd());
+	}
+
+	static std::uint64_t rnd()
+	{
+		static detail::random_xor_shift_generator eng = create_generator();
+		std::uniform_int_distribution<std::uint64_t> dist;
+		return dist(eng);
+	}
+
+	std::uint8_t operator()(std::uint8_t maxLevel = max_level::value) const
+	{
+		auto x = rnd();
+		if ((x & 1) != 0)
+			return 0;
+
+		auto lvl = std::uint8_t{ 1 };
+		while ((((x >>= 1) & 1) != 0) && lvl < maxLevel)
+			++lvl;
+		return lvl;
+	}
+};
+
+template <typename AssociativeTraits, typename LevelSelectionPolicy = skip_list_level_selector<AssociativeTraits::max_level::value+1>>
 class lazy_concurrent_skip_list : public detail::skip_list_node_manager<AssociativeTraits>
 {
 	static_assert(AssociativeTraits::max_height::value > 1 && AssociativeTraits::max_height::value <= 64, "MaxHeight should be in the range [2, 64]");
@@ -1015,7 +1086,7 @@ protected:
         }
 
 		auto tLvl = m_pHead.load(std::memory_order_relaxed)->get_top_level();
-		if ((tLvl + 1) < max_height::value && newSize > m_selector.get_max_size(tLvl))
+		if ((tLvl + 1) < max_height::value && newSize > detail::get_size_table()[tLvl])
 			increment_height(tLvl + 1);
 
 		return std::make_pair(iterator(get_scope_manager(), pNewNode), true);
