@@ -15,6 +15,10 @@
 #include <stk/thread/fiber_pool.hpp> //-> requires C++11 with constexpr/noexcept etc. vs140 etc.
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/container/fine_locked_hash_map.hpp>
+#include <junction/ConcurrentMap_Leapfrog.h>
+#include <junction/ConcurrentMap_Linear.h>
+#include <junction/ConcurrentMap_Grampa.h>
+#include <junction/ConcurrentMap_Crude.h>
 #include <boost/thread/futures/wait_for_all.hpp>
 
 #include <boost/context/stack_traits.hpp>
@@ -27,6 +31,7 @@
 #include <chrono>
 #include <exception>
 #include <iostream>
+#include <unordered_map>
 
 std::size_t nsubwork = 10;
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);//! for work_stealing_thread_pool.
@@ -100,7 +105,9 @@ void bash_map(Pool& pool, const char* name)
 		}
 		boost::for_each(fs, [](const future_t& f) { f.wait(); });
 	}
-
+	
+	boost::for_each(fs, []( future_t& f) { EXPECT_NO_THROW(f.get()); });
+	
 	for (auto i = 0; i < 100000; ++i) 
 	{
 		auto r = m.find(i);
@@ -108,6 +115,91 @@ void bash_map(Pool& pool, const char* name)
 		EXPECT_EQ(i * 20, *r);
 	}
 }
+
+template <typename Pool>
+void bash_junction_map(Pool& pool, const char* name)
+{
+	using namespace ::testing;
+	using namespace stk;
+
+	junction::ConcurrentMap_Leapfrog<int, int> m;
+
+	auto nItems = 10000;
+	for (auto i = 2; i < nItems + 2; ++i)
+	{
+		m.assign(i, i * 10);
+	}
+
+	using future_t = typename Pool::template future<void>;
+	std::vector<future_t> fs;
+	fs.reserve(100000);
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		for (unsigned i = 2; i < 100000 + 2; ++i) {
+			fs.emplace_back(pool.send([&m, i]() -> void
+			{
+				for (int q = 0; q < nsubwork; ++q)
+				{
+					m.assign(i, i * 20);
+					m.erase(i);
+					m.assign(i, i * 20);
+				}
+			}));
+		}
+		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+	}
+
+	for (auto i = 2; i < 100000 + 2; ++i)
+	{
+		auto r = m.find(i);
+		EXPECT_EQ(i * 20, r.getValue());
+	}
+}
+
+template <typename Mutex, typename Pool>
+void bash_synchronized_map(Pool& pool, const char* name)
+{
+	using namespace ::testing;
+	using namespace stk;
+
+	std::unordered_map<int, int> m;
+
+	Mutex mtx;
+
+	auto nItems = 10000;
+	for (auto i = 0; i < nItems; ++i)
+	{
+		m.insert(std::make_pair(i, i * 10));
+	}
+
+	using future_t = typename Pool::template future<void>;
+	std::vector<future_t> fs;
+	fs.reserve(100000);
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		for (unsigned i = 0; i < 100000; ++i) {
+			fs.emplace_back(pool.send([&m, &mtx, i]() -> void
+			{
+				for (int q = 0; q < nsubwork; ++q)
+				{
+					auto lk = std::unique_lock<Mutex>{ mtx };
+					m[i] = i * 20;
+					m.erase(i);
+					m[i] = i * 20;
+				}
+			}));
+		}
+		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+	}
+
+	for (auto i = 0; i < 100000; ++i)
+	{
+		auto it = m.find(i);
+		ASSERT_TRUE(it != m.end());
+		EXPECT_EQ(i * 20, it->second);
+	}
+}
+
 
 int nTimingRuns = 20;
 // TEST(timing, fibers_fibers_mutex)
@@ -239,6 +331,20 @@ TEST(timing, work_stealing_thread_pool_moodycamel_concurrentQ_tiny_atomic_spinlo
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_map<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(pool, "work_stealing_thread_pool moody-concurrent/tiny_atomic_spin_lock<eager_yield_wait<5000>>");
+	}
+
+	EXPECT_TRUE(true);
+}
+
+TEST(timing, work_stealing_thread_pool_moodycamel_concurrentQ_bash_junction)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ 5 };
+	for (int i = 0; i < nTimingRuns * 10; ++i)
+	{
+		bash_junction_map(pool, "work_stealing_thread_pool moody-concurrent/bash_junction_map");
 	}
 
 	EXPECT_TRUE(true);
