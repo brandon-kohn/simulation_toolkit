@@ -177,7 +177,7 @@ namespace stk {
 
             using node_levels = std::atomic<node_ptr>*;
 
-			std::uint8_t     get_flags() const { return flags.load(std::memory_order_consume); }
+			std::uint8_t     get_flags() const { return flags.load(/*std::memory_order_consume*/std::memory_order_acquire); }
 			void			 set_flags(std::uint8_t f) { flags.store(f, std::memory_order_release); }
 			bool			 is_head() const { return get_flags() & flag::Head; }
 			bool			 is_fully_linked() const { return get_flags() & flag::FullyLinked; }
@@ -188,7 +188,7 @@ namespace stk {
             const key_type&  key() const { return traits::resolve_key( value_ ); }
             value_type&      item() { return value_; }
             node_levels&     next() { return nexts; }
-			node_ptr         next(std::uint8_t i) const { GEOMETRIX_ASSERT(i <= topLevel); return nexts[i].load(std::memory_order_consume); }
+			node_ptr         next(std::uint8_t i) const { GEOMETRIX_ASSERT(i <= topLevel); return nexts[i].load(/*std::memory_order_consume*/std::memory_order_acquire); }
 			void             set_next(std::uint8_t i, node_ptr pNode) { GEOMETRIX_ASSERT(i <= topLevel); return nexts[i].store(pNode, std::memory_order_release); }
 			std::uint8_t	 get_top_level() const { return topLevel; }
 			mutex_type&      get_mutex() { return mutex; }
@@ -361,14 +361,14 @@ namespace stk {
         }
 
 		random_xor_shift_generator(const random_xor_shift_generator&rhs)
-			: m_state(rhs.m_state.load())
+			: m_state(rhs.m_state.load(std::memory_order_relaxed))
 		{
 
 		}
 
 		random_xor_shift_generator& operator=(const random_xor_shift_generator&rhs)
 		{
-			m_state.store(rhs.m_state.load());
+			m_state.store(rhs.m_state.load(std::memory_order_relaxed), std::memory_order_relaxed);
 		}
 
         BOOST_FORCEINLINE unsigned int operator()()
@@ -525,7 +525,7 @@ public:
 			, m_pNodeManager(other.m_pNodeManager)
 		{
 			if (m_pNode)
-				aquire();
+				acquire();
 		}
 
 		node_iterator& operator = (const node_iterator& rhs)
@@ -534,7 +534,7 @@ public:
 				release();
 			m_pNodeManager = rhs.m_pNodeManager;
 			if (!m_pNode && rhs.m_pNode)
-				aquire();
+				acquire();
 			m_pNode = rhs.m_pNode;
 			return *this;
 		}
@@ -598,7 +598,7 @@ public:
 				pMgr->remove_checkout();
 		}
 		
-		void aquire()
+		void acquire()
 		{
 			GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
 			auto pMgr = m_pNodeManager.lock();
@@ -935,7 +935,7 @@ protected:
  
     node_ptr left_most() const
     {
-        return m_pHead.load(std::memory_order_consume)->next(0);
+        return m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire)->next(0);
     }
 
     void release()
@@ -954,7 +954,7 @@ protected:
 	template <typename Preds, typename Succs>
 	int find(const key_type& key, Preds& preds, Succs& succs)
 	{
-		auto pHead = m_pHead.load(std::memory_order_consume);
+		auto pHead = m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire);
 		int topLevel = pHead->get_top_level();
 		return find(key, preds, succs, pHead, topLevel);
 	}
@@ -996,7 +996,7 @@ protected:
     int lower_bound( const key_type& key, Preds& preds, Succs& succs ) const
     {
         int lFound = -1;
-        node_ptr pPred = m_pHead.load(std::memory_order_consume);
+        node_ptr pPred = m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire);
         for( int level = max_level(); level >= 0; --level )
         {
             node_ptr pCurr = pPred->next(level);
@@ -1032,7 +1032,7 @@ protected:
 		node_ptr pNewNode;
         while( true )
         {
-			auto pHead = m_pHead.load(std::memory_order_consume);
+			auto pHead = m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire);
 			int topLevel = pHead->get_top_level();
             int lFound = find( resolve_key(x), preds, succs, pHead, topLevel );
             if( lFound != -1 )
@@ -1096,7 +1096,7 @@ protected:
 	size_type decrement_size() { return m_size.fetch_sub(1, std::memory_order_relaxed) - 1; }
 	void increment_height(std::uint8_t tLvl)
 	{
-		auto pHead = m_pHead.load(std::memory_order_consume);
+		auto pHead = m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire);
 		if (pHead->get_top_level() >= tLvl)
 			return;
 		GEOMETRIX_ASSERT(tLvl > pHead->get_top_level());

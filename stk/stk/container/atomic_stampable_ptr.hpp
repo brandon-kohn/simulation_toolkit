@@ -95,7 +95,7 @@ public:
 
     T* get_ptr() const
     {
-        auto pPtr = m_ptr.load();
+        auto pPtr = m_ptr.load(std::memory_order_acquire);
         return extract_ptr(pPtr);
     }
 
@@ -103,12 +103,12 @@ public:
     {
         auto stamp = get_stamp();
         auto pPtr = combine(p, stamp);
-        m_ptr.store(pPtr);
+        m_ptr.store(pPtr, std::memory_order_release);
     }
 
     stamp_type get_stamp() const
     {
-        auto pPtr = m_ptr.load();
+        auto pPtr = m_ptr.load(std::memory_order_acquire);
         return extract_stamp(pPtr);
     }
 
@@ -121,7 +121,7 @@ public:
     {
         auto p = get_ptr();
         auto pPtr = combine(p, t);
-        m_ptr.store(pPtr);
+        m_ptr.store(pPtr, std::memory_order_release);
     }
 
     T& operator*() const
@@ -172,7 +172,7 @@ public:
         return m_ptr.compare_exchange_strong(&pPtrExpected, pPtrDesired, order);
     } 
 
-    storage_type get_raw() const { return m_ptr.load(); }
+    storage_type get_raw(std::memory_order order = std::memory_order_seq_cst) const { return m_ptr.load(order); }
 
 private:
 
