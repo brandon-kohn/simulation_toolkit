@@ -38,6 +38,10 @@ add_subdirectory(geometrix/)
 add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
 
+#set(JUNCTION_MAKE_INSTALLABLE ON CACHE BOOL "" FORCE)
+#set(TURF_MAKE_INSTALLABLE ON CACHE BOOL "" FORCE)
+add_subdirectory(junction/)
+
 # Tests
 if(BUILD_TESTS)
     include(CTest)

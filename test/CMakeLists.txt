@@ -31,7 +31,7 @@ if(Boost_FOUND)
     endforeach()
 
     add_executable(fiber_timing_tests fiber_timing_tests.cpp)
-    target_link_libraries(fiber_timing_tests gtest gmock_main stk geometrix ${Boost_LIBRARIES})
+    target_link_libraries(fiber_timing_tests gtest gmock_main stk geometrix turf junction ${Boost_LIBRARIES})
     add_executable(skynet_tests skynet_tests.cpp pool_work_stealing.cpp)
     target_link_libraries(skynet_tests gtest gmock_main stk geometrix ${Boost_LIBRARIES})
 
