@@ -232,7 +232,7 @@ namespace stk {
 		{
 			GEOMETRIX_ASSERT(pHead);
 			pNew->set_flags(pHead->get_flags());
-			for (std::size_t i = 0; i <= pHead->get_top_level(); ++i)
+			for (std::uint8_t i = 0; i <= pHead->get_top_level(); ++i)
 				pNew->set_next(i, pHead->next(i));
 		}
 
@@ -329,8 +329,8 @@ namespace stk {
 
 			void really_destroy_node(node_ptr pNode)
 			{
-				pNode->~node();
 				std::size_t aSize = sizeof(node) + (pNode->get_top_level() + 1) * sizeof(std::atomic<node_ptr>);
+				pNode->~node();
 				m_nodeAllocator.deallocate((std::uint8_t*)pNode, aSize);
 			}
 
@@ -490,7 +490,7 @@ public:
 	using size_type = typename traits_type::size_type;
     using key_type = typename traits_type::key_type;
     using value_type = typename traits_type::value_type;
-    using key_compare = typedef typename traits_type::key_compare;
+    using key_compare = typename traits_type::key_compare;
     using allocator_type = typename traits_type::allocator_type;
     using reference = typename std::add_lvalue_reference<value_type>::type;
     using const_reference = typename std::add_const<reference>::type;
