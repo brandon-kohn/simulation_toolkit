@@ -496,7 +496,7 @@ public:
         return end();
     }
 
-    const_iterator find( const key_type& x ) const
+    const_iterator find(const key_type& x) const
     {
         std::array<node_ptr, max_height::value> preds;
         std::array<node_ptr, max_height::value> succs;
@@ -513,12 +513,12 @@ public:
         return end();
     }
 
-    std::pair< iterator, bool > insert( const value_type& item )
+    std::pair<iterator, bool> insert(const value_type& item)
     {
         return add( item );
     }
 
-    iterator insert( const iterator&, const value_type& item )
+    iterator insert(const iterator&, const value_type& item)
     {
         return add( item ).first;
     }
@@ -540,9 +540,8 @@ public:
 				{
 					curr = pred->next(level).get_ptr();
 					if (curr)
-					{
 						std::tie(succ, stamp) = curr->next(level).get();
-					} else
+					else
 						break;
 				}
 				if (curr && less(curr, x))
@@ -607,11 +606,9 @@ public:
 
     iterator erase(const_iterator it)
     {
-        if (it == end())
-            return end();
-
-        const value_type& x = *it;
-        return erase(resolve_key(x));
+		if (it != end())
+			return erase(resolve_key(*it));
+		return end();
     }
 
 	//! Clear is thread-safe in the strict sense of not invalidating iterators, but the results are 
@@ -658,98 +655,43 @@ protected:
         stamp_type stamp = 0;
         bool snip;
         node_ptr pred = nullptr, curr = nullptr, succ = nullptr;
-        retry:
+        while(true)
         {
-            while(true)
+        retry:
+            pred = m_pHead.load(std::memory_order_acquire);
+            for(int level = max_level::value; level >= bottomLevel; --level)
             {
-                pred = m_pHead.load(std::memory_order_acquire);
-                for(int level = max_level::value; level >= bottomLevel; --level)
+                curr = pred->next(level).get_ptr();
+                while(curr)
                 {
-                    curr = pred->next(level).get_ptr();
-                    while(curr)
+                    std::tie(succ, stamp) = curr->next(level).get();
+                    while(stamp)
                     {
-                        std::tie(succ, stamp) = curr->next(level).get();
-                        while(stamp)
-                        {
-							auto expectedPtr = curr;
-							auto expectedStamp = stamp_type{ 0 };
-                            snip = pred->next(level).compare_exchange_strong(expectedPtr, expectedStamp, succ, 0);
-                            if(!snip) 
-                                goto retry;
-                            curr = pred->next(level).get_ptr();
-							if (!curr)
-								break;
-							std::tie(succ, stamp) = curr->next(level).get();
-                        }
-                       
-                        if( curr && less(curr, key) )
-                        {
-                            pred = curr; 
-                            curr = succ;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                    preds[level] = pred;
-                    succs[level] = curr;
-                }
-
-                return curr && equal(curr, key);
-            }
-        }
-	}
-
-
-	template <typename Preds, typename Succs>
-	void prune(const key_type& key, Preds& preds, Succs& succs)
-	{
-		int bottomLevel = 0;
-		stamp_type stamp = 0;
-		bool snip;
-		node_ptr pred = nullptr, curr = nullptr, succ = nullptr;
-	retry:
-		{
-			while (true)
-			{
-				pred = m_pHead.load(std::memory_order_acquire);
-				for (int level = max_level::value; level >= bottomLevel; --level)
-				{
-					curr = pred->next(level).get_ptr();
-					while (curr)
-					{
-						std::tie(succ, stamp) = curr->next(level).get();
-						while (stamp)
-						{
-							auto expectedPtr = curr;
-							auto expectedStamp = stamp_type{ 0 };
-							snip = pred->next(level).compare_exchange_strong(expectedPtr, expectedStamp, succ, 0);
-							if (!snip)
-								goto retry;
-							curr = pred->next(level).get_ptr();
-							if (!curr)
-								break;
-							std::tie(succ, stamp) = curr->next(level).get();
-						}
-
-						if (curr && less(curr, key))
-						{
-							pred = curr;
-							curr = succ;
-						} else
-						{
+						auto expectedPtr = curr;
+						auto expectedStamp = stamp_type{ 0 };
+                        snip = pred->next(level).compare_exchange_strong(expectedPtr, expectedStamp, succ, 0);
+                        if(!snip) 
+                            goto retry;
+                        curr = pred->next(level).get_ptr();
+						if (!curr)
 							break;
-						}
-					}
-					preds[level] = pred;
-					succs[level] = curr;
-				}
+						std::tie(succ, stamp) = curr->next(level).get();
+                    }
 
-				return;
-			}
-		}
-	}
+                    if( curr && less(curr, key) )
+                    {
+                        pred = curr; 
+                        curr = succ;
+                    }
+                    else
+                        break;
+                }
+                preds[level] = pred;
+                succs[level] = curr;
+            }
+            return curr && equal(curr, key);
+        }
+    }
 
 	template <typename Value>
     std::pair<iterator, bool> add( Value&& x )

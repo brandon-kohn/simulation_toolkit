@@ -21,6 +21,7 @@ if(Boost_FOUND)
         transformer_tests
         clipper_tests
         concurrency_tests
+        concurrent_skip_list_tests
        )
 
     foreach(test ${tests})
