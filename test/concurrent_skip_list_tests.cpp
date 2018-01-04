@@ -35,6 +35,54 @@ STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
 #include <stk/container/concurrent_skip_list.hpp>
 #include <stk/container/lock_free_concurrent_skip_list.hpp>
 
+#include <cds/init.h>
+#include <cds/gc/hp.h>
+#include <cds/urcu/general_buffered.h>
+typedef cds::urcu::gc< cds::urcu::general_buffered<> >    rcu_gpb;
+struct libcds_raii
+{
+
+	libcds_raii()
+	{
+		cds::Initialize();
+		hpGC = new cds::gc::HP{};
+		gpbRCU = new rcu_gpb{};
+		cds::threading::Manager::attachThread();
+	}
+
+	libcds_raii(const libcds_raii&) = delete;
+	libcds_raii& operator=(const libcds_raii&) = delete;
+
+	libcds_raii(libcds_raii&& rhs)
+		: hpGC(rhs.hpGC)
+		, gpbRCU(rhs.gpbRCU)
+	{
+		rhs.hpGC = nullptr;
+		rhs.gpbRCU = nullptr;
+	}
+
+	libcds_raii& operator=(libcds_raii&&rhs)
+	{
+		std::swap(hpGC, rhs.hpGC);
+		std::swap(gpbRCU, rhs.gpbRCU);
+	}
+
+	~libcds_raii()
+	{
+		if (hpGC)
+		{
+			delete hpGC;
+			delete gpbRCU;
+			cds::Terminate();
+		}
+	}
+
+	cds::gc::HP* hpGC{ nullptr };
+	rcu_gpb* gpbRCU{ nullptr };
+};
+
+auto cdsSinglton = libcds_raii();
+
 TEST(concurrent_skip_list_tests, construct)
 {
 	using namespace stk;
@@ -396,9 +444,9 @@ void bash_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
 			{
 				for (unsigned int q = 0; q < nsubwork; ++q)
 				{
-					m[i] = i * 20;
+					m.insert_or_update(i, [i](bool isNew, std::pair<const int, int>& item) { item.second = i * 20; });
 					m.erase(i);
-					m[i] = i * 20;
+					m.insert_or_update(i, [i](bool isNew, std::pair<const int, int>& item) { item.second = i * 20; });
 					if (i % 2)
 						m.erase(i);
 				}
@@ -429,6 +477,83 @@ TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing_
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_lf_concurrent_map_remove_odd(pool, "work_stealing_thread_pool moody-remove_odd/lock_free_concurrent");
+		EXPECT_TRUE(true) << "Finished: " << i << "\n";
+	}
+
+	EXPECT_TRUE(true);
+}
+
+#include <cds/container/skip_list_map_rcu.h>
+template <typename Pool>
+void bash_cds_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
+{
+	using namespace ::testing;
+	using namespace stk;
+
+	cds::container::SkipListMap<rcu_gpb, int, int> m;
+
+	auto nItems = 10000;
+	for (auto i = 0; i < nItems; ++i)
+	{
+		m.insert(i, i * 10);
+	}
+
+	using future_t = typename Pool::template future<void>;
+	std::vector<future_t> fs;
+	unsigned nsubwork = 10;
+	fs.reserve(100000);
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		for (unsigned i = 0; i < 100000; ++i) {
+			fs.emplace_back(pool.send([&m, nsubwork, i]() -> void
+			{
+				for (unsigned int q = 0; q < nsubwork; ++q)
+				{
+					m.update(i, [i](bool isNew, std::pair<const int, int>& item) { item.second = i * 20; });
+					m.erase(i);
+					m.update(i, [i](bool isNew, std::pair<const int, int>& item) { item.second = i * 20; });
+					if (i % 2)
+						m.erase(i);
+				}
+			}));
+		}
+		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+	}
+
+	for (auto i = 0; i < 100000; ++i)
+	{
+		int v = 0;
+		auto value = [&v](std::pair<const int, int>& value) { v = value.second; };
+		auto r = m.find(i, value);
+		if (i % 2 == 0)
+		{
+			EXPECT_TRUE(r);
+			EXPECT_EQ(i * 20, v);
+		} else
+			EXPECT_FALSE(r);
+	}
+}
+
+inline void cds_enter_thread()
+{
+	cds::threading::Manager::attachThread();
+}
+
+inline void cds_exit_thread()
+{
+	cds::threading::Manager::detachThread();
+}
+
+TEST(lf_concurrent_skip_list_tests, bash_cds_lock_free_concurrent_map_work_stealing_remove_odd)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ cds_enter_thread, cds_exit_thread, 5 };
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_cds_lf_concurrent_map_remove_odd(pool, "cds_work_stealing_thread_pool moody-remove_odd/lock_free_concurrent");
 		EXPECT_TRUE(true) << "Finished: " << i << "\n";
 	}
 

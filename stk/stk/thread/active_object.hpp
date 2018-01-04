@@ -57,7 +57,7 @@ public:
         }
         catch(...)
         {
-            shutdown(false);
+            shutdown();
             throw;
         }
     }
@@ -72,7 +72,7 @@ public:
 		}
 		catch (...)
 		{
-			shutdown(false);
+			shutdown();
 			throw;
 		}
 	}
@@ -83,31 +83,18 @@ public:
     }
 
     template <typename Action>
-    future<decltype(std::declval<Action>()())> send(const Action& x)
-    {
-        return send_impl(static_cast<const Action&>(x));
-    }
-
-    template <typename Action>
     future<decltype(std::declval<Action>()())> send(Action&& x)
     {
         return send_impl(std::move(x));
     }
 
-    void shutdown(bool finishActions = true)
-    {
-        if( !m_done )
-        {
-            m_done = true;
-            send(detail::wake_up());
-            if( finishActions )
-                thread_traits::join(m_thread);
-            else
-                thread_traits::interrupt(m_thread);
-        }
-    }
-
 private:
+
+    void shutdown()
+    {
+        m_done.store(true, std::memory_order_relaxed);
+        thread_traits::join(m_thread);
+    }
 
     template <typename Action>
     future<decltype(std::declval<Action>()())> send_impl(Action&& m)

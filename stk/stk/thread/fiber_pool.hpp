@@ -1,4 +1,11 @@
-
+//
+//! Copyright © 2017
+//! Brandon Kohn
+//
+//  Distributed under the Boost Software License, Version 1.0. (See
+//  accompanying file LICENSE_1_0.txt or copy at
+//  http://www.boost.org/LICENSE_1_0.txt)
+//
 #ifndef STK_THREAD_FIBER_POOL_HPP
 #define STK_THREAD_FIBER_POOL_HPP
 #pragma once
@@ -51,11 +58,12 @@ class fiber_pool : boost::noncopyable
 		auto start = idx * nFibersPerThread;
 		auto end = start + nFibersPerThread;
 		for (std::size_t i = start; i < end; ++i)
-			m_fibers[i] = boost::fibers::fiber(boost::fibers::launch::dispatch, std::allocator_arg, m_alloc, [this]() { worker_fiber(); });
+			m_fibers[i] = boost::fibers::fiber(boost::fibers::launch::post, std::allocator_arg, m_alloc, [this]() { worker_fiber(); });
 		
 		{
 			fiber_lock_type lk{ m_fiberMtx };
-			m_shutdownCondition.wait(lk, [this]() { return m_done.load(); });
+			//! Wake up every second or so to check if a notification was missed.
+			while(!m_shutdownCondition.wait_for(lk, std::chrono::seconds(1), [this]() { return m_done.load(std::memory_order_relaxed); }));
 		}
         GEOMETRIX_ASSERT(m_done);
 		
@@ -74,11 +82,17 @@ class fiber_pool : boost::noncopyable
     void worker_fiber()
     {
 		function_wrapper task;
-		while (!m_done.load())
+		while (true)
 		{
 			if (queue_traits::try_pop(m_tasks, task))
+			{
 				task();
+			}
+
 			boost::this_fiber::yield();
+
+			if (m_done.load(std::memory_order_relaxed))
+				return;
 		}
     }
 	
@@ -104,11 +118,11 @@ public:
 
             for(unsigned int i = 0; i < nOSThreads; ++i)
                 m_threads.emplace_back([this](std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx){ os_thread(nThreads, nFibersPerThread, idx); }, nOSThreads, nFibersPerThread, i);
-            m_barrier.wait();
+            m_barrier.wait();//! synchronize just before fiber creation.
         }
         catch(...)
         {
-            shutdown();
+			shutdown();
             throw;
         }
     }
@@ -119,17 +133,13 @@ public:
     }
 
     template <typename Action>
-    future<decltype(std::declval<Action>()())> send(const Action& x)
-    {
-        return send_impl(static_cast<const Action&>(x));
-    }
-
-    template <typename Action>
     future<decltype(std::declval<Action>()())> send(Action&& x)
     {
         return send_impl(std::forward<Action>(x));
     }
 
+	std::size_t number_threads() const { return m_threads.size(); }
+	std::size_t number_fibers() const { return m_fibers.size(); }
 private:
 
     template <typename Action>
@@ -146,22 +156,21 @@ private:
 
     void shutdown()
     {
-        bool b = false;
-        if( m_done.compare_exchange_strong(b, true) )
-        {
-			m_shutdownCondition.notify_all();
+		fiber_lock_type lk{ m_fiberMtx };
+		m_done.store(true, std::memory_order_relaxed);
+		lk.unlock();
+		m_shutdownCondition.notify_all();
 			
-            boost::for_each(m_threads, [](thread_type& t)
+        boost::for_each(m_threads, [](thread_type& t)
+        {
+            try
             {
-                try
-                {
-                    if (t.joinable())
-                        t.join();
-                }
-                catch (...)
-                {}
-            });
-        }
+                if (t.joinable())
+                    t.join();
+            }
+            catch (...)
+            {}
+        });
     }
 
     std::vector<thread_type>                m_threads;

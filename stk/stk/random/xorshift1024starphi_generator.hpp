@@ -14,6 +14,7 @@
 #endif
 
 #include <geometrix/utility/assert.hpp>
+#include <boost/config.hpp>
 #include <array>
 #include <random>
 #include <cstdint>
@@ -31,15 +32,15 @@ namespace stk {
 
         xorshift1024starphi_generator(std::uint64_t seed = 42)
         {
-            seed(seed);
+            set_seed(seed);
         }
 
         using result_type = std::uint64_t;
 
-        static BOOST_CONSTEXPR result_type min(){ return 0; }
-        static BOOST_CONSTEXPR result_type max(){ return (std::numeric_limits<result_type>::max)(); }
+        static BOOST_CONSTEXPR result_type min BOOST_PREVENT_MACRO_SUBSTITUTION(){ return 0; }
+        static BOOST_CONSTEXPR result_type max BOOST_PREVENT_MACRO_SUBSTITUTION(){ return (std::numeric_limits<result_type>::max)(); }
 
-        BOOST_FORCEINLINE result_type operator()
+        BOOST_FORCEINLINE result_type operator()()
         {
             const auto s0 = m_state[m_index];
             auto s1 = m_state[m_index = (m_index + 1) & 15];
@@ -50,7 +51,7 @@ namespace stk {
             return r;
         }
         
-        void seed(std::uint64_t seed = 42)
+        void set_seed(std::uint64_t seed = 42)
         {
             std::seed_seq seq{seed};
             seq.generate(m_state.begin(), m_state.end());

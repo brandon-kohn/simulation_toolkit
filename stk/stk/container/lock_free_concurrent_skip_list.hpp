@@ -40,7 +40,7 @@
 #pragma once
 
 #include <stk/container/concurrent_skip_list.hpp>
-#include <stk/container/atomic_stampable_ptr.hpp>
+#include <stk/container/atomic_markable_ptr.hpp>
 
 //! A lock-free concurrent skip list implementation with map and set versions.
 
@@ -59,8 +59,8 @@ namespace stk { namespace detail {
 		using value_type = typename traits::value_type;
 		using key_type = typename traits::key_type;
 		using mutex_type = typename traits::mutex_type;
-		using atomic_ptr = atomic_stampable_ptr<node>;
-		using stamp_type = typename atomic_ptr::stamp_type;
+		using atomic_ptr = atomic_markable_ptr<node>;
+		using mark_type = typename atomic_ptr::mark_type;
 
 		struct node
 		{
@@ -70,7 +70,7 @@ namespace stk { namespace detail {
 				, MarkedForRemoval = (1 << 1)
 			};
 
-			using node_levels = atomic_stampable_ptr<node>*;
+			using node_levels = atomic_markable_ptr<node>*;
 
 			std::uint8_t     get_flags() const { return flags.load(/*std::memory_order_consume*/std::memory_order_acquire); }
 			void			 set_flags(std::uint8_t f) { flags.store(f, std::memory_order_release); }
@@ -80,9 +80,11 @@ namespace stk { namespace detail {
 			void			 set_marked_for_removal() { set_flags(std::uint8_t(get_flags() | flag::MarkedForRemoval)); }
 			const key_type&  key() const { return traits::resolve_key(value_); }
 			value_type&      item() { return value_; }
+            template <typename Value>
+            void             set_value(Value&& v){ value_ = std::forward<Value>(v); }
 			node_levels&     next() { return nexts; }
 			atomic_ptr&      next(std::uint8_t i) { GEOMETRIX_ASSERT(i <= topLevel); return nexts[i]; }
-			void             set_next(std::uint8_t i, node_ptr pNode, stamp_type stamp) { GEOMETRIX_ASSERT(i <= topLevel); return nexts[i].store(pNode, stamp, std::memory_order_release); }
+			void             set_next(std::uint8_t i, node_ptr pNode, mark_type mark) { GEOMETRIX_ASSERT(i <= topLevel); return nexts[i].store(pNode, mark, std::memory_order_release); }
 			std::uint8_t	 get_top_level() const { return topLevel; }
 
 		private:
@@ -98,13 +100,13 @@ namespace stk { namespace detail {
 				GEOMETRIX_ASSERT(isHead == is_head());
 				GEOMETRIX_ASSERT(!is_marked_for_removal());
 				for (std::uint8_t i = 0; i <= topLevel; ++i)
-					new(&nexts[i]) atomic_stampable_ptr<node>(nullptr, 0);
+					new(&nexts[i]) atomic_markable_ptr<node>(nullptr, 0);
 			}
 
 			value_type			       value_;
 			std::atomic<std::uint8_t>  flags;
 			std::uint8_t               topLevel;
-			atomic_stampable_ptr<node> nexts[0];//! C trick for tight dynamic arrays.
+			atomic_markable_ptr<node> nexts[0];//! C trick for tight dynamic arrays.
 		};
 
 		lf_skip_list_node_manager(key_compare p, allocator_type al)
@@ -171,7 +173,7 @@ namespace stk { namespace detail {
 			template <typename Data>
 			node_ptr create_node(Data&& v, std::uint8_t topLevel, bool isHead = false)
 			{
-				std::size_t aSize = sizeof(node) + (topLevel + 1) * sizeof(atomic_stampable_ptr<node>);
+				std::size_t aSize = sizeof(node) + (topLevel + 1) * sizeof(atomic_markable_ptr<node>);
 				auto pNode = reinterpret_cast<node_ptr>(m_nodeAllocator.allocate(aSize));
 				new(pNode) node(topLevel, std::forward<Data>(v), isHead);
 				return pNode;
@@ -219,7 +221,7 @@ namespace stk { namespace detail {
 
 			void really_destroy_node(node_ptr pNode)
 			{
-				std::size_t aSize = sizeof(node) + (pNode->get_top_level() + 1) * sizeof(atomic_stampable_ptr<node>);
+				std::size_t aSize = sizeof(node) + (pNode->get_top_level() + 1) * sizeof(atomic_markable_ptr<node>);
 				pNode->~node();
 				m_nodeAllocator.deallocate((std::uint8_t*)pNode, aSize);
 			}
@@ -388,6 +390,11 @@ public:
             : node_iterator< value_type >()
         {}
 
+		iterator(const iterator&) = default;
+		iterator& operator=(const iterator&) = default;
+		iterator(iterator&&) = default;
+		iterator& operator=(iterator&&) = default;
+
         iterator( const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
             : node_iterator< value_type >( pMgr, pNode )
         {}
@@ -410,6 +417,11 @@ public:
         const_iterator()
             : node_iterator< const value_type >()
         {}
+
+		const_iterator(const const_iterator&) = default;
+		const_iterator& operator=(const const_iterator&) = default;
+		const_iterator(const_iterator&&) = default;
+		const_iterator& operator=(const_iterator&&) = default;
 
         const_iterator(const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
             : node_iterator< const value_type >(pMgr, pNode)
@@ -522,11 +534,11 @@ public:
     {
         return add( item ).first;
     }
-
+    
     bool contains( const key_type& x ) const
     {
 		int bottomLevel = 0;
-		stamp_type stamp = 0;
+		mark_type mark = 0;
 		node_ptr pred = m_pHead.load(std::memory_order_acquire);
 		node_ptr curr = nullptr;
 		node_ptr succ = nullptr;
@@ -535,12 +547,12 @@ public:
 			curr = pred->next(level).get_ptr();
 			while (curr)
 			{
-				std::tie(succ, stamp) = curr->next(level).get();
-				while (stamp)
+				std::tie(succ, mark) = curr->next(level).get();
+				while (mark)
 				{
 					curr = pred->next(level).get_ptr();
 					if (curr)
-						std::tie(succ, stamp) = curr->next(level).get();
+						std::tie(succ, mark) = curr->next(level).get();
 					else
 						break;
 				}
@@ -575,20 +587,20 @@ public:
 				GEOMETRIX_ASSERT(nodeToRemove);
                 for(int level = nodeToRemove->get_top_level(); level >= bottomLevel+1; --level)
                 {
-                    stamp_type stamp = 0;
-                    std::tie(succ, stamp) = nodeToRemove->next(level).get();
-                    while(!stamp)
+                    mark_type mark = 0;
+                    std::tie(succ, mark) = nodeToRemove->next(level).get();
+                    while(!mark)
                     {
-                        nodeToRemove->next(level).compare_exchange_weak(succ, stamp, succ, 1);
+                        nodeToRemove->next(level).compare_exchange_weak(succ, mark, succ, 1);
                     }
                 }
                 succ = nodeToRemove->next(bottomLevel).get_ptr();
                 while(true)
                 {
-					auto stamp = stamp_type{0};
-                    bool iMarkedIt = nodeToRemove->next(bottomLevel).compare_exchange_strong(succ, stamp, succ, 1);
+					auto mark = mark_type{0};
+                    bool iMarkedIt = nodeToRemove->next(bottomLevel).compare_exchange_strong(succ, mark, succ, 1);
 					GEOMETRIX_ASSERT(nodeToRemove == succs[bottomLevel]);
-                    //std::tie(succ, stamp) = succs[bottomLevel]->next(bottomLevel).get();
+                    //std::tie(succ, mark) = succs[bottomLevel]->next(bottomLevel).get();
                     if(iMarkedIt)
                     {
 						nodeToRemove->set_marked_for_removal();
@@ -597,7 +609,7 @@ public:
        	                decrement_size();
                         return iterator(get_scope_manager(), succs[bottomLevel]);
                     }
-                    else if(stamp)
+                    else if(mark)
                         return end();
                 }
             }
@@ -610,6 +622,8 @@ public:
 			return erase(resolve_key(*it));
 		return end();
     }
+
+
 
 	//! Clear is thread-safe in the strict sense of not invalidating iterators, but the results are 
 	//! not well defined in the presence of other writers.
@@ -652,7 +666,7 @@ protected:
 	bool find(const key_type& key, Preds& preds, Succs& succs)
 	{
         int bottomLevel = 0;
-        stamp_type stamp = 0;
+        mark_type mark = 0;
         bool snip;
         node_ptr pred = nullptr, curr = nullptr, succ = nullptr;
         while(true)
@@ -664,18 +678,18 @@ protected:
                 curr = pred->next(level).get_ptr();
                 while(curr)
                 {
-                    std::tie(succ, stamp) = curr->next(level).get();
-                    while(stamp)
+                    std::tie(succ, mark) = curr->next(level).get();
+                    while(mark)
                     {
 						auto expectedPtr = curr;
-						auto expectedStamp = stamp_type{ 0 };
+						auto expectedStamp = mark_type{ 0 };
                         snip = pred->next(level).compare_exchange_strong(expectedPtr, expectedStamp, succ, 0);
                         if(!snip) 
                             goto retry;
                         curr = pred->next(level).get_ptr();
 						if (!curr)
 							break;
-						std::tie(succ, stamp) = curr->next(level).get();
+						std::tie(succ, mark) = curr->next(level).get();
                     }
 
                     if( curr && less(curr, key) )
@@ -722,7 +736,7 @@ protected:
                 auto succ = succs[bottomLevel];
                 pNewNode->set_next(bottomLevel, succ, 0);
 				auto expectedPtr = succ;
-				auto expectedStamp = stamp_type{ 0 };
+				auto expectedStamp = mark_type{ 0 };
                 if( !pred->next(bottomLevel).compare_exchange_strong(expectedPtr, expectedStamp, pNewNode, 0) )
                 {
                     really_destroy_node(pNewNode);
@@ -736,7 +750,7 @@ protected:
                         pred = preds[level];
                         succ = succs[level];
 						auto pExpected = succ;
-						auto sExpected = stamp_type{0};
+						auto sExpected = mark_type{0};
                         if(pred->next(level).compare_exchange_strong(pExpected, sExpected, pNewNode, 0))
                             break;
                         find(key, preds, succs);
@@ -748,6 +762,71 @@ protected:
 		        //if ((tLvl + 1) < max_height::value && newSize > detail::get_size_table()[tLvl])
 			    //    increment_height(tLvl + 1);
 
+                return std::make_pair(iterator(get_scope_manager(), pNewNode), true);
+            }
+        }
+    }
+
+    template <typename Value, typename Fn>
+    std::pair<iterator, bool> add_or_update(Value&& x, Fn&& updateFn)
+    {
+		auto pHead = m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire);
+		int topLevel = m_selector(pHead->get_top_level());
+        int bottomLevel = 0;
+        std::array<node_ptr, max_height::value> preds;
+        std::array<node_ptr, max_height::value> succs;
+		std::size_t newSize;
+		node_ptr pNewNode;
+		auto key = resolve_key(x);
+        while( true )
+        {
+            bool found = find(key, preds, succs);
+            if( found )
+            {
+                iterator it(get_scope_manager(), succs[bottomLevel]);
+				updateFn(false, *it);
+				return std::make_pair<iterator,bool>(std::move(it), false);
+            }
+            else 
+            {
+                pNewNode = create_node( std::forward<Value>(x), topLevel );
+                for(auto level = bottomLevel; level <= topLevel; ++level)
+                {
+                    auto succ = succs[level];
+                    pNewNode->set_next(level, succ, 0);
+                }
+
+                auto pred = preds[bottomLevel];
+                auto succ = succs[bottomLevel];
+                pNewNode->set_next(bottomLevel, succ, 0);
+				auto expectedPtr = succ;
+				auto expectedStamp = mark_type{ 0 };
+                if( !pred->next(bottomLevel).compare_exchange_strong(expectedPtr, expectedStamp, pNewNode, 0) )
+                {
+                    really_destroy_node(pNewNode);
+                    continue;
+                }
+				
+				updateFn(true, pNewNode->item());
+
+                for(int level = bottomLevel+1; level <= topLevel; ++level)
+                {
+                    while(true)
+                    {
+                        pred = preds[level];
+                        succ = succs[level];
+						auto pExpected = succ;
+						auto sExpected = mark_type{0};
+                        if(pred->next(level).compare_exchange_strong(pExpected, sExpected, pNewNode, 0))
+                            break;
+                        find(key, preds, succs);
+                    }
+                }
+
+			    newSize = increment_size();
+                //auto tLvl = m_pHead.load(std::memory_order_relaxed)->get_top_level();
+		        //if ((tLvl + 1) < max_height::value && newSize > detail::get_size_table()[tLvl])
+			    //    increment_height(tLvl + 1);
                 return std::make_pair(iterator(get_scope_manager(), pNewNode), true);
             }
         }
@@ -820,6 +899,13 @@ public:
             it = insert( value_type( k, mapped_type() ) ).first;
         return (it->second);
     }
+    
+    template <typename UpdateFn>
+    std::pair<iterator, bool> insert_or_update(const key_type& key, UpdateFn&& fn)
+    {
+        return add_or_update(value_type(key, mapped_type()), std::forward<UpdateFn>(fn));
+    }
+
 };
 
 //! Declare a map type with a variable height parameter.
@@ -847,6 +933,13 @@ public:
             it = insert( value_type( k, mapped_type() ) ).first;
         return (it->second);
     }
+    
+    template <typename UpdateFn>
+    std::pair<iterator, bool> insert_or_update(const key_type& key, UpdateFn&& fn)
+    {
+        return add_or_update(value_type(key, mapped_type()), std::forward<UpdateFn>(fn));
+    }
+
 };
 
 }//! namespace stk;

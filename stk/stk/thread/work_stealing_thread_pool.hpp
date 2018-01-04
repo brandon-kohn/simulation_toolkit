@@ -1,3 +1,11 @@
+//
+//! Copyright © 2017
+//! Brandon Kohn
+//
+//  Distributed under the Boost Software License, Version 1.0. (See
+//  accompanying file LICENSE_1_0.txt or copy at
+//  http://www.boost.org/LICENSE_1_0.txt)
+//
 #ifndef STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #define STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #pragma once
@@ -31,15 +39,26 @@ namespace stk { namespace thread {
 
 		void worker_thread(unsigned int tIndex)
 		{
+			if (m_onThreadStart)
+				m_onThreadStart();
+
 			m_workQIndex = tIndex;
 			function_wrapper task;
-			while (!m_done)
+			while (!m_done.load(std::memory_order_relaxed))
 			{
-				if (pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task))
+				if (poll(tIndex, task))
 					task();
 				else
-					boost::this_thread::yield();
+					thread_traits::yield();
 			}
+
+			if (m_onThreadStop)
+				m_onThreadStop();
+		}
+
+		bool poll(unsigned int tIndex, function_wrapper& task)
+		{
+			return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
 		}
 
 		bool pop_local_queue_task(unsigned int i, function_wrapper& task)
@@ -74,28 +93,23 @@ namespace stk { namespace thread {
 			, m_workQIndex([](){ return std::make_shared<std::uint32_t>(static_cast<std::uint32_t>(-1)); })
 			, m_localQs(nthreads)
 		{
-			try
-			{
-				for (unsigned int i = 0; i < nthreads; ++i)
-				{
-					m_localQs[i] = queue_ptr(new queue_type());
-				}
+			init();
+		}
 
-				for (unsigned int i = 0; i < nthreads; ++i)
-				{
-					m_threads.emplace_back([i, this]() { worker_thread(i); });
-				}
-			}
-			catch (...)
-			{
-				m_done = true;
-				throw;
-			}
+		work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, unsigned int nthreads = boost::thread::hardware_concurrency())
+			: m_threads(nthreads)
+			, m_done(false)
+			, m_workQIndex([](){ return std::make_shared<std::uint32_t>(static_cast<std::uint32_t>(-1)); })
+			, m_localQs(nthreads)
+			, m_onThreadStart(onThreadStart)
+			, m_onThreadStop(onThreadStop)
+		{
+			init();
 		}
 
 		~work_stealing_thread_pool()
 		{
-			m_done = true;
+			m_done.store(true, std::memory_order_relaxed);
 			boost::for_each(m_threads, [](thread_type& t)
 			{
 				if (t.joinable())
@@ -104,18 +118,38 @@ namespace stk { namespace thread {
 		}
 
 		template <typename Action>
-		future<decltype(std::declval<Action>()())> send(Action const& x)
-		{
-			return send_impl(static_cast<const Action&>(x));
-		}
-
-		template <typename Action>
 		future<decltype(std::declval<Action>()())> send(Action&& x)
 		{
 			return send_impl(std::forward<Action>(x));
 		}
 
+		template <typename Action>
+		future<decltype(std::declval<Action>()())> send(std::uint32_t threadIndex, Action&& x)
+		{
+			GEOMETRIX_ASSERT(threadIndex < number_threads());
+			return send_impl(threadIndex, std::forward<Action>(x));
+		}
+
+		std::size_t number_threads() const { return m_threads.size(); }
+
 	private:
+
+		void init()
+		{
+			try
+			{
+				for (unsigned int i = 0; i < m_threads.size(); ++i)
+					m_localQs[i] = queue_ptr(new queue_type());
+
+				for (unsigned int i = 0; i < m_threads.size(); ++i)
+					m_threads[i] = thread_type([i, this]() { worker_thread(i); });
+			}
+			catch (...)
+			{
+				m_done = true;
+				throw;
+			}
+		}
 
 		template <typename Action>
 		future<decltype(std::declval<Action>()())> send_impl(Action&& m)
@@ -132,12 +166,29 @@ namespace stk { namespace thread {
 
 			return std::move(result);
 		}
+		
+		template <typename Action>
+		future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
+		{
+			using result_type = decltype(m());
+			packaged_task<result_type> task(std::forward<Action>(m));
+			auto result = task.get_future();
+
+			if (threadIndex != static_cast<std::uint32_t>(-1))
+				queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
+			else
+				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+
+			return std::move(result);
+		}
 
 		std::vector<thread_type>       m_threads;
 		std::atomic<bool>              m_done;
 		thread_specific<std::uint32_t> m_workQIndex;
 		queue_type					   m_poolQ;
 		std::vector<queue_ptr>	       m_localQs;
+		std::function<void()>          m_onThreadStart;
+		std::function<void()>          m_onThreadStop;
 	};
 
 }}//namespace stk::thread;

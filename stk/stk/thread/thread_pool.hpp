@@ -27,14 +27,20 @@ class thread_pool : boost::noncopyable
 
     void worker_thread()
     {
+		if (m_onThreadStart)
+			m_onThreadStart();
+
 		function_wrapper task;
-		while (!m_done)
+		while (!m_done.load(std::memory_order_relaxed))
 		{
 			if (queue_traits::try_pop(m_tasks, task))
 				task();
 			else
 				thread_traits::yield();
 		}
+
+		if (m_onThreadStop)
+			m_onThreadStop();
     }
 	
 public:
@@ -45,19 +51,16 @@ public:
     thread_pool(unsigned int nThreads = std::thread::hardware_concurrency())
         : m_done(false)
     {
-        GEOMETRIX_ASSERT(nThreads > 1);//! why 1?
-        try
-        {
-            m_threads.reserve(nThreads);
-            for(unsigned int i = 0; i < nThreads; ++i)
-                m_threads.emplace_back([this](){ worker_thread(); });
-        }
-        catch(...)
-        {
-            m_done = true;
-            throw;
-        }
+		init(nThreads);
     }
+
+	thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, unsigned int nthreads = boost::thread::hardware_concurrency())
+		: m_done(false)
+		, m_onThreadStart(onThreadStart)
+		, m_onThreadStop(onThreadStop)
+	{
+		init(nthreads);
+	}
 
     ~thread_pool()
     {
@@ -65,19 +68,31 @@ public:
         boost::for_each(m_threads, [](thread_type& t){ t.join(); });
     }
 
-    template <typename Action>
-    future<decltype(std::declval<Action>()())> send(const Action& x)
-    {
-        return send_impl(static_cast<const Action&>(x));
-    }
-
-    template <typename Action>
+	template <typename Action>
     future<decltype(std::declval<Action>()())> send(Action&& x)
     {
         return send_impl(std::forward<Action>(x));
     }
-	
+
+	std::size_t number_threads() const { return m_threads.size(); }
+
 private:
+
+	void init(unsigned int nThreads)
+	{
+		GEOMETRIX_ASSERT(nThreads > 1);//! why 1?
+		try
+		{
+			m_threads.reserve(nThreads);
+			for (unsigned int i = 0; i < nThreads; ++i)
+				m_threads.emplace_back([this]() { worker_thread(); });
+		}
+		catch (...)
+		{
+			m_done = true;
+			throw;
+		}
+	}
 
     template <typename Action>
     future<decltype(std::declval<Action>()())> send_impl(Action&& m)
@@ -91,12 +106,12 @@ private:
         return std::move(result);
     }
 
-    std::atomic<bool>               m_done;
-    std::vector<thread_type>        m_threads;
-    queue_type						m_tasks;
-
+    std::atomic<bool>           m_done;
+    std::vector<thread_type>    m_threads;
+    queue_type					m_tasks;
+	std::function<void()>       m_onThreadStart;
+	std::function<void()>       m_onThreadStop;
 };
-
 
 }}//! namespace stk::thread;
 

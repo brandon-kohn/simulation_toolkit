@@ -30,7 +30,7 @@ private:
 
     static T* extract_ptr(storage_type const& i)
     {
-        return (T*)(((i) & ~(storage_type)1);
+        return (T*)(((i) & ~(storage_type)1));
     }
 
     static mark_type extract_mark(storage_type const& i)

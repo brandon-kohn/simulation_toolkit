@@ -39,6 +39,25 @@ STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);//! for work_stealing_thr
 //! Pull this symbol in so gcc doesn't optimize away.
 auto default_stack_size = boost::context::stack_traits::default_size();
 
+template <typename Pool>
+void bash_overhead(Pool& pool, const char* name)
+{
+	using namespace ::testing;
+	using namespace stk;
+
+	using future_t = typename Pool::template future<void>;
+	std::vector<future_t> fs;
+	fs.reserve(100000);
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		for (unsigned i = 0; i < 100000; ++i) 
+			fs.emplace_back(pool.send([]() -> void { }));
+		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+	}
+
+	boost::for_each(fs, [](future_t& f) { EXPECT_NO_THROW(f.get()); });
+}
+
 template <typename Mutex>
 void bash_map_sequential(const char* name)
 {
@@ -232,6 +251,22 @@ TEST(timing, fibers_moodycamel_concurrentQ)
 	EXPECT_TRUE(true);
 }
 
+TEST(timing, fibers_moodycamel_concurrentQ_overhead)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	auto alloc = boost::fibers::fixedsize_stack{ 64 * 1024 };
+	fiber_pool<boost::fibers::fixedsize_stack, moodycamel_concurrent_queue_traits> fibers{ 10, alloc };
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_overhead(fibers, "fiber pool moody-concurrent_overhead");
+	}
+
+	EXPECT_TRUE(true);
+}
+
+
 TEST(timing, fibers_moodycamel_concurrentQ_tiny_atomic_spinlock_eager_fiber_yield_5000)
 {
 	using namespace ::testing;
@@ -292,6 +327,21 @@ TEST(timing, threads_moodycamel_std_mutex)
 	EXPECT_TRUE(true);
 }
 
+TEST(timing, threads_moodycamel_overhead)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	thread_pool<moodycamel_concurrent_queue_traits> threads(5);
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		bash_overhead(threads, "thread pool moody-camel_overhead");
+	}
+
+	EXPECT_TRUE(true);
+}
+
 TEST(timing, threads_moodycamel_atomic_spinlock_eager_5000)
 {
 	using namespace ::testing;
@@ -342,7 +392,7 @@ TEST(timing, work_stealing_thread_pool_moodycamel_concurrentQ_bash_junction)
 	using namespace stk;
 	using namespace stk::thread;
 	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ 5 };
-	for (int i = 0; i < nTimingRuns * 10; ++i)
+	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_junction_map(pool, "work_stealing_thread_pool moody-concurrent/bash_junction_map");
 	}
