@@ -101,7 +101,7 @@ public:
 	{    
 		stk::compressed_integer_pair p = { i, j };
 		auto iter = m_grid.find(p.to_uint64());
-		GEOMETRIX_ASSERT(iter.getValue() != stk::pointer_value_traits<Data>::Redirect);
+		GEOMETRIX_ASSERT(iter.getValue() != (data_ptr)stk::pointer_value_traits<Data>::Redirect);
 		return iter.getValue();
 	}
 	

@@ -16,6 +16,8 @@
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/atomic_spin_lock.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
+#include <stk/utility/scope_exit.hpp>
+
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/fiber/all.hpp>
@@ -51,6 +53,13 @@ class work_stealing_fiber_pool : boost::noncopyable
 
     void os_thread(std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx)
     {
+		if (m_onThreadStart)
+			m_onThreadStart();
+
+		STK_SCOPE_EXIT(
+			if (m_onThreadStop)
+				m_onThreadStop();
+		);
 #ifndef STK_NO_FIBER_POOL_BIND_TO_PROCESSOR
 		bind_to_processor(idx % std::thread::hardware_concurrency());
 #endif
@@ -83,21 +92,48 @@ class work_stealing_fiber_pool : boost::noncopyable
 
 	void worker_fiber(unsigned int tid)
 	{
-		if (m_onThreadStart)
-			m_onThreadStart();
+		m_nFibers.fetch_add(1, std::memory_order_relaxed);
+		m_active.fetch_add(1, std::memory_order_relaxed);
+
+		STK_SCOPE_EXIT(
+			m_active.fetch_sub(1, std::memory_order_relaxed);
+			m_nFibers.fetch_sub(1, std::memory_order_relaxed);
+		);
 
 		m_workQIndex = tid;
 		function_wrapper task;
 		while (!m_done.load(std::memory_order_relaxed))
 		{
-			if (pop_local_queue_task(tid, task) || pop_task_from_pool_queue(task) || try_steal(task))
+			if (poll(tid, task))
+			{
 				task();
-
+				m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed);
+			}
+			else if (check_suspend_polling(tid, task));
 			boost::this_fiber::yield();
 		}
+	}
 
-		if (m_onThreadStop)
-			m_onThreadStop();
+	bool poll(unsigned int tIndex, function_wrapper& task)
+	{
+		return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
+	}
+
+	bool check_suspend_polling(unsigned int tIndex, function_wrapper& task)
+	{
+		//! I'm assuming no further tasks are submitted when this is called. This is a hard precondition.
+		if (m_suspendPolling.load(std::memory_order_relaxed))
+		{
+			m_active.fetch_sub(1, std::memory_order_relaxed);
+			{
+				auto lk = std::unique_lock<fiber_mutex_type>{ m_suspendMtx };
+				m_suspendCdn.wait(lk, [this]() { return !m_suspendPolling.load(std::memory_order_relaxed); });
+			}
+			m_active.fetch_add(1, std::memory_order_relaxed);
+			return true;
+		}
+
+		return false;
 	}
 
 	bool pop_local_queue_task(unsigned int i, function_wrapper& task)
@@ -169,6 +205,34 @@ public:
 	std::size_t number_threads() const { return m_threads.size(); }
 	std::size_t number_fibers() const { return m_fibers.size(); }
 
+	//! Suspend polling. This method will put the threads to sleep on a condition until polling is resumed.
+	//! The precondition to calling this method is that all futures for submitted tasks have had their wait/get method called.
+	//! This blocks until all pool threads block on the condition.
+	void suspend_polling()
+	{
+		GEOMETRIX_ASSERT(m_nTasksOutstanding.load(std::memory_order_relaxed) == 0);
+		GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
+		auto lk = std::unique_lock<fiber_mutex_type>{ m_suspendMtx };
+		m_suspendPolling.store(true, std::memory_order_relaxed);
+		lk.unlock();
+		while (m_active.load(std::memory_order_relaxed) != 0) boost::this_fiber::yield(); 
+	}
+	
+	//! This restarts the threadpool. It blocks until all pool threads are no longer blocking on the condition.
+	void resume_polling()
+	{	
+		GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == true);
+		{
+			auto lk = std::unique_lock<fiber_mutex_type>{ m_suspendMtx };
+			m_suspendPolling.store(false, std::memory_order_relaxed);
+		}
+		while (m_active.load(std::memory_order_relaxed) != number_fibers())
+		{
+			m_suspendCdn.notify_all();
+			boost::this_fiber::yield();
+		}
+	}
+
 private:
 
 	void init(std::uint32_t nOSThreads, std::size_t nFibersPerThread)
@@ -205,6 +269,7 @@ private:
         auto result = task.get_future();
 
 		auto localIndex = *m_workQIndex;
+		m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 		if (localIndex != static_cast<std::uint32_t>(-1))
 			queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
 		else
@@ -220,6 +285,7 @@ private:
 		packaged_task<result_type()> task(std::forward<Action>(m));
 		auto result = task.get_future();
 
+		m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 		if (threadIndex != static_cast<std::uint32_t>(-1))
 			queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
 		else
@@ -259,6 +325,12 @@ private:
 	barrier<thread_mutex_type>				m_barrier;
 	std::function<void()>					m_onThreadStart;
 	std::function<void()>					m_onThreadStop;
+	std::atomic<std::uint32_t>				m_active{ 0 };
+	std::atomic<std::uint32_t>				m_nTasksOutstanding{ 0 };
+	std::atomic<std::uint32_t>				m_nFibers{ 0 };
+	std::atomic<bool>						m_suspendPolling{ false };
+	fiber_mutex_type				        m_suspendMtx;
+	boost::fibers::condition_variable_any   m_suspendCdn;
 };
 
 }}//! namespace stk::thread;

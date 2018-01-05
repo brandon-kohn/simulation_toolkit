@@ -170,13 +170,77 @@ TEST(work_stealing_thread_pool_test, construct)
 
 	std::atomic<bool> isRun(false);
 	auto r = boost::when_all(obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
-		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
-		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
-		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
-		, obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, obj.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
 		, obj.send([&]() -> bool { std::this_thread::sleep_for(std::chrono::milliseconds(10)); return isRun = true; }));
 
 	r.wait();
+
+	EXPECT_TRUE(isRun);
+}
+
+TEST(work_stealing_thread_pool_test, suspend)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	work_stealing_thread_pool<> pool;
+
+	auto r = boost::when_all(pool.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		);
+
+	r.wait();
+
+	pool.suspend_polling();
+	pool.resume_polling();
+
+	std::atomic<bool> isRun(false);
+	auto r2 = boost::when_all(pool.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([&]() -> bool { std::this_thread::sleep_for(std::chrono::milliseconds(10)); return isRun = true; }));
+
+	r2.wait();
+
+	EXPECT_TRUE(isRun);
+}
+
+TEST(work_stealing_thread_pool_test, suspend_exception)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	work_stealing_thread_pool<> pool;
+
+	auto r = boost::when_all(pool.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { throw std::exception(); })
+		, pool.send([]() -> void { throw std::exception(); })
+		, pool.send([]() -> void { throw std::exception(); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		);
+
+	r.wait();
+
+	pool.suspend_polling();
+	pool.resume_polling();
+
+	std::atomic<bool> isRun(false);
+	auto r2 = boost::when_all(pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([&]() -> bool { std::this_thread::sleep_for(std::chrono::milliseconds(10)); return isRun = true; }));
+
+	r2.wait();
 
 	EXPECT_TRUE(isRun);
 }
@@ -194,17 +258,53 @@ TEST(fiber_pool_test, construct)
 		std::atomic<bool> isRun{ false };
 
 		std::vector<boost::fibers::future<void>> r;
-		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
-		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
-		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
-		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
-		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
+		r.emplace_back(obj.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
+		r.emplace_back(obj.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
+		r.emplace_back(obj.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
+		r.emplace_back(obj.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
+		r.emplace_back(obj.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); }));
 		r.emplace_back(obj.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(10)); isRun = true; }));
 
 		boost::for_each(r, [](const boost::fibers::future<void>& f) { f.wait(); });
 
 		EXPECT_TRUE(isRun);
 	}
+}
+
+#include <stk/thread/work_stealing_fiber_pool.hpp>
+TEST(work_stealing_fiber_pool_test, suspend_exception)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	auto alloc = boost::fibers::fixedsize_stack{64 * 1024};
+	work_stealing_fiber_pool<> pool{ 10, alloc };
+
+	std::vector<boost::fibers::future<void>> r;
+	r.emplace_back(pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([]() -> void { throw std::exception(); }));
+	r.emplace_back(pool.send([]() -> void { throw std::exception(); }));
+	r.emplace_back(pool.send([]() -> void { throw std::exception(); }));
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	
+	boost::for_each(r, [](const boost::fibers::future<void>& f) { f.wait(); });
+	r.clear();
+
+	pool.suspend_polling();
+	pool.resume_polling();
+
+	std::atomic<bool> isRun(false);
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
+	r.emplace_back(pool.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); isRun = true; }));
+
+	boost::for_each(r, [](const boost::fibers::future<void>& f) { f.wait(); });
+
+	EXPECT_TRUE(isRun);
 }
 
 #include <stk/thread/thread_specific.hpp>

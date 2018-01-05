@@ -11,9 +11,11 @@
 #pragma once
 
 #include <stk/thread/function_wrapper.hpp>
+#include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
+#include <stk/utility/scope_exit.hpp>
 
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
@@ -42,23 +44,50 @@ namespace stk { namespace thread {
 			if (m_onThreadStart)
 				m_onThreadStart();
 
+			m_nThreads.fetch_add(1, std::memory_order_relaxed);
+			m_active.fetch_add(1, std::memory_order_relaxed);
+			STK_SCOPE_EXIT(
+				m_active.fetch_sub(1, std::memory_order_relaxed);
+				m_nThreads.fetch_sub(1, std::memory_order_relaxed);
+				if (m_onThreadStop)
+					m_onThreadStop();
+			);
+
 			m_workQIndex = tIndex;
 			function_wrapper task;
 			while (!m_done.load(std::memory_order_relaxed))
 			{
 				if (poll(tIndex, task))
+				{
 					task();
+					m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed);
+				}
+				else if (check_suspend_polling(tIndex, task));
 				else
 					thread_traits::yield();
 			}
-
-			if (m_onThreadStop)
-				m_onThreadStop();
 		}
 
 		bool poll(unsigned int tIndex, function_wrapper& task)
 		{
 			return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
+		}
+
+		bool check_suspend_polling(unsigned int tIndex, function_wrapper& task)
+		{
+			//! I'm assuming no further tasks are submitted when this is called. This is a hard precondition.
+			if (m_suspendPolling.load(std::memory_order_relaxed))
+			{
+				m_active.fetch_sub(1, std::memory_order_relaxed);
+				{
+					auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
+					m_suspendCdn.wait(lk, [this]() { return !m_suspendPolling.load(std::memory_order_relaxed); });
+				}
+				m_active.fetch_add(1, std::memory_order_relaxed);
+				return true;
+			}
+
+			return false;
 		}
 
 		bool pop_local_queue_task(unsigned int i, function_wrapper& task)
@@ -130,7 +159,32 @@ namespace stk { namespace thread {
 			return send_impl(threadIndex, std::forward<Action>(x));
 		}
 
-		std::size_t number_threads() const { return m_threads.size(); }
+		std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+
+		//! Suspend polling. This method will put the threads to sleep on a condition until polling is resumed.
+		//! The precondition to calling this method is that all futures for submitted tasks have had their wait/get method called.
+		//! This blocks until all pool threads block on the condition.
+		void suspend_polling()
+		{
+			GEOMETRIX_ASSERT(m_nTasksOutstanding.load(std::memory_order_relaxed) == 0);
+			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
+			auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
+			m_suspendPolling.store(true, std::memory_order_relaxed);
+			lk.unlock();
+			while (m_active.load(std::memory_order_relaxed) != 0); 
+		}
+
+		//! This restarts the threadpool. It blocks until all pool threads are no longer blocking on the condition.
+		void resume_polling()
+		{	
+			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == true);
+			{
+				auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
+				m_suspendPolling.store(false, std::memory_order_relaxed);
+			}
+			while (m_active.load(std::memory_order_relaxed) != number_threads()) 
+				m_suspendCdn.notify_all();
+		}
 
 	private:
 
@@ -154,11 +208,13 @@ namespace stk { namespace thread {
 		template <typename Action>
 		future<decltype(std::declval<Action>()())> send_impl(Action&& m)
 		{
+			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
 			using result_type = decltype(m());
 			packaged_task<result_type> task(boost::forward<Action>(m));
 			auto result = task.get_future();
 
 			auto localIndex = *m_workQIndex;
+			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 			if (localIndex != static_cast<std::uint32_t>(-1))
 				queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
 			else
@@ -170,10 +226,12 @@ namespace stk { namespace thread {
 		template <typename Action>
 		future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
 		{
+			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
 			using result_type = decltype(m());
 			packaged_task<result_type> task(std::forward<Action>(m));
 			auto result = task.get_future();
 
+			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 			if (threadIndex != static_cast<std::uint32_t>(-1))
 				queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
 			else
@@ -189,8 +247,14 @@ namespace stk { namespace thread {
 		std::vector<queue_ptr>	       m_localQs;
 		std::function<void()>          m_onThreadStart;
 		std::function<void()>          m_onThreadStop;
+		std::atomic<std::uint32_t>     m_active{ 0 };
+		std::atomic<std::uint32_t>     m_nTasksOutstanding{ 0 };
+		std::atomic<std::uint32_t>     m_nThreads{ 0 };
+		std::atomic<bool>              m_suspendPolling{ false };
+		mutex_type                     m_suspendMtx;
+		std::condition_variable_any    m_suspendCdn;
 	};
 
-}}//namespace stk::thread;
+}}//! namespace stk::thread;
 
 #endif // STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
