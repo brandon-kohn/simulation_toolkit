@@ -366,15 +366,15 @@ void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string con
 	{
 		auto i = p.first;
 		auto j = p.second;
+		auto pCell = sut.find_cell(i, j);
+		ASSERT_NE(nullptr, pCell);
 		EXPECT_TRUE(geometrix::numeric_sequence_equals(pCell->pos, stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters), cmp));
 	}
 }
 
 unsigned nTimingRuns = 20;
 int nAccesses = 1000000;
-std::size_t nFibersPerThread = 15
-		auto pCell = sut.find_cell(i, j);
-		ASSERT_NE(nullptr, pCell);;
+std::size_t nFibersPerThread = 15;
 std::size_t nOSThreads = std::thread::hardware_concurrency() - 1;
 TEST(timing, fibers_moodycamel_concurrentQ_bash_grid)
 {
@@ -391,7 +391,7 @@ TEST(timing, fibers_moodycamel_concurrentQ_bash_grid)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
 	
 	for (int i = 0; i < nTimingRuns; ++i)
-		bash_grid<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, rndpairs, "fibers_bash_grid");
+		bash_grid<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, rndpairs, "fibers_bash_grid", nOSThreads * 1000);
 
 	EXPECT_TRUE(true);
 }
@@ -412,7 +412,7 @@ TEST(timing, work_stealing_fibers_moodycamel_concurrentQ_bash_grid)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
 	
 	for (int i = 0; i < nTimingRuns; ++i)
-		bash_grid_with_striping<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, rndpairs, "work_stealing_fibers_bash_grid_with_striping");
+		bash_grid_with_striping<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, rndpairs, "work_stealing_fibers_bash_grid_with_striping", nOSThreads * 1000);
 
 	EXPECT_TRUE(true);
 }
@@ -440,7 +440,7 @@ TEST(timing, fibers_thread_system_bash_grid)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
 
 	for (int i = 0; i < nTimingRuns; ++i)
-		bash_grid<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fts, rndpairs, "fiber_thread_system_bash_grid");
+		bash_grid<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fts, rndpairs, "fiber_thread_system_bash_grid", nOSThreads * 1000);
 
 	EXPECT_TRUE(true);
 }
@@ -458,7 +458,7 @@ TEST(timing, threads_moodycamel_concurrentQ_bash_grid)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
 
 	for (int i = 0; i < nTimingRuns; ++i)
-		bash_grid<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "threads_bash_grid");
+		bash_grid<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "threads_bash_grid", nOSThreads * 1000);
 
 	EXPECT_TRUE(true);
 }
@@ -477,7 +477,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
 
 	for (int i = 0; i < nTimingRuns; ++i)
-		bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping");
+		bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping", nOSThreads * 1000);
 
 	EXPECT_TRUE(true);
 }
@@ -497,7 +497,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid_wait_mode)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
 
 	for (int i = 0; i < nTimingRuns; ++i)
-		bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping_wait_mode");
+		bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping_wait_mode", nOSThreads * 1000);
 
 	EXPECT_TRUE(true);
 }
