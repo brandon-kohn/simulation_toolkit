@@ -1,5 +1,5 @@
 //
-//! Copyright Â© 2017
+//! Copyright © 2017
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
@@ -24,22 +24,7 @@ namespace stk { namespace thread {
             virtual void call() = 0;
             virtual ~impl_base(){}
         };
-/*
-        template <typename F>
-        struct copy_impl_type : impl_base
-        {
-            copy_impl_type(const F& f)
-                : m_f(f)
-            {}
 
-            void call()
-            {
-                m_f();
-            }
-
-            F m_f;
-        };
-*/
         template <typename F>
         struct move_impl_type : impl_base
         {
@@ -60,12 +45,6 @@ namespace stk { namespace thread {
         {
             return new move_impl_type<F>(std::move(f));
         }
-
-//        template <typename F>
-//        impl_base* make_impl(const F& f)
-//       {
-//            return new copy_impl_type<F>(f);
-//        }
 
         std::unique_ptr<impl_base> m_pImpl;
 

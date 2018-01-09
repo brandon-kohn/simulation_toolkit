@@ -245,6 +245,62 @@ TEST(work_stealing_thread_pool_test, suspend_exception)
 	EXPECT_TRUE(isRun);
 }
 
+TEST(work_stealing_thread_pool_test, suspend_destruct)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	{
+		work_stealing_thread_pool<> pool;
+
+		auto r = boost::when_all(pool.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+			, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+			, pool.send([]() -> void { throw std::exception(); })
+			, pool.send([]() -> void { throw std::exception(); })
+			, pool.send([]() -> void { throw std::exception(); })
+			, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		);
+
+		r.wait();
+
+		pool.suspend_polling();
+	}
+}
+
+TEST(work_stealing_thread_pool_test, change_mode_exception)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	work_stealing_thread_pool<> pool;
+
+	auto r = boost::when_all(pool.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { throw std::exception(); })
+		, pool.send([]() -> void { throw std::exception(); })
+		, pool.send([]() -> void { throw std::exception(); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		);
+
+	pool.set_polling_mode(polling_mode::wait);
+
+	std::atomic<bool> isRun(false);
+	auto r2 = boost::when_all(pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
+		, pool.send([&]() -> bool { std::this_thread::sleep_for(std::chrono::milliseconds(10)); return isRun = true; }));
+
+	r2.wait();
+
+	EXPECT_TRUE(isRun);
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//!
+//! Fibers
 TEST(fiber_pool_test, construct)
 {
 	using namespace ::testing;

@@ -79,17 +79,20 @@ namespace stk {	namespace thread {
 			shutdown();
 		}
 
-		template <typename Action>
-		future<decltype(std::declval<Action>()())> async(const Action& x)
-		{
-			return async_impl(static_cast<const Action&>(x));
-		}
-
+		std::size_t number_threads() const { return m_threads.size(); }
+		
 		template <typename Action>
 		future<decltype(std::declval<Action>()())> async(Action&& x)
 		{
 			return async_impl(std::forward<Action>(x));
 		}
+
+		template <typename Action>
+		future<decltype(std::declval<Action>()())> send(Action&& x)
+		{
+			return async_impl(std::forward<Action>(x));
+		}
+
 
 	private:
 

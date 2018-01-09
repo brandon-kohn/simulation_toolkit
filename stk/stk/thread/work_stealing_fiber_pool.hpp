@@ -17,6 +17,7 @@
 #include <stk/thread/atomic_spin_lock.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/utility/scope_exit.hpp>
+#include <stk/thread/pool_polling_mode.hpp>
 
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
@@ -76,7 +77,7 @@ class work_stealing_fiber_pool : boost::noncopyable
 			//! Wake up every second or so to check if a notification was missed.
 			while(!m_shutdownCondition.wait_for(lk, std::chrono::seconds(1), [this]() { return m_done.load(std::memory_order_relaxed); }));
 		}
-        GEOMETRIX_ASSERT(m_done);
+        GEOMETRIX_ASSERT(m_done.load(std::memory_order_relaxed));
 		
 		for (std::size_t i = start; i < end; ++i)
 		{
@@ -105,10 +106,7 @@ class work_stealing_fiber_pool : boost::noncopyable
 		while (!m_done.load(std::memory_order_relaxed))
 		{
 			if (poll(tid, task))
-			{
 				task();
-				m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed);
-			}
 			else if (check_suspend_polling(tid, task));
 			boost::this_fiber::yield();
 		}
@@ -265,7 +263,7 @@ private:
     future<decltype(std::declval<Action>()())> send_impl(Action&& m)
     {
         using result_type = decltype(m());
-        packaged_task<result_type()> task(std::forward<Action>(m));
+		packaged_task<result_type()> task([m = std::forward<Action>(m), this]()->result_type{ STK_SCOPE_EXIT(m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed); ); return m(); });
         auto result = task.get_future();
 
 		auto localIndex = *m_workQIndex;
@@ -282,7 +280,7 @@ private:
 	future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
 	{
 		using result_type = decltype(m());
-		packaged_task<result_type()> task(std::forward<Action>(m));
+		packaged_task<result_type()> task([m = std::forward<Action>(m), this]()->result_type{ STK_SCOPE_EXIT(m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed); ); return m(); });
 		auto result = task.get_future();
 
 		m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
@@ -331,6 +329,7 @@ private:
 	std::atomic<bool>						m_suspendPolling{ false };
 	fiber_mutex_type				        m_suspendMtx;
 	boost::fibers::condition_variable_any   m_suspendCdn;
+	std::atomic<polling_mode>				m_pollingMode{ polling_mode::fast };
 };
 
 }}//! namespace stk::thread;

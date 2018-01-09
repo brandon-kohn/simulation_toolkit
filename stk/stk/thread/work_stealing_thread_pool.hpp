@@ -16,6 +16,7 @@
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/utility/scope_exit.hpp>
+#include <stk/thread/pool_polling_mode.hpp>
 
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
@@ -55,16 +56,39 @@ namespace stk { namespace thread {
 
 			m_workQIndex = tIndex;
 			function_wrapper task;
-			while (!m_done.load(std::memory_order_relaxed))
+
+		polling_mode_fast:
 			{
-				if (poll(tIndex, task))
+				while (!m_done.load(std::memory_order_relaxed))
 				{
-					task();
-					m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed);
+					if (poll(tIndex, task))
+						task();
+					else if (check_suspend_polling(tIndex, task));
+					else if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
+						goto polling_mode_wait;
+					else
+						thread_traits::yield();
 				}
-				else if (check_suspend_polling(tIndex, task));
-				else
-					thread_traits::yield();
+				return;
+			}
+		polling_mode_wait:
+			{
+				while (!m_done.load(std::memory_order_relaxed))
+				{
+					if (poll(tIndex, task))
+						task();
+					else if (check_suspend_polling(tIndex, task));
+					else if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::fast)
+							goto polling_mode_fast;
+					else
+					{
+						m_active.fetch_sub(1, std::memory_order_relaxed);
+						auto lk = std::unique_lock<mutex_type>{ m_pollingMtx };
+						m_pollingCnd.wait_for(lk, std::chrono::milliseconds(500), [this]() {return m_pollingMode.load(std::memory_order_relaxed) != polling_mode::wait || m_done.load(std::memory_order_relaxed); });
+						m_active.fetch_add(1, std::memory_order_relaxed);
+					}
+				}
+				return;
 			}
 		}
 
@@ -81,7 +105,7 @@ namespace stk { namespace thread {
 				m_active.fetch_sub(1, std::memory_order_relaxed);
 				{
 					auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
-					m_suspendCdn.wait(lk, [this]() { return !m_suspendPolling.load(std::memory_order_relaxed); });
+					m_suspendCdn.wait(lk, [this]() { return !m_suspendPolling.load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
 				}
 				m_active.fetch_add(1, std::memory_order_relaxed);
 				return true;
@@ -139,6 +163,13 @@ namespace stk { namespace thread {
 		~work_stealing_thread_pool()
 		{
 			m_done.store(true, std::memory_order_relaxed);
+			if (m_suspendPolling.load(std::memory_order_relaxed))
+				resume_polling();
+			else if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
+			{
+				while (m_active.load(std::memory_order_relaxed) != number_threads())
+					m_pollingCnd.notify_all();
+			}
 			boost::for_each(m_threads, [](thread_type& t)
 			{
 				if (t.joinable())
@@ -186,6 +217,12 @@ namespace stk { namespace thread {
 				m_suspendCdn.notify_all();
 		}
 
+		void set_polling_mode(polling_mode m)
+		{
+			auto lk = std::unique_lock<mutex_type>{ m_pollingMtx };
+			m_pollingMode.store(m, std::memory_order_relaxed);
+		}
+
 	private:
 
 		void init()
@@ -209,8 +246,9 @@ namespace stk { namespace thread {
 		future<decltype(std::declval<Action>()())> send_impl(Action&& m)
 		{
 			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
+			GEOMETRIX_ASSERT(m_done.load(std::memory_order_relaxed) == false);
 			using result_type = decltype(m());
-			packaged_task<result_type> task(boost::forward<Action>(m));
+			packaged_task<result_type> task([m = std::forward<Action>(m), this]()->result_type{ STK_SCOPE_EXIT(m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed); ); return m(); });
 			auto result = task.get_future();
 
 			auto localIndex = *m_workQIndex;
@@ -219,6 +257,9 @@ namespace stk { namespace thread {
 				queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
 			else
 				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+			
+			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
+				m_pollingCnd.notify_one();
 
 			return std::move(result);
 		}
@@ -227,8 +268,9 @@ namespace stk { namespace thread {
 		future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
 		{
 			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
+			GEOMETRIX_ASSERT(m_done.load(std::memory_order_relaxed) == false);
 			using result_type = decltype(m());
-			packaged_task<result_type> task(std::forward<Action>(m));
+			packaged_task<result_type> task([m = std::forward<Action>(m), this]()->result_type{ STK_SCOPE_EXIT(m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed); ); return m(); });
 			auto result = task.get_future();
 
 			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
@@ -236,6 +278,9 @@ namespace stk { namespace thread {
 				queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
 			else
 				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+			
+			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
+				m_pollingCnd.notify_one();
 
 			return std::move(result);
 		}
@@ -253,6 +298,9 @@ namespace stk { namespace thread {
 		std::atomic<bool>              m_suspendPolling{ false };
 		mutex_type                     m_suspendMtx;
 		std::condition_variable_any    m_suspendCdn;
+		std::atomic<polling_mode>      m_pollingMode{ polling_mode::fast };
+		mutex_type                     m_pollingMtx;
+		std::condition_variable_any    m_pollingCnd;
 	};
 
 }}//! namespace stk::thread;
