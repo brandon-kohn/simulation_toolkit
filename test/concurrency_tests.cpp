@@ -370,7 +370,7 @@ TEST(thread_specific_tests, thread_specific_int)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	thread_specific<int> sut{ []() { return std::make_shared<int>(10); } };
+	thread_specific<int> sut{ []() { return 10; } };
 
 	std::vector<std::thread> thds;
 	for(int i = 0; i < 10; ++i)
@@ -391,7 +391,7 @@ TEST(thread_specific_tests, const_thread_specific_int)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	const thread_specific<int> sut{ []() { return std::make_shared<int>(10); } };
+	const thread_specific<int> sut{ []() { return 10; } };
 
 	std::vector<std::thread> thds;
 	for (int i = 0; i < 10; ++i)
@@ -410,7 +410,7 @@ TEST(thread_specific_tests, thread_specific_unique_ptr)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	thread_specific<std::unique_ptr<int>> sut{ []() { return std::make_shared<std::unique_ptr<int>>(std::make_unique<int>(10)); } };
+	thread_specific<std::unique_ptr<int>> sut{ []() { return std::make_unique<int>(10); } };
 
 	std::vector<std::thread> thds;
 	for (int i = 0; i < 10; ++i)
@@ -418,6 +418,7 @@ TEST(thread_specific_tests, thread_specific_unique_ptr)
 		thds.emplace_back([i, &sut]()
 		{
 			std::unique_ptr<int>& p = *sut;
+			EXPECT_EQ(10, *p.get());
 			*p = i;
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			std::unique_ptr<int>& p2 = *sut;
@@ -427,4 +428,27 @@ TEST(thread_specific_tests, thread_specific_unique_ptr)
 	}
 
 	boost::for_each(thds, [](auto& thd) { thd.join(); });
+}
+
+TEST(thread_specific_tests, thread_specific_int_two_instances)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	thread_specific<int> sut{ []() { return 10; } };
+	thread_specific<int> sut2{ []() { return 20; } };
+
+	std::vector<std::thread> thds;
+	for (int i = 0; i < 10; ++i)
+	{
+		thds.emplace_back([i, &sut, &sut2]()
+		{
+			*sut = i;
+			*sut2 = i * 2;
+		});
+	}
+
+	EXPECT_EQ(10, *sut);
+	boost::for_each(thds, [](auto& thd) { thd.join(); });
+	EXPECT_EQ(20, *sut2);
+
 }

@@ -143,7 +143,7 @@ namespace stk { namespace thread {
 		work_stealing_thread_pool(unsigned int nthreads = boost::thread::hardware_concurrency())
 			: m_threads(nthreads)
 			, m_done(false)
-			, m_workQIndex([](){ return std::make_shared<std::uint32_t>(static_cast<std::uint32_t>(-1)); })
+			, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
 			, m_localQs(nthreads)
 		{
 			init();
@@ -152,7 +152,7 @@ namespace stk { namespace thread {
 		work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, unsigned int nthreads = boost::thread::hardware_concurrency())
 			: m_threads(nthreads)
 			, m_done(false)
-			, m_workQIndex([](){ return std::make_shared<std::uint32_t>(static_cast<std::uint32_t>(-1)); })
+			, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
 			, m_localQs(nthreads)
 			, m_onThreadStart(onThreadStart)
 			, m_onThreadStop(onThreadStop)

@@ -162,7 +162,7 @@ public:
 
     work_stealing_fiber_pool(std::size_t nFibersPerThread, const allocator_type& alloc, unsigned int nOSThreads = std::thread::hardware_concurrency() - 1)
 		: m_done(false)
-		, m_workQIndex([]() { return std::make_shared<std::uint32_t>(static_cast<std::uint32_t>(-1)); })
+		, m_workQIndex([]() { return static_cast<std::uint32_t>(-1); })
 		, m_localQs(nOSThreads)
 		, m_alloc(alloc)
 		, m_barrier(nOSThreads + 1)
@@ -172,7 +172,7 @@ public:
 
 	work_stealing_fiber_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::size_t nFibersPerThread, const allocator_type& alloc, unsigned int nOSThreads = std::thread::hardware_concurrency() - 1)
 		: m_done(false)
-		, m_workQIndex([]() { return std::make_shared<std::uint32_t>(static_cast<std::uint32_t>(-1)); })
+		, m_workQIndex([]() { return static_cast<std::uint32_t>(-1); })
 		, m_localQs(nOSThreads)
 		, m_alloc(alloc)
 		, m_barrier(nOSThreads + 1)

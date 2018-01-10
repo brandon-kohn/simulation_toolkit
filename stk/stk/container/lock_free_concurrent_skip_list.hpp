@@ -67,7 +67,7 @@ namespace stk { namespace detail {
 			enum flag : std::uint8_t
 			{
 				Head = 1
-				, MarkedForRemoval = (1 << 1)
+              , MarkedForRemoval = (1 << 1)
 			};
 
 			using node_levels = atomic_markable_ptr<node>*;
@@ -278,8 +278,7 @@ public:
             : m_pNode()
         {}
 
-		template <typename U>
-		node_iterator(const node_iterator<U>& other)
+		node_iterator(const node_iterator& other)
 			: m_pNode(other.m_pNode)
 			, m_pNodeManager(other.m_pNodeManager)
 		{
@@ -360,7 +359,7 @@ public:
         {
 			if (m_pNode)
 			{
-				m_pNode = m_pNode->next(0);
+				m_pNode = m_pNode->next(0).get_ptr();
 				if (!m_pNode)
 					release();
 			}

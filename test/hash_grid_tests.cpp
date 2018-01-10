@@ -439,6 +439,7 @@ TEST(timing, fibers_thread_system_bash_grid)
 
 	for (int i = 0; i < nAccesses; ++i)
 		rndpairs.emplace_back(gen() % extent, gen() % extent);
+	using namespace ::testing;
 
 	for (int i = 0; i < nTimingRuns; ++i)
 		bash_grid<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fts, rndpairs, "fiber_thread_system_bash_grid",sPartitions);
@@ -448,7 +449,6 @@ TEST(timing, fibers_thread_system_bash_grid)
 */
 TEST(timing, threads_moodycamel_concurrentQ_bash_grid)
 {
-	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
 

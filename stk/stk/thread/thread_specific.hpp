@@ -10,7 +10,7 @@
 #define STK_THREAD_THREAD_SPECIFIC_HPP
 #pragma once
 
-#include <stk/container/locked_list.hpp>
+#include <stk/container/lock_free_concurrent_skip_list.hpp>
 #include <functional>
 #include <deque>
 #include <type_traits>
@@ -22,31 +22,46 @@
 #endif
 
 namespace stk { namespace thread {
-    namespace detail {
-        template <typename Fn>
-        inline void on_thread_exit(Fn&& fn)
-        {
-            thread_local struct raii_tl 
-            {
-                std::deque<std::function<void()>> callbacks;
 
-                ~raii_tl()
-                {
-                    for (auto& callback: callbacks) 
-                        callback();
-                }
-            } exiter;
+	template <typename T>
+	class thread_specific;
 
-            exiter.callbacks.emplace_front(std::forward<Fn>(fn));
-        }
+	namespace detail {
+		template <typename Fn>
+		inline void on_thread_exit(Fn&& fn)
+		{
+			thread_local struct raii_tl
+			{
+				std::deque<std::function<void()>> callbacks;
+
+				~raii_tl()
+				{
+					for (auto& callback : callbacks)
+						callback();
+				}
+			} exiter;
+
+			exiter.callbacks.emplace_front(std::forward<Fn>(fn));
+		}
+
     }//! namespace detail;
 
 template <typename T>
 class thread_specific
 {
-	using data_ptr = std::shared_ptr<T>;
-	using const_data_ptr = std::shared_ptr<typename std::add_const<T>::type>;
-    using instance_map = std::map<thread_specific<T> const*, std::shared_ptr<data_ptr> >;
+	using data_ptr = T*;
+	using const_data_ptr = typename std::add_const<data_ptr>::type;
+	struct instance_map : std::map<thread_specific<T> const*, T>
+	{
+		instance_map() = default;
+
+		~instance_map()
+		{
+			for(auto const& i : *this)
+				i.first->m_maps.erase(this);
+		}
+	};
+
 	static instance_map& hive();
 
 public:
@@ -55,7 +70,7 @@ public:
 	using const_reference = typename std::add_const<reference>::type;
 		    
     thread_specific()
-        : m_initializer([](){ return std::make_shared<T>();})
+        : m_initializer([](){ return T();})
     {}
 
 	~thread_specific()
@@ -119,9 +134,9 @@ private:
 		auto& m = hive();
 		auto iter = m.lower_bound(this);
 		if (iter != m.end() && iter->first == this)
-			return std::atomic_load(iter->second.get());			
+			return &iter->second;
 		
-		return data_ptr();
+		return nullptr;
 	}
 	    
     data_ptr get_or_add_item () const
@@ -129,32 +144,30 @@ private:
 		auto& m = hive();
         auto iter = m.lower_bound(this);
         if(iter != m.end() && iter->first == this)
-			return std::atomic_load(iter->second.get());
-		
-		auto pData = m_initializer();
-		auto pShared = std::make_shared<data_ptr>(pData);
-		m_dataChain.push_front(pShared);
-        iter = m.insert(iter, std::make_pair(this, pShared));
+			return &iter->second;
+	
+		m_maps.insert(&m);
+		auto data = m_initializer();
+        iter = m.insert(iter, std::make_pair(this, std::forward<T>(data)));
         GEOMETRIX_ASSERT(iter != m.end());
-        return pData;
+        return &iter->second;
     }
 
 	void destroy()
 	{
-		m_dataChain.for_each([this](std::shared_ptr<data_ptr>& ptr)
-		{
-			std::atomic_store(ptr.get(), data_ptr());
-		});
 		auto& m = hive();
+        auto key = this;
+        m.erase(key);
+        std::for_each(m_maps.begin(), m_maps.end(), [key](instance_map* pMap)
+        { 
+            pMap->erase(key);
+		});
 		
-		GEOMETRIX_ASSERT(m.find(this) == m.end() || m.find(this)->second->get() == nullptr);
-		m.erase(this);
-
-		//!TODO: This leaves empties in the maps from the other threads ... 
+		GEOMETRIX_ASSERT(m.find(this) == m.end());
 	}
 
-    std::function<std::shared_ptr<T>()> m_initializer;
-	mutable locked_list<std::shared_ptr<data_ptr>> m_dataChain;
+    std::function<T()> m_initializer;
+	mutable lock_free_concurrent_set<instance_map*> m_maps;
 
 };
 
@@ -166,7 +179,7 @@ private:
 namespace stk { namespace thread {									\
 inline thread_specific<T>::instance_map& thread_specific<T>::hive()	\
 {																	\
-	static thread_local instance_map instance;						\
+	static thread_local instance_map instance = instance_map();		\
 	instance_map& m = instance;										\
 	return m;														\
 }																	\
