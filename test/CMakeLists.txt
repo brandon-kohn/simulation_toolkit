@@ -18,7 +18,6 @@ if(Boost_FOUND)
         stoppable_bfs_tests
         transformer_tests
         clipper_tests
-        concurrency_tests
        )
 
     foreach(test ${tests})
