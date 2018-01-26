@@ -7,15 +7,12 @@
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
 
-//#include <stk/geometry/geometry_kernel.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <stk/graph/stoppable_breadth_first_search.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-
-//using namespace stk;
 
 namespace {
     enum class VertexType

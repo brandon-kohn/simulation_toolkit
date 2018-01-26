@@ -32,12 +32,13 @@
 #include <geometrix/utility/scope_timer.ipp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/utility/compressed_integer_pair.hpp>
+#include <stk/utility/boost_unique_ptr.hpp>
 #include <junction/Core.h>
 #include <turf/Util.h>
 #include <chrono>
 
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
-
+auto keepReference = boost::context::stack_traits::default_size();
 namespace stk {
 
 	template <typename Fn, typename ... Ts>
@@ -100,10 +101,10 @@ public:
 	template <typename Point>
 	data_ptr find_cell(const Point& point) const
 	{
-		BOOST_CONCEPT_ASSERT( (Point2DConcept<Point>) );
+		BOOST_CONCEPT_ASSERT( (geometrix::Point2DConcept<Point>) );
 		GEOMETRIX_ASSERT( is_contained( point ) );
-		boost::uint32_t i = m_gridTraits.get_x_index(get<0>(point));
-		boost::uint32_t j = m_gridTraits.get_y_index(get<1>(point));
+		boost::uint32_t i = m_gridTraits.get_x_index(geometrix::get<0>(point));
+		boost::uint32_t j = m_gridTraits.get_y_index(geometrix::get<1>(point));
 		return find_cell(i,j);
 	}
 	
@@ -118,10 +119,10 @@ public:
 	template <typename Point>
 	Data& get_cell(const Point& point)
 	{
-		BOOST_CONCEPT_ASSERT(( Point2DConcept<Point> ));
+		BOOST_CONCEPT_ASSERT( (geometrix::Point2DConcept<Point>) );
 		GEOMETRIX_ASSERT( is_contained( point ) );
-		boost::uint32_t i = m_gridTraits.get_x_index(get<0>(point));
-		boost::uint32_t j = m_gridTraits.get_y_index(get<1>(point));
+		boost::uint32_t i = m_gridTraits.get_x_index(geometrix::get<0>(point));
+		boost::uint32_t j = m_gridTraits.get_y_index(geometrix::get<1>(point));
 		return get_cell(i,j);
 	}
 	
@@ -132,7 +133,7 @@ public:
 		auto result = mutator.getValue();
 		if (result == nullptr)
 		{
-			auto pNewData = std::make_unique<Data>();
+			auto pNewData = boost::make_unique<Data>();
 			result = pNewData.get();
 			if (result != mutator.exchangeValue(result))
 				pNewData.release();
@@ -148,13 +149,13 @@ public:
 	template <typename Point>
 	bool is_contained( const Point& p ) const
 	{
-		BOOST_CONCEPT_ASSERT( (Point2DConcept<Point>) );
+		BOOST_CONCEPT_ASSERT( (geometrix::Point2DConcept<Point>) );
 		return m_gridTraits.is_contained( p );
 	}
 
 	void erase(boost::uint32_t i, boost::uint32_t j)
 	{
-		compressed_integer_pair p = { i, j };
+		stk::compressed_integer_pair p = { i, j };
 		auto iter = m_grid.find(p.to_uint64());
 		if (iter.isValid())
 			iter.eraseValue();
@@ -162,7 +163,7 @@ public:
 
 	void clear()
 	{
-		auto it = grid_type::Iterator(m_grid);
+		auto it = typename grid_type::Iterator(m_grid);
 		while(it.isValid())
 		{
 			auto pValue = it.getValue();
@@ -211,7 +212,7 @@ struct cell
 {
 	static std::int64_t update(int i)
 	{
-		static std::atomic<std::int64_t> c = 0;
+		static std::atomic<std::int64_t> c{0};
 		return c.fetch_add(i, std::memory_order_relaxed);
 	}
 
@@ -259,7 +260,7 @@ TEST(concurrent_hash_grid_2d_tests, construct_and_delete)
 }
 #include <boost/range/iterator.hpp>
 template <typename Container>
-inline auto partition_work(Container& cont, const std::ptrdiff_t num)
+inline std::vector<boost::iterator_range<typename boost::range_iterator<Container>::type>> partition_work(Container& cont, const std::ptrdiff_t num)
 {
 	using iterator = typename boost::range_iterator<Container>::type;
 	auto first = std::begin(cont);

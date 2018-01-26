@@ -72,7 +72,7 @@ namespace stk {
         typename Alloc,                  //! actual allocator type (should be value allocator)
         unsigned int MaxHeight,           //! Max size of the skip list node array.
         bool allowMultipleKeys = false,  //! true if multiple equivalent keys are permitted
-		typename Mutex = stk::thread::tiny_atomic_spin_lock<>>
+        typename Mutex = stk::thread::tiny_atomic_spin_lock<>>
     struct associative_map_traits
     {
         typedef Key                                                key_type;
@@ -82,8 +82,8 @@ namespace stk {
         typedef boost::mpl::int_<MaxHeight>                        max_height;
         typedef boost::mpl::int_<MaxHeight-1>                      max_level;
         typedef boost::mpl::bool_<allowMultipleKeys>               allow_multiple_keys;
-		typedef Mutex                                              mutex_type;
-		using size_type = std::size_t;
+        typedef Mutex                                              mutex_type;
+        using size_type = std::size_t;
 
         associative_map_traits(Alloc)
         {}
@@ -132,7 +132,7 @@ namespace stk {
         typedef boost::mpl::bool_<AllowMultipleKeys>               allow_multiple_keys;
         typedef boost::mpl::int_<MaxHeight>                        max_height;
         typedef boost::mpl::int_<MaxHeight-1>                      max_level;
-		using size_type = std::size_t;
+	using size_type = std::size_t;
 
         associative_set_traits(Alloc /*al*/)
         {}
@@ -204,7 +204,7 @@ namespace stk {
 					new(&nexts[i]) std::atomic<node*>(nullptr);
 			}
 
-            value_type			      value_;
+            value_type                value_;
             std::atomic<std::uint8_t> flags;
             mutex_type                mutex;
             std::uint8_t              topLevel;
@@ -484,10 +484,15 @@ class lazy_concurrent_skip_list : public detail::skip_list_node_manager<Associat
     using node_scope_manager = typename base_type::node_scope_manager;
     using node_ptr = typename base_type::node_ptr;
     using mutex_type = typename base_type::mutex_type;
+    using base_type::create_node;
+    using base_type::destroy_node;
+    using base_type::really_destroy_node;
+    using base_type::resolve_key;
+    using base_type::less;
+    using base_type::equal;
+public:
     using max_level = typename base_type::max_level;
     using max_height = typename base_type::max_height;
-
-public:
     using traits_type = AssociativeTraits;
     using size_type = typename traits_type::size_type;
     using key_type = typename traits_type::key_type;
@@ -1105,7 +1110,7 @@ protected:
 		auto pNew = create_node(value_type(), tLvl, true);
 		{
 			auto lk = std::unique_lock<mutex_type>{ pHead->get_mutex() };
-			clone_head_node(pHead, pNew);
+			base_type::clone_head_node(pHead, pNew);
 			auto expected = pHead;
 			if (!m_pHead.compare_exchange_strong(expected, pNew, std::memory_order_release))
 			{
@@ -1119,7 +1124,7 @@ protected:
 
     std::atomic<node_ptr> m_pHead;
     level_selector m_selector;
-	std::atomic<size_type> m_size{ 0 };
+    std::atomic<size_type> m_size{ 0 };
 };
 
 //! Declare a set type.
@@ -1140,13 +1145,13 @@ template <typename Key, typename Value, typename Compare = std::less< Key >, typ
 class concurrent_map : public lazy_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >
 {
     using base_type = lazy_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >;
-    using iterator = typename base_type::iterator; 
 public:
 
     typedef Value                                              mapped_type;
     typedef Key                                                key_type;
     typedef typename boost::add_reference< mapped_type >::type reference;
     typedef typename boost::add_const< mapped_type >::type     const_reference;
+    using iterator = typename base_type::iterator; 
 
     concurrent_map( const Compare& c = Compare() )
         : base_type( 1, c )
@@ -1158,7 +1163,7 @@ public:
 	
         iterator it = this->find( k );
         if( it == this->end() )
-            it = this->insert( value_type( k, mapped_type() ) ).first;
+            it = this->insert( std::make_pair( k, mapped_type() ) ).first;
         return (it->second);
     }
 };
@@ -1185,7 +1190,7 @@ public:
     {
         iterator it = this->find( k );
         if( it == this->end() )
-            it = this->insert( value_type( k, mapped_type() ) ).first;
+            it = this->insert( std::make_pair( k, mapped_type() ) ).first;
         return (it->second);
     }
 };

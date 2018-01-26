@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.1.0)
  
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost 1.60.0 REQUIRED COMPONENTS thread system context fiber)
@@ -11,6 +11,11 @@ endif()
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+    set(CMAKE_CXX_FLAGS -fext-numeric-literals)
+endif()
 
 if(Boost_FOUND)
     set(tests
