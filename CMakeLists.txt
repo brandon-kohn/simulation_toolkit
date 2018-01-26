@@ -1,4 +1,12 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.1.0)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
+
+if("$ENV{BOOST_ROOT}" STREQUAL "")
+    message(FATAL_ERROR "BOOST_ROOT must be defined. NOTE: If using 'sudo' remember to invoke with 'sudo -E' to preserve the environment.")
+endif()
 
 # Download and unpack googletest at configure time
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -23,7 +31,6 @@ endif()
 # and gmock_main
 add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
                  ${CMAKE_BINARY_DIR}/googletest-build)
-  
 
 # Build Properties
 set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE PATH "Default relative include path.")
@@ -37,11 +44,8 @@ add_subdirectory(clipper-lib/)
 add_subdirectory(geometrix/)
 add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
-add_subdirectory(libcds/)
-
-#set(JUNCTION_MAKE_INSTALLABLE ON CACHE BOOL "" FORCE)
-#set(TURF_MAKE_INSTALLABLE ON CACHE BOOL "" FORCE)
 add_subdirectory(junction/)
+add_subdirectory(libcds/)
 
 # Tests
 if(BUILD_TESTS)

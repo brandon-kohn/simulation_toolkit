@@ -69,7 +69,7 @@ TEST(compressed_integer_pair_tests, atomic_is_lock_free)
 	using namespace stk;
 	std::uint32_t hiword = 10;
 	std::uint32_t loword = 10;
-	std::atomic<compressed_integer_pair> p = compressed_integer_pair{ hiword, loword };
+	std::atomic<compressed_integer_pair> p{compressed_integer_pair{ hiword, loword }};
 	EXPECT_TRUE(p.is_lock_free());
 }
 
@@ -80,7 +80,7 @@ TEST(compressed_integer_pair_tests, atomic_cas_works)
 	std::uint32_t loword = 20;
 	auto a = compressed_integer_pair{ hiword, loword };
 
-	std::atomic<compressed_integer_pair> p = a;
+	std::atomic<compressed_integer_pair> p{a};
 	auto b = compressed_integer_pair{ loword, hiword };
 
 	EXPECT_TRUE(p.compare_exchange_strong(a, b));

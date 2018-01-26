@@ -54,7 +54,10 @@ class thread_specific
 	struct instance_map : std::map<thread_specific<T> const*, T>
 	{
 		instance_map() = default;
-
+		instance_map(const instance_map&)=delete;
+		instance_map& operator=(const instance_map&)=delete;
+		instance_map(instance_map&&)=delete;
+		instance_map& operator=(instance_map&&)=delete;
 		~instance_map()
 		{
 			for(auto const& i : *this)
@@ -141,23 +144,22 @@ private:
 	    
     data_ptr get_or_add_item () const
     {
-		auto& m = hive();
+	auto& m = hive();
         auto iter = m.lower_bound(this);
         if(iter != m.end() && iter->first == this)
-			return &iter->second;
+	return &iter->second;
 	
-		m_maps.insert(&m);
-		auto data = m_initializer();
-        iter = m.insert(iter, std::make_pair(this, std::forward<T>(data)));
+	m_maps.insert(&m);
+        iter = m.insert(iter, std::make_pair(this, m_initializer()));
         GEOMETRIX_ASSERT(iter != m.end());
         return &iter->second;
     }
 
 	void destroy()
 	{
-		auto& m = hive();
-        auto key = this;
-        m.erase(key);
+	    auto& m = hive();
+            auto key = this;
+            m.erase(key);
         std::for_each(m_maps.begin(), m_maps.end(), [key](instance_map* pMap)
         { 
             pMap->erase(key);
@@ -175,15 +177,16 @@ private:
 
 //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
 //! There should be only one such definition for each type T specified.
-#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)					\
-namespace stk { namespace thread {									\
-inline thread_specific<T>::instance_map& thread_specific<T>::hive()	\
-{																	\
-	static thread_local instance_map instance = instance_map();		\
-	instance_map& m = instance;										\
-	return m;														\
-}																	\
-}}																	\
+#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)                  \
+namespace stk { namespace thread {                                  \
+template <>                                                         \
+inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
+{								    \
+	static thread_local instance_map instance;                  \
+	instance_map& m = instance;                                 \
+	return m;                                                   \
+}                                                                   \
+}}                                                                  \
 /***/
 
 #endif //! STK_THREAD_THREAD_SPECIFIC_HPP

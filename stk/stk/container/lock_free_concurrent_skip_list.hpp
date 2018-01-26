@@ -41,6 +41,7 @@
 
 #include <stk/container/concurrent_skip_list.hpp>
 #include <stk/container/atomic_markable_ptr.hpp>
+#include <memory>
 
 //! A lock-free concurrent skip list implementation with map and set versions.
 
@@ -66,8 +67,8 @@ namespace stk { namespace detail {
 		{
 			enum flag : std::uint8_t
 			{
-				Head = 1
-              , MarkedForRemoval = (1 << 1)
+                          Head = 1
+                        , MarkedForRemoval = (1 << 1)
 			};
 
 			using node_levels = atomic_markable_ptr<node>*;
@@ -103,58 +104,13 @@ namespace stk { namespace detail {
 					new(&nexts[i]) atomic_markable_ptr<node>(nullptr, 0);
 			}
 
-			value_type			       value_;
+			value_type                 value_;
 			std::atomic<std::uint8_t>  flags;
 			std::uint8_t               topLevel;
-			atomic_markable_ptr<node> nexts[0];//! C trick for tight dynamic arrays.
+			atomic_markable_ptr<node>  nexts[0];//! C trick for tight dynamic arrays.
 		};
-
-		lf_skip_list_node_manager(key_compare p, allocator_type al)
-			: AssociativeTraits(p, al)
-			, m_scopeManager(std::make_shared<node_scope_manager>(al))
-		{}
-
-		template <typename Data>
-		node_ptr create_node(Data&& v, std::uint8_t topLevel, bool isHead = false)
-		{
-			return m_scopeManager->create_node(v, topLevel, isHead);
-		}
-
-		void clone_head_node(node_ptr pHead, node_ptr pNew)
-		{
-			GEOMETRIX_ASSERT(pHead);
-			pNew->set_flags(pHead->get_flags());
-			for (std::size_t i = 0; i <= pHead->get_top_level(); ++i)
-				pNew->next(i).store_raw(pHead->next(i).load_raw());
-		}
-
-		void destroy_node(node_ptr pNode)
-		{
-			m_scopeManager->destroy_node(pNode);
-		}
-
-		void really_destroy_node(node_ptr pNode)
-		{
-			m_scopeManager->really_destroy_node(pNode);
-		}
-
-		key_compare key_comp() const { return m_compare; }
-		bool less(node_ptr pNode, const key_type& k) const
-		{
-			return pNode->is_head() || key_comp()(pNode->key(), k);
-		}
-
-		bool equal(node_ptr pNode, const key_type& k) const
-		{
-			return !pNode->is_head() && !key_comp()(pNode->key(), k) && !key_comp()(k, pNode->key());
-		}
-
-		class node_scope_manager;
-		std::shared_ptr<node_scope_manager> get_scope_manager() const { return m_scopeManager; }
-
-	private:
-
-		class node_scope_manager
+                
+                class node_scope_manager
 		{
 		public:
 			node_scope_manager(allocator_type al)
@@ -185,7 +141,7 @@ namespace stk { namespace detail {
 				if (m_nodes)
 					m_nodes->push_back(pNode);
 				else
-					m_nodes = std::make_unique<std::vector<node_ptr>>(1, pNode);
+					m_nodes = boost::make_unique<std::vector<node_ptr>>(1, pNode);
 
 				m_hasNodes.store(true, std::memory_order_relaxed);
 			}
@@ -236,6 +192,51 @@ namespace stk { namespace detail {
 			mutex_type m_mtx;
 		};
 
+		lf_skip_list_node_manager(key_compare p, allocator_type al)
+			: AssociativeTraits(al)
+                        , m_compare(p)
+			, m_scopeManager(std::make_shared<node_scope_manager>(al))
+		{}
+
+		template <typename Data>
+		node_ptr create_node(Data&& v, std::uint8_t topLevel, bool isHead = false)
+		{
+			return m_scopeManager->create_node(v, topLevel, isHead);
+		}
+
+		void clone_head_node(node_ptr pHead, node_ptr pNew)
+		{
+			GEOMETRIX_ASSERT(pHead);
+			pNew->set_flags(pHead->get_flags());
+			for (std::size_t i = 0; i <= pHead->get_top_level(); ++i)
+				pNew->next(i).store_raw(pHead->next(i).load_raw());
+		}
+
+		void destroy_node(node_ptr pNode)
+		{
+			m_scopeManager->destroy_node(pNode);
+		}
+
+		void really_destroy_node(node_ptr pNode)
+		{
+			m_scopeManager->really_destroy_node(pNode);
+		}
+
+		key_compare key_comp() const { return this->m_compare; }
+		bool less(node_ptr pNode, const key_type& k) const
+		{
+			return pNode->is_head() || key_comp()(pNode->key(), k);
+		}
+
+		bool equal(node_ptr pNode, const key_type& k) const
+		{
+			return !pNode->is_head() && !key_comp()(pNode->key(), k) && !key_comp()(k, pNode->key());
+		}
+
+		std::shared_ptr<node_scope_manager> get_scope_manager() const { return m_scopeManager; }
+
+	private:
+		key_compare m_compare;
 		std::shared_ptr<node_scope_manager> m_scopeManager;
 	};
 }//! namespace detail;
@@ -244,9 +245,23 @@ template <typename AssociativeTraits, typename LevelSelectionPolicy = skip_list_
 class lock_free_concurrent_skip_list : public detail::lf_skip_list_node_manager<AssociativeTraits>
 {
 	static_assert(AssociativeTraits::max_height::value > 1 && AssociativeTraits::max_height::value <= 64, "MaxHeight should be in the range [2, 64]");
+    using base_type = detail::lf_skip_list_node_manager<AssociativeTraits>;
+    using node_ptr = typename base_type::node_ptr;
+    using node_scope_manager = typename base_type::node_scope_manager;
+    using base_type::get_scope_manager;
+    using base_type::create_node;
+    using base_type::destroy_node;
+    using base_type::really_destroy_node;
+    using base_type::less;
+    using base_type::equal;
+    using base_type::resolve_key;
+    using mark_type = typename base_type::mark_type;
 public:
-	using traits_type = AssociativeTraits;
-	using size_type = typename traits_type::size_type;
+
+    using max_level = typename base_type::max_level;
+    using max_height = typename base_type::max_height;
+    using traits_type = AssociativeTraits;
+    using size_type = typename traits_type::size_type;
     using key_type = typename traits_type::key_type;
     using value_type = typename traits_type::value_type;
     using key_compare = typename traits_type::key_compare;
@@ -330,10 +345,10 @@ public:
 
     private:
 
-		template <typename T>
-		BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<T> const& weak) 
+		template <typename U>
+		BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<U> const& weak) 
 		{
-			using wt = std::weak_ptr<T>;
+			using wt = std::weak_ptr<U>;
 			return !weak.owner_before(wt{}) && !wt{}.owner_before(weak);
 		}
 
@@ -378,7 +393,7 @@ public:
         }
 
         node_ptr m_pNode{ nullptr };
-		std::weak_ptr<node_scope_manager> m_pNodeManager;
+        std::weak_ptr<node_scope_manager> m_pNodeManager;
     };
 
     struct const_iterator;
@@ -401,13 +416,13 @@ public:
 		template <typename U>
         bool operator ==( node_iterator<U> const& other ) const
         {
-            return m_pNode == other.m_pNode;
+            return this->m_pNode == other.m_pNode;
         }
 
 		template <typename U>
         bool operator !=( node_iterator<U> const& other ) const
         {
-            return m_pNode != other.m_pNode;
+            return this->m_pNode != other.m_pNode;
         }
     };
 
@@ -432,28 +447,28 @@ public:
 
         const_iterator operator =( iterator const& other )
         {
-            m_pNode = other.m_pNode;
+            this->m_pNode = other.m_pNode;
             return *this;
         }
 
         bool operator ==( iterator const& other ) const
         {
-            return m_pNode == other.m_pNode;
+            return this->m_pNode == other.m_pNode;
         }
 
         bool operator ==( const_iterator const& other ) const
         {
-            return m_pNode == other.m_pNode;
+            return this->m_pNode == other.m_pNode;
         }
 
         bool operator !=( iterator const& other ) const
         {
-            return m_pNode != other.m_pNode;
+            return this->m_pNode != other.m_pNode;
         }
 
         bool operator !=( const_iterator const& other ) const
         {
-            return m_pNode != other.m_pNode;
+            return this->m_pNode != other.m_pNode;
         }
     };
 
@@ -864,12 +879,13 @@ protected:
 template <typename Key, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
 class lock_free_concurrent_set : public lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > >
 {
-    typedef lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > > BaseType;
+    using base_type = lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > >;
+    using max_level = typename base_type::max_level;
 
 public:
 
     lock_free_concurrent_set( const Compare& c = Compare() )
-        : BaseType( max_level::value, c )
+        : base_type( max_level::value, c )
     {}
 };
 
@@ -877,7 +893,8 @@ public:
 template <typename Key, typename Value, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
 class lock_free_concurrent_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >
 {
-    typedef lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > > BaseType;
+    using base_type = lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >;
+    using max_level = typename base_type::max_level;
 
 public:
 
@@ -885,24 +902,25 @@ public:
     typedef Key                                                key_type;
     typedef typename boost::add_reference< mapped_type >::type reference;
     typedef typename boost::add_const< mapped_type >::type     const_reference;
+    using iterator = typename base_type::iterator;
 
     lock_free_concurrent_map( const Compare& c = Compare() )
-        : BaseType( max_level::value, c )
+        : base_type( max_level::value, c )
     {}
 
 	//! This interface admits concurrent reads to find a default constructed value for a given key if there is a writer using this.
     reference operator [] ( const key_type& k )
     {
-        iterator it = find( k );
-        if( it == end() )
-            it = insert( value_type( k, mapped_type() ) ).first;
+        iterator it = this->find( k );
+        if( it == this->end() )
+            it = this->insert( std::make_pair( k, mapped_type() ) ).first;
         return (it->second);
     }
     
     template <typename UpdateFn>
     std::pair<iterator, bool> insert_or_update(const key_type& key, UpdateFn&& fn)
     {
-        return add_or_update(value_type(key, mapped_type()), std::forward<UpdateFn>(fn));
+        return this->add_or_update(std::make_pair(key, mapped_type()), std::forward<UpdateFn>(fn));
     }
 
 };
@@ -911,7 +929,7 @@ public:
 template <typename Key, typename Value, unsigned int MaxHeight, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
 class lock_free_skip_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > >
 {
-    typedef lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > > BaseType;
+    using base_type = lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > >;
 
 public:
 
@@ -919,24 +937,25 @@ public:
     typedef Key                                                key_type;
     typedef typename boost::add_reference< mapped_type >::type reference;
     typedef typename boost::add_const< mapped_type >::type     const_reference;
+    using iterator = typename base_type::iterator;
 
     lock_free_skip_map( const Compare& c = Compare() )
-        : BaseType( MaxHeight - 1, c )
+        : base_type( MaxHeight - 1, c )
     {}
 
 	//! This interface admits concurrent reads to find a default constructed value for a given key if there is a writer using this.
     reference operator [] ( const key_type& k )
     {
-        iterator it = find( k );
-        if( it == end() )
-            it = insert( value_type( k, mapped_type() ) ).first;
+        iterator it = this->find( k );
+        if( it == this->end() )
+            it = this->insert( std::make_pair( k, mapped_type() ) ).first;
         return (it->second);
     }
     
     template <typename UpdateFn>
     std::pair<iterator, bool> insert_or_update(const key_type& key, UpdateFn&& fn)
     {
-        return add_or_update(value_type(key, mapped_type()), std::forward<UpdateFn>(fn));
+        return this->add_or_update(std::make_pair(key, mapped_type()), std::forward<UpdateFn>(fn));
     }
 
 };
