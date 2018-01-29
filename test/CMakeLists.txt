@@ -25,7 +25,6 @@ if(Boost_FOUND)
         stoppable_bfs_tests
         transformer_tests
         clipper_tests
-        concurrent_skip_list_tests
        )
 
     foreach(test ${tests})
@@ -35,14 +34,18 @@ if(Boost_FOUND)
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
 
-    set(concurrency_tests
+    set(parallel_tests
+        concurrency_tests
+        concurrent_skip_list_tests
         hash_grid_tests
         fiber_timing_tests
         )
 
-    foreach(test ${concurrency_tests})
+    foreach(test ${parallel_tests})
         add_executable(${test} ${test}.cpp)
         target_link_libraries(${test} gtest gmock_main stk geometrix turf junction cds-s clipper-lib poly2tri ${Boost_LIBRARIES})
+        add_test(NAME ${test} COMMAND ${test})
+        set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
 
 endif()
