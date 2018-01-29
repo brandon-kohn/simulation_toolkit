@@ -384,7 +384,7 @@ TEST(thread_specific_tests, thread_specific_int)
 		});
 	}
 
-	boost::for_each(thds, [](auto& thd) { thd.join(); });
+	boost::for_each(thds, [](std::thread& thd) { thd.join(); });
 }
 
 TEST(thread_specific_tests, const_thread_specific_int)
@@ -403,14 +403,14 @@ TEST(thread_specific_tests, const_thread_specific_int)
 		});
 	}
 
-	boost::for_each(thds, [](auto& thd) { thd.join(); });
+	boost::for_each(thds, [](std::thread& thd) { thd.join(); });
 }
 
 TEST(thread_specific_tests, thread_specific_unique_ptr)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	thread_specific<std::unique_ptr<int>> sut{ []() { return std::make_unique<int>(10); } };
+	thread_specific<std::unique_ptr<int>> sut{ []() { return boost::make_unique<int>(10); } };
 
 	std::vector<std::thread> thds;
 	for (int i = 0; i < 10; ++i)
@@ -427,7 +427,7 @@ TEST(thread_specific_tests, thread_specific_unique_ptr)
 		});
 	}
 
-	boost::for_each(thds, [](auto& thd) { thd.join(); });
+	boost::for_each(thds, [](std::thread& thd) { thd.join(); });
 }
 
 TEST(thread_specific_tests, thread_specific_int_two_instances)
@@ -448,7 +448,7 @@ TEST(thread_specific_tests, thread_specific_int_two_instances)
 	}
 
 	EXPECT_EQ(10, *sut);
-	boost::for_each(thds, [](auto& thd) { thd.join(); });
+	boost::for_each(thds, [](std::thread& thd) { thd.join(); });
 	EXPECT_EQ(20, *sut2);
 
 }
