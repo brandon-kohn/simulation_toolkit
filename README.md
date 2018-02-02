@@ -1,13 +1,16 @@
 # Simulation ToolKit (STK)
-[CMake][1] superproject for geometrix, clipper, poly2tri, nlopt and miscellaneous utilities for simulations.
+[CMake][1] superproject for cds, clipper, junction, geometrix, poly2tri, nlopt, turf and miscellaneous utilities for simulations.
 
 ##### Libraries included: 
 
+    libcds
     clipper
     geometrix
     googletest
+    junction
     nlopt
     poly2tri
+    turf
 
 ##### Requirements:
 ###### Requires C++11 for boost.fiber, junction, and libcds.
@@ -49,8 +52,10 @@ After running the above command the superproject and submodules will be built in
     -lpoly2tri
     -lgtest
     -lgmock
-    
-    //! NOTE: Append a 'd' to the library name for libraries compiled against the debug c-runtime.
+    -lcds
+    -ljunction
+    -lturf
+    //! NOTE: Append a 'd' to the library name for libraries compiled against the debug c-runtime. CDS uses '_d'.
     
 ##### To run stk tests (slow):
 
