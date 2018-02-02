@@ -62,7 +62,7 @@ private:
 
 public:
 
-    atomic_stampable_ptr() = default; 
+    atomic_stampable_ptr() = default;
     explicit atomic_stampable_ptr(T* p, stamp_type t = 0)
         : m_ptr(combine(p, t))
     {}
@@ -156,7 +156,7 @@ public:
         auto pPtr = combine(desiredPtr, desiredStamp);
         auto pResult = m_ptr.exchange(pPtr, order);
         return std::tuple(extract_ptr(pResult), extract_stamp(pResult));
-    } 
+    }
 
     bool compare_exchange_weak(T*& expectedPtr, stamp_type& expectedStamp, T* desiredPtr, stamp_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept
     {
@@ -167,8 +167,8 @@ public:
         expectedPtr = extract_ptr(pPtrExpected);
         expectedStamp = extract_stamp(pPtrExpected);
         return false;
-    } 
-    
+    }
+
     bool compare_exchange_strong(T*& expectedPtr, stamp_type& expectedStamp, T* desiredPtr, stamp_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept
     {
         auto pPtrExpected = combine(expectedPtr, expectedStamp);
@@ -178,7 +178,7 @@ public:
         expectedPtr = extract_ptr(pPtrExpected);
         expectedStamp = extract_stamp(pPtrExpected);
         return false;
-    } 
+    }
 
     storage_type load_raw(std::memory_order order = std::memory_order_seq_cst) const { return m_ptr.load(order); }
     void store_raw(storage_type s, std::memory_order order = std::memory_order_seq_cst) { m_ptr.store(s, order); }

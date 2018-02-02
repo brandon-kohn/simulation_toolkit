@@ -6,7 +6,7 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-//! Original implementation from "The Art of Multiprocessor Programming", 
+//! Original implementation from "The Art of Multiprocessor Programming",
 //! @book{Herlihy:2008 : AMP : 1734069,
 //! author = { Herlihy, Maurice and Shavit, Nir },
 //! title = { The Art of Multiprocessor Programming },
@@ -62,7 +62,7 @@
 
 #define STK_SKIP_LIST_MAX_HEIGHT 64
 
-namespace stk { 
+namespace stk {
     namespace detail {
 
     //! Associative map traits to make the lazy list behave like a map<key, value>
@@ -119,9 +119,9 @@ namespace stk {
     template < typename Key,             //! key type
         typename Pred,                   //! comparator predicate type
         typename Alloc,                  //! actual allocator type (should be value allocator)
-        unsigned int MaxHeight,          //! Max size of the skip list node array.      
+        unsigned int MaxHeight,          //! Max size of the skip list node array.
         bool AllowMultipleKeys = false,  //! true if multiple equivalent keys are permitted
-        typename Mutex = std::mutex> 
+        typename Mutex = std::mutex>
     struct associative_set_traits
     {
         typedef Key                                                key_type;
@@ -142,7 +142,7 @@ namespace stk {
         {
             return v;
         }
-    
+
     };
 
     template<typename AssociativeTraits>
@@ -160,7 +160,7 @@ namespace stk {
         using key_type = typename traits::key_type;
         using mutex_type = typename traits::mutex_type;
 
-        struct node 
+        struct node
         {
             enum flag : std::uint8_t
             {
@@ -286,19 +286,19 @@ namespace stk {
     private:
 
         using node_allocator = typename allocator_type::template rebind<std::uint8_t>::other;   // allocator object for nodes is a byte allocator.
-        node_allocator m_nodeAllocator; 
+        node_allocator m_nodeAllocator;
         std::atomic<std::uint32_t> m_refCounter{ 0 };
         std::unique_ptr<std::vector<node_ptr>> m_nodes;
         std::atomic<bool> m_hasNodes{ false };
         mutex_type m_mtx;
     };
 
-        skip_list_node_manager( key_compare p, allocator_type al )
-            : AssociativeTraits( al )
-            , m_compare(p)
-            , m_scopeManager( std::make_shared<node_scope_manager>(al) )
-        {}
-        
+    skip_list_node_manager( key_compare p, allocator_type al )
+        : AssociativeTraits( al )
+        , m_compare(p)
+        , m_scopeManager( std::make_shared<node_scope_manager>(al) )
+    {}
+
     template <typename Data>
     node_ptr create_node( Data&& v, std::uint8_t topLevel, bool isHead = false)
     {
@@ -336,20 +336,20 @@ namespace stk {
     std::shared_ptr<node_scope_manager> get_scope_manager() const { return m_scopeManager; }
         key_compare key_comp() const { return m_compare; }
 
-    private:    
+    private:
 
         key_compare m_compare; // the comparator predicate for keys
     std::shared_ptr<node_scope_manager> m_scopeManager;
     };
 
     class random_xor_shift_generator
-    {   
+    {
     public:
 
         using result_type = unsigned int;
         BOOST_CONSTEXPR static result_type min BOOST_PREVENT_MACRO_SUBSTITUTION() { return 0; }
         BOOST_CONSTEXPR static result_type max BOOST_PREVENT_MACRO_SUBSTITUTION() { return (std::numeric_limits<result_type>::max)(); }
-            
+
         random_xor_shift_generator(unsigned int seed = 42)
         {
             m_state.store(seed, std::memory_order_relaxed);
@@ -397,7 +397,6 @@ namespace stk {
         return instance;
     }
 }//! namespace detail;
-
 
 template <std::uint8_t MaxHeight>
 struct skip_list_level_selector
@@ -552,12 +551,12 @@ public:
         {
             other.m_pNode = nullptr;
         }
-        
+
         node_iterator& operator = (node_iterator&& rhs)
         {
             if (m_pNode)
-                release(); 
-            m_pNodeManager = std::move(rhs.m_pNodeManager);     
+                release();
+            m_pNodeManager = std::move(rhs.m_pNodeManager);
             m_pNode = rhs.m_pNode;
             rhs.m_pNode = nullptr;
             return *this;
@@ -589,7 +588,7 @@ public:
     private:
 
         template <typename U>
-        BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<U> const& weak) 
+        BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<U> const& weak)
         {
             using wt = std::weak_ptr<U>;
             return !weak.owner_before(wt{}) && !wt{}.owner_before(weak);
@@ -604,7 +603,7 @@ public:
             if (pMgr)
                 pMgr->remove_checkout();
         }
-        
+
         void acquire()
         {
             GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
@@ -862,7 +861,7 @@ public:
                 {
                     if (pVictim->is_marked_for_removal())
                         return end();
-                    
+
                     topLevel = pVictim->get_top_level();
                     victimLock = lock_type{pVictim->get_mutex()};
                     pVictim->set_marked_for_removal();
@@ -919,7 +918,7 @@ public:
         return erase(resolve_key(x));
     }
 
-    //! Clear is thread-safe in the strict sense of not invalidating iterators, but the results are 
+    //! Clear is thread-safe in the strict sense of not invalidating iterators, but the results are
     //! not well defined in the presence of other writers.
     //! If true atomic clear semantics are required, consider holding an atomic ptr
     //! to the map instance and swapping that when required.
@@ -929,17 +928,17 @@ public:
         for (auto it = begin(); it != end(); ++it)
             erase(it);
     }
-    
+
     //! Returns the size at any given moment. This can be volatile in the presence of writers in other threads.
     size_type size() const { return m_size.load(std::memory_order_relaxed); }
-    
+
     //! Returns empty state at any given moment. This can be volatile in the presence of writers in other threads.
     bool empty() const { return size() == 0; }
 
 protected:
 
     using lock_type = std::unique_lock<mutex_type>;
- 
+
     node_ptr left_most() const
     {
         return m_pHead.load(/*std::memory_order_consume*/std::memory_order_acquire)->next(0);
@@ -1081,7 +1080,7 @@ protected:
                 continue;
 
             pNewNode = create_node( std::forward<Value>(x), topLevel );
-            
+
             for( int level = 0; level <= topLevel; ++level )
                 pNewNode->set_next(level,succs[level]);
             for( int level = 0; level <= topLevel; ++level )
@@ -1151,7 +1150,7 @@ public:
     typedef Key                                                key_type;
     typedef typename boost::add_reference< mapped_type >::type reference;
     typedef typename boost::add_const< mapped_type >::type     const_reference;
-    using iterator = typename base_type::iterator; 
+    using iterator = typename base_type::iterator;
 
     concurrent_map( const Compare& c = Compare() )
         : base_type( 1, c )
@@ -1160,7 +1159,7 @@ public:
     //! This interface admits concurrent reads to find a default constructed value for a given key if there is a writer using this.
     reference operator [] ( const key_type& k )
     {
-    
+
         iterator it = this->find( k );
         if( it == this->end() )
             it = this->insert( std::make_pair( k, mapped_type() ) ).first;
