@@ -35,7 +35,7 @@ namespace stk {
         {
             return &v;
         }
-        
+
         template <class NewVertexContainer, class Derived, class Config, class Base>
         inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const NewVertexContainer& ag, const boost::vec_adj_list_impl<Derived, Config, Base>& g_)
         {
@@ -79,7 +79,7 @@ namespace stk {
         using graph_t = T;
         using vertex_descriptor = typename boost::graph_traits<T>::vertex_descriptor;
         using edge_descriptor = typename boost::graph_traits<T>::edge_descriptor;
-        using stored_vertex = typename graph_t::stored_vertex;  
+        using stored_vertex = typename graph_t::stored_vertex;
         using out_edge_list_type = decltype(stored_vertex::m_out_edges);
         using stored_edge = typename out_edge_list_type::value_type;
         using vertex_property_type = typename graph_t::vertex_property_type;
@@ -146,19 +146,19 @@ namespace stk {
         using graph_bundled = typename graph_t::graph_bundled;
         using directed_category = typename graph_t::directed_category;
         using new_vertex_map_t = boost::container::flat_map<vertex_descriptor, std::unique_ptr<stored_vertex>>;
-        
+
         static vertex_descriptor null_vertex() { return graph_t::null_vertex(); }
 
-		temporary_vertex_graph_adaptor(const graph_t& graph)
-			: mGraph(graph)
-		{}
+        temporary_vertex_graph_adaptor(const graph_t& graph)
+            : mGraph(graph)
+        {}
 
         temporary_vertex_graph_adaptor(const graph_t& graph, const vertex_property_type& newV, const std::vector<std::pair<vertex_descriptor, edge_property_type>>& newAdjacencies)
         : mGraph(graph)
         {
             auto v = add_vertex(newV);
             stored_vertex* vs = mAdaptedVertices.begin()->second.get();
-            for (const auto& item : newAdjacencies) 
+            for (const auto& item : newAdjacencies)
                 detail::create_edge<edge_descriptor>(v, item.first, item.second, vs->m_out_edges);
         }
 
@@ -194,8 +194,9 @@ namespace stk {
                 //! assume it is a static vertex from the original graph.
                 auto pStorage = boost::make_unique<stored_vertex>(get_vertex_property(u));
                 pSV = pStorage.get();
-                auto oldStorage = detail::get_stored_vertex(u, mGraph);
-                pStorage->m_out_edges = oldStorage.m_out_edges;
+                auto& oldStorage = detail::get_stored_vertex(u, mGraph);
+                for (const auto& item : oldStorage.m_out_edges)
+                    pStorage->m_out_edges.emplace_back(item.get_target(), item.get_property());
                 mAdaptedVertices.insert(it, std::make_pair(u, std::move(pStorage)));
             }
             else
@@ -203,7 +204,7 @@ namespace stk {
 
             return detail::create_edge<edge_descriptor>(u, v, p, pSV->m_out_edges);
         }
-    
+
         out_edge_list_type& out_edge_list(vertex_descriptor v)
         {
             auto it = mAdaptedVertices.find(v);
@@ -218,7 +219,7 @@ namespace stk {
             auto it = mAdaptedVertices.find(v);
             if (it == mAdaptedVertices.end())
                 return mGraph.out_edge_list(v);
-            
+
             return it->second->m_out_edges;
         }
 
@@ -228,7 +229,7 @@ namespace stk {
             auto pThis = const_cast<temporary_vertex_graph_adaptor<T>*>(this);
             return vertex_iterator(its.first, its.second, pThis->mOrderedNewVertices.begin(), pThis);
         }
-        
+
         vertex_iterator vertices_end() const
         {
             auto its = boost::vertices(mGraph);
@@ -237,7 +238,7 @@ namespace stk {
         }
 
         std::size_t num_vertices() const { return boost::num_vertices(mGraph) + mOrderedNewVertices.size(); }
-        
+
         edge_iterator edges_begin() const
         {
             return edge_iterator(vertices_begin(), vertices_begin(), vertices_end(), *this);
@@ -249,10 +250,10 @@ namespace stk {
         }
 
         template <typename Reference, typename Tag>
-        Reference get_vertex_property_value(vertex_descriptor v, Tag t) 
+        Reference get_vertex_property_value(vertex_descriptor v, Tag t)
         {
             auto it = mAdaptedVertices.find(v);
-            if (it == mAdaptedVertices.end()) 
+            if (it == mAdaptedVertices.end())
                 return boost::get_property_value(detail::get_stored_vertex(v, mGraph).m_property, t);
 
             return boost::get_property_value(it->second->m_property, t);
@@ -263,7 +264,7 @@ namespace stk {
             auto it = mAdaptedVertices.find(v);
             if (it == mAdaptedVertices.end())
                 return detail::get_stored_vertex(v, mGraph).m_property;
-            
+
             return it->second->m_property;
         }
 
@@ -281,10 +282,10 @@ namespace stk {
         {
             return get_edge_property(e);
         }
-                
+
         bool is_adapted_vertex(vertex_descriptor v) const { return mAdaptedVertices.find(v) != mAdaptedVertices.end(); }
         std::vector<vertex_descriptor> const& get_new_vertices() const { return mOrderedNewVertices; }
-    
+
     private:
 
         friend class vertex_iterator;
@@ -297,13 +298,13 @@ namespace stk {
 }//! namespace stk;
 
 namespace boost {
-    
+
     template <typename T>
     struct graph_traits<stk::temporary_vertex_graph_adaptor<T>>
     {
     private:
         using adapted_t = stk::temporary_vertex_graph_adaptor<T>;
-        
+
     public:
 
         using vertex_descriptor = typename graph_traits<T>::vertex_descriptor;
@@ -359,7 +360,7 @@ namespace boost {
     template <typename T>
     inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator, typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator> out_edges(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g_)
     {
-        typedef typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator out_edge_iterator;       
+        typedef typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator out_edge_iterator;
         auto& g = const_cast<stk::temporary_vertex_graph_adaptor<T>&>(g_);
         return std::make_pair(out_edge_iterator(g.out_edge_list(u).begin(), u), out_edge_iterator(g.out_edge_list(u).end(), u));
     }
@@ -390,13 +391,13 @@ namespace boost {
         auto& g = const_cast<stk::temporary_vertex_graph_adaptor<T>&>(g_);
         return std::make_pair(g.vertices_begin(), g.vertices_end());
     }
-    
+
     template <typename T>
     inline std::size_t num_vertices(const stk::temporary_vertex_graph_adaptor<T>& g)
     {
         return g.num_vertices();
     }
-    
+
     template <typename T>
     inline std::size_t out_degree(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g)
     {
@@ -435,9 +436,9 @@ namespace boost {
         typedef Reference reference;
         typedef typename Graph::vertex_descriptor key_type;
         typedef boost::lvalue_property_map_tag category;
-        inline adapted_graph_vertex_property_map(const Graph* pGraph = nullptr, Tag tag = Tag()) 
+        inline adapted_graph_vertex_property_map(const Graph* pGraph = nullptr, Tag tag = Tag())
         : mGraphPtr(pGraph)
-        , mTag(tag) 
+        , mTag(tag)
         {}
 
         inline reference operator[](key_type v) const
@@ -445,7 +446,7 @@ namespace boost {
             auto pGraph = const_cast<Graph*>(mGraphPtr);
             return pGraph->template get_vertex_property_value<reference>(v, mTag);
         }
-        
+
         inline Reference operator()(key_type v) const
         {
             return this->operator[](v);
@@ -462,7 +463,7 @@ namespace boost {
         typedef PropRef reference;
         typedef typename Graph::vertex_descriptor key_type;
         typedef boost::lvalue_property_map_tag category;
-        inline adapted_graph_vertex_all_properties_map(const Graph* pGraph= nullptr, vertex_all_t = vertex_all_t()) 
+        inline adapted_graph_vertex_all_properties_map(const Graph* pGraph= nullptr, vertex_all_t = vertex_all_t())
         : mGraphPtr(pGraph)
         {}
 
@@ -487,8 +488,8 @@ namespace boost {
         typedef Vertex key_type;
         typedef Vertex reference;
         typedef boost::readable_property_map_tag category;
-        
-        adapted_graph_vertex_id_map() { }       
+
+        adapted_graph_vertex_id_map() { }
         template <class Graph>
         adapted_graph_vertex_id_map(const Graph&, vertex_index_t) { }
         value_type operator[](key_type v) const { return v; }
@@ -544,7 +545,7 @@ namespace boost {
         struct adapted_graph_choose_vertex_pa<vertex_index_t, Graph, Property, typename std::enable_if<stk::has_vector_vertex_list<typename Graph::graph_t>::value>::type> : adapted_graph_vertex_id_pa::template bind_<vertex_index_t, Graph, Property>
         {};
     } // namespace detail
-    
+
     //=========================================================================
     // Edge Property Map
 
@@ -647,23 +648,23 @@ namespace boost {
         struct bind_ : detail::adapted_graph_choose_vertex_pa<Tag, Graph, Property>
         {};
     };
-    
+
     template <>
     struct vertex_property_selector<stk::temporary_vertex_adapted_graph_tag>
     {
         typedef adapted_graph_vertex_property_selector type;
     };
-    
+
     namespace detail {
         template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get_dispatch(stk::temporary_vertex_graph_adaptor<T>&, Property p, boost::edge_property_tag) 
+        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get_dispatch(stk::temporary_vertex_graph_adaptor<T>&, Property p, boost::edge_property_tag)
         {
             typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type PA;
             return PA(p);
         }
 
         template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>,Property>::const_type get_dispatch(const stk::temporary_vertex_graph_adaptor<T>&, Property p, boost::edge_property_tag) 
+        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>,Property>::const_type get_dispatch(const stk::temporary_vertex_graph_adaptor<T>&, Property p, boost::edge_property_tag)
         {
             typedef stk::temporary_vertex_graph_adaptor<T> Graph;
             typedef typename boost::property_map<Graph, Property>::const_type PA;
@@ -671,16 +672,16 @@ namespace boost {
         }
 
         template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get_dispatch(stk::temporary_vertex_graph_adaptor<T>& g, Property p, boost::vertex_property_tag) 
+        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get_dispatch(stk::temporary_vertex_graph_adaptor<T>& g, Property p, boost::vertex_property_tag)
         {
             typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type PA;
             return PA(&g, p);
         }
-        
+
         template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type get_dispatch(const stk::temporary_vertex_graph_adaptor<T>& g, Property p, boost::vertex_property_tag) 
+        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type get_dispatch(const stk::temporary_vertex_graph_adaptor<T>& g, Property p, boost::vertex_property_tag)
         {
-            typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type PA;          
+            typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type PA;
             return PA(&g, p);
         }
 
@@ -688,31 +689,31 @@ namespace boost {
 
     // Implementation of the PropertyGraph interface
     template <typename T, typename Property>
-    inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get(Property p, stk::temporary_vertex_graph_adaptor<T>& g) 
+    inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get(Property p, stk::temporary_vertex_graph_adaptor<T>& g)
     {
         typedef typename detail::property_kind_from_graph<stk::temporary_vertex_graph_adaptor<T>, Property>::type Kind;
         return detail::get_dispatch(g, p, Kind());
     }
 
     template <typename T, typename Property>
-    inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type get(Property p, const stk::temporary_vertex_graph_adaptor<T>& g) 
+    inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type get(Property p, const stk::temporary_vertex_graph_adaptor<T>& g)
     {
         typedef typename detail::property_kind_from_graph<stk::temporary_vertex_graph_adaptor<T>, Property>::type Kind;
         return detail::get_dispatch(g, p, Kind());
     }
 
     template <typename T, typename Property, typename Key>
-    inline typename boost::property_traits<typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>,Property>::type>::reference get(Property p, stk::temporary_vertex_graph_adaptor<T>& g, const Key& key) 
+    inline typename boost::property_traits<typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>,Property>::type>::reference get(Property p, stk::temporary_vertex_graph_adaptor<T>& g, const Key& key)
     {
         return get(get(p, g), key);
     }
 
     template <typename T, typename Property, typename Key>
-    inline typename boost::property_traits< typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type >::reference get(Property p, const stk::temporary_vertex_graph_adaptor<T>& g, const Key& key) 
+    inline typename boost::property_traits< typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type >::reference get(Property p, const stk::temporary_vertex_graph_adaptor<T>& g, const Key& key)
     {
         return get(get(p, g), key);
     }
-    
+
 }//! namespace boost
 
 #endif //! STK_GRAPH_TEMPORARY_VERTEX_GRAPH_ADAPTOR_HPP
