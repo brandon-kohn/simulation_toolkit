@@ -39,11 +39,12 @@ if(Boost_FOUND)
         concurrent_skip_list_tests
         hash_grid_tests
         fiber_timing_tests
+        rpmalloc_tests
         )
 
     foreach(test ${parallel_tests})
         add_executable(${test} ${test}.cpp)
-        target_link_libraries(${test} gtest gmock_main stk geometrix turf junction cds-s clipper-lib poly2tri ${Boost_LIBRARIES})
+        target_link_libraries(${test} gtest gmock_main stk geometrix turf junction cds-s clipper-lib poly2tri rpmalloc ${Boost_LIBRARIES})
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()

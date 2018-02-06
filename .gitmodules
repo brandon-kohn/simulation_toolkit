@@ -21,3 +21,6 @@
 [submodule "libcds"]
 	path = libcds
 	url = https://github.com/brandon-kohn/libcds.git
+[submodule "rpmalloc"]
+	path = rpmalloc
+	url = https://github.com/brandon-kohn/rpmalloc.git
