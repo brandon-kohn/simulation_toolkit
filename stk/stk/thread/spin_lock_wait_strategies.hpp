@@ -10,6 +10,8 @@
 #define STK_THREAD_SPIN_LOCK_WAIT_STRATEGIES_HPP
 
 #include <boost/fiber/operations.hpp>
+#include <stk/thread/boost_thread_kernel.hpp>
+#include <stk/thread/std_thread_kernel.hpp>
 
 namespace stk {	namespace thread {
 

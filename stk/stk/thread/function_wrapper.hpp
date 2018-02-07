@@ -38,6 +38,7 @@ namespace stk { namespace thread {
             }
 
             F m_f;
+            char cachepad[64];
         };
 
         template <typename F>

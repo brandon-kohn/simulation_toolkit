@@ -118,27 +118,6 @@ TEST(concurrent_hash_grid_2d_tests, construct_and_delete)
 
     EXPECT_EQ(0, cell<null_mutex>::update(0));
 }
-#include <boost/range/iterator.hpp>
-template <typename Container>
-inline std::vector<boost::iterator_range<typename boost::range_iterator<Container>::type>> partition_work(Container& cont, const std::ptrdiff_t num)
-{
-    using iterator = typename boost::range_iterator<Container>::type;
-    auto first = std::begin(cont);
-    auto last = std::end(cont);
-    auto total = std::distance(first,last);
-    auto portion = std::ptrdiff_t{ total / num };
-    std::vector<boost::iterator_range<iterator>> chunks(num);
-    auto portion_end = first;
-    std::generate(std::begin(chunks), std::end(chunks), [&portion_end, portion]()
-    {
-        auto portion_start = portion_end;
-        std::advance(portion_end, portion);
-        return boost::make_iterator_range(portion_start, portion_end);
-    });
-
-    chunks.back() = boost::make_iterator_range(std::begin(chunks.back()), last);
-    return chunks;
-}
 
 template <typename Mutex, typename Pool, typename Inputs>
 void bash_grid(Pool& pool, Inputs const& rndpairs, std::string const& name, std::size_t partitionSize)
