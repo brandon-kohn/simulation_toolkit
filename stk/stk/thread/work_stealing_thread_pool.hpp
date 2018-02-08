@@ -10,7 +10,7 @@
 #define STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #pragma once
 
-#include <stk/thread/function_wrapper.hpp>
+#include <stk/thread/function_wrapper_with_allocator.hpp>
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
 #include <stk/container/locked_queue.hpp>
@@ -18,7 +18,9 @@
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/utility/scope_exit.hpp>
 #include <stk/thread/pool_polling_mode.hpp>
-
+#ifdef STK_USE_JEMALLOC
+#include <stk/utility/jemallocator.hpp>
+#endif
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 
@@ -38,7 +40,13 @@ namespace stk { namespace thread {
 		using packaged_task = typename Traits::template packaged_task_type<T>;
 
 		using mutex_type = typename thread_traits::mutex_type;
-		using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>;
+#ifdef STK_USE_JEMALLOC
+		using alloc_type = stk::jemallocator<char>;
+#else
+		using alloc_type = std::allocator<char>;
+#endif
+		using fn_wrapper = function_wrapper_with_allocator<alloc_type>;
+		using queue_type = typename queue_traits::template queue_type<fn_wrapper, std::allocator<fn_wrapper>, mutex_type>;
 		using queue_ptr = std::unique_ptr<queue_type>;
 
 		void worker_thread(unsigned int tIndex)
@@ -56,7 +64,7 @@ namespace stk { namespace thread {
 			);
 
 			m_workQIndex = tIndex;
-			function_wrapper task;
+			fn_wrapper task;
 			std::uint32_t spincount = 0;
 		polling_mode_fast:
 			{
@@ -120,12 +128,12 @@ namespace stk { namespace thread {
 			}
 		}
 
-		bool poll(unsigned int tIndex, function_wrapper& task)
+		bool poll(unsigned int tIndex, fn_wrapper& task)
 		{
 			return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
 		}
 		
-		bool check_suspend_polling(unsigned int tIndex, function_wrapper& task)
+		bool check_suspend_polling(unsigned int tIndex, fn_wrapper& task)
 		{
 			//! I'm assuming no further tasks are submitted when this is called. This is a hard precondition.
 			if (m_suspendPolling.load(std::memory_order_relaxed))
@@ -142,17 +150,17 @@ namespace stk { namespace thread {
 			return false;
 		}
 
-		bool pop_local_queue_task(unsigned int i, function_wrapper& task)
+		bool pop_local_queue_task(unsigned int i, fn_wrapper& task)
 		{
 			return queue_traits::try_pop(*m_localQs[i], task);
 		}
 
-		bool pop_task_from_pool_queue(function_wrapper& task)
+		bool pop_task_from_pool_queue(fn_wrapper& task)
 		{
 			return queue_traits::try_steal(m_poolQ, task);
 		}
 
-		bool try_steal(function_wrapper& task)
+		bool try_steal(fn_wrapper& task)
 		{
 			for (unsigned int i = 0; i < m_localQs.size(); ++i)
 			{
@@ -173,6 +181,7 @@ namespace stk { namespace thread {
 			, m_done(false)
 			, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
 			, m_localQs(nthreads)
+			, m_allocator()
 		{
 			init();
 		}
@@ -184,6 +193,7 @@ namespace stk { namespace thread {
 			, m_localQs(nthreads)
 			, m_onThreadStart(onThreadStart)
 			, m_onThreadStop(onThreadStop)
+			, m_allocator()
 		{
 			init();
 		}
@@ -228,9 +238,9 @@ namespace stk { namespace thread {
 			auto localIndex = *m_workQIndex;
 			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 			if (localIndex != static_cast<std::uint32_t>(-1))
-				queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
+				queue_traits::push(*m_localQs[localIndex], fn_wrapper(m_allocator, std::move(task)));
 			else
-				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+				queue_traits::push(m_poolQ, fn_wrapper(m_allocator, std::move(task)));
 			
 			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
 				m_pollingCnd.notify_one();
@@ -290,7 +300,7 @@ namespace stk { namespace thread {
 		template <typename Pred>
 		void wait_for(Pred&& pred)
 		{
-			function_wrapper task;
+			fn_wrapper task;
 			while (!pred())
 			{
 				if (pop_task_from_pool_queue(task) || try_steal(task))
@@ -329,9 +339,9 @@ namespace stk { namespace thread {
 			auto localIndex = *m_workQIndex;
 			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 			if (localIndex != static_cast<std::uint32_t>(-1))
-				queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
+				queue_traits::push(*m_localQs[localIndex], fn_wrapper(m_allocator, std::move(task)));
 			else
-				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+				queue_traits::push(m_poolQ, fn_wrapper(m_allocator, std::move(task)));
 			
 			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
 				m_pollingCnd.notify_one();
@@ -350,9 +360,9 @@ namespace stk { namespace thread {
 
 			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
 			if (threadIndex != static_cast<std::uint32_t>(-1))
-				queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
+				queue_traits::push(*m_localQs[threadIndex], fn_wrapper(m_allocator, std::move(task)));
 			else
-				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+				queue_traits::push(m_poolQ, fn_wrapper(m_allocator, std::move(task)));
 			
 			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
 				m_pollingCnd.notify_one();
@@ -376,6 +386,7 @@ namespace stk { namespace thread {
 		std::atomic<polling_mode>      m_pollingMode{ polling_mode::fast };
 		mutex_type                     m_pollingMtx;
 		std::condition_variable_any    m_pollingCnd;
+		alloc_type                     m_allocator;
 	};
 
 }}//! namespace stk::thread;

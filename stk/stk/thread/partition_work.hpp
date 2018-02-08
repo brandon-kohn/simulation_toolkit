@@ -23,15 +23,17 @@ namespace stk { namespace thread {
 		auto last = std::end(cont);
 		auto total = std::distance(first, last);
 		auto portion = std::ptrdiff_t{ total / num };
-		std::vector<boost::iterator_range<iterator>> chunks(num);
+		std::vector<boost::iterator_range<iterator>> chunks;
+		chunks.reserve(num);
 		int remainder = total - (num * portion);
 		auto portion_end = first;
-		std::generate(std::begin(chunks), std::end(chunks), [&portion_end, portion, &remainder]()
+		for(auto i = 0;i < num; ++i)
 		{
 			auto portion_start = portion_end;
 			std::advance(portion_end, portion + (--remainder >= 0 ? 1 : 0));
-			return boost::make_iterator_range(portion_start, portion_end);
-		});
+			if(portion_start != portion_end)
+				chunks.emplace_back(boost::make_iterator_range(portion_start, portion_end));
+		}
 
 		return chunks;
 	}
@@ -41,13 +43,16 @@ namespace stk { namespace thread {
 		auto portion = nTasks / num;
 		std::ptrdiff_t remainder = nTasks - (num * portion);
 		auto portion_end = 0;
-		std::vector<std::pair<std::size_t, std::size_t>> chunks(num);
-		std::generate(std::begin(chunks), std::end(chunks), [&portion_end, portion, &remainder]()
+		std::vector<std::pair<std::size_t, std::size_t>> chunks;
+		chunks.reserve(num);
+		//std::generate(std::begin(chunks), std::end(chunks), [&portion_end, portion, &remainder]()
+		for(auto i = 0;i < num; ++i)
 		{
 			auto portion_start = portion_end;
 			portion_end += portion + (--remainder >= 0 ? 1 : 0);
-			return std::make_pair(portion_start, portion_end);
-		});
+			if(portion_start != portion_end)
+				chunks.emplace_back(portion_start, portion_end);
+		}
 
 		return chunks;
 	}

@@ -50,37 +50,58 @@ TEST(timing, test_partition_work)
 	EXPECT_EQ(njobs, count);
 }
 
-size_t nTimingRuns = 20;
-
-#include <stk/thread/LockLessMultiReadPipe.h>
-TEST(timing, work_stealing_threads_enki_concurrentQ_64k_empty_jobs)
+TEST(timing, test_partition_work_zero)
 {
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-    using future_t = boost::future<void>;
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
 
-    work_stealing_thread_pool<enkiTS_concurrent_queue_traits> pool(nOSThreads);
-    const int njobs = 64 * 1024;
-    std::vector<future_t> fs;
-    fs.reserve(njobs);
-	std::atomic<int> consumed = 0;
-    for (int i = 0; i < nTimingRuns; ++i)
-    {
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("enki_64k empty");
-            for(int n = 0; n < njobs; ++n)
-            {
-				fs.emplace_back(pool.send([&consumed]() {consumed.fetch_add(1, std::memory_order_relaxed); }));
-            }
-
-            boost::for_each(fs, [](const future_t& f) { f.wait(); });
-        }
-        fs.clear();
-    }
-
-    EXPECT_EQ(njobs*nTimingRuns, consumed.load(std::memory_order_relaxed));
+	const int njobs = 0;
+	auto npartitions = nOSThreads;
+	auto schedule = partition_work(njobs, npartitions);
+	int count = 0;
+	for (auto range : schedule)
+		for (auto i = range.first; i < range.second; ++i)
+			++count;
+	EXPECT_EQ(njobs, count);
 }
+
+TEST(timing, test_partition_work_empty)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	const int njobs = 0;
+	std::vector<int> items;
+	auto npartitions = nOSThreads;
+	auto schedule = partition_work(items, npartitions);
+	int count = 0;
+	for (auto range : schedule)
+		for (auto i : range)
+			++count;
+	EXPECT_EQ(njobs, count);
+}
+
+TEST(timing, test_partition_work_fewer_items_than_partitions)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	const int njobs = 10;
+	std::vector<int> items(njobs, 1);
+	auto npartitions = nOSThreads;
+	auto schedule = partition_work(items, npartitions);
+	EXPECT_EQ(njobs, schedule.size());
+	int count = 0;
+	for (auto range : schedule)
+		for (auto i : range)
+			++count;
+	EXPECT_EQ(njobs, count);
+}
+
+size_t nTimingRuns = 20;
 
 TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs)
 {
@@ -196,7 +217,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
     {
 		consumed.store(0, std::memory_order_relaxed);
         {
-            GEOMETRIX_MEASURE_SCOPE_TIME("moody_64k empty with creator and schedule");
+            GEOMETRIX_MEASURE_SCOPE_TIME("moody_64k empty with parallel_for");
 			pool.parallel_for(boost::irange(0, njobs), task);
 		}
 		EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
