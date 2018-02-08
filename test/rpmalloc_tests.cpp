@@ -47,25 +47,27 @@ TEST(rpmalloc_test_suite, cross_thread_bench)
     rpmalloc_initialize();
     using namespace stk::thread;
     std::size_t nOSThreads = std::thread::hardware_concurrency();
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);
+	{
+		work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		using future_t = boost::future<void>;
+		std::vector<future_t> futures;
+		futures.reserve(nAllocations);
+		{
+			GEOMETRIX_MEASURE_SCOPE_TIME("rpmalloc_cross_thread_32_bytes");
+			for (size_t i = 0; i < nAllocations; ++i)
+			{
+				auto pAlloc = rpmalloc(32);
+				futures.emplace_back(pool.send(i++%pool.number_threads(),
+					[pAlloc]()
+				{
+					rpfree(pAlloc);
+				}));
+			}
 
-    using future_t = boost::future<void>;
-    std::vector<future_t> futures;
-    futures.reserve(nAllocations);
-    {
-        GEOMETRIX_MEASURE_SCOPE_TIME("rpmalloc_cross_thread_32_bytes");
-        for (size_t i = 0; i < nAllocations; ++i)
-        {
-            auto pAlloc = rpmalloc(32);
-            futures.emplace_back(pool.send(i++%pool.number_threads(),
-                [pAlloc]()
-                {
-                    rpfree(pAlloc);
-                }));
-        }
-
-        boost::for_each(futures, [](const future_t& f) { f.wait(); });
-    }
+			boost::for_each(futures, [](const future_t& f) { f.wait(); });
+		}
+	}
     rpmalloc_finalize();
 }
 
