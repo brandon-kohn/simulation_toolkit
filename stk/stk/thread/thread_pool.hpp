@@ -71,7 +71,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         unique_lock<mutex_type> lk{ m_mutex };
-                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task) || m_done.load(std::memory_order_relaxed)) || m_stop[idx]->load(std::memory_order_relaxed); });
+                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_done.load(std::memory_order_relaxed) || m_stop[idx]->load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTasks)
@@ -163,6 +163,28 @@ namespace stk { namespace thread {
 
             auto njobs = boost::size(range);
             wait_for([&consumed, njobs]() { return consumed.load(std::memory_order_relaxed) == njobs; });
+        }
+
+		template <typename TaskFn>
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
+        {
+            auto npartitions = number_threads();
+            std::atomic<std::size_t> consumed = 0;
+            partition_work(count, npartitions,
+                [&consumed, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+				{
+					send_no_future([&consumed, &task, from, to]() -> void
+					{
+						for (auto i = from; i != to; ++i)
+						{
+							task(i);
+							consumed.fetch_add(1, std::memory_order_relaxed);
+						}
+					});
+				}
+            );
+
+            wait_for([&consumed, count]() { return consumed.load(std::memory_order_relaxed) == count; });
         }
 
     private:
