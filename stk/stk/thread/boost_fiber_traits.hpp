@@ -27,7 +27,12 @@ struct boost_fiber_traits
     
     template <typename T>
     using promise_type = boost::fibers::promise<T>;
-    
+
+    using condition_variable_type = boost::fibers::condition_variable;
+
+	template <typename T>
+	using unique_lock = std::unique_lock<T>;
+
     static void interrupt(boost::fibers::fiber& ){ }
     static void join(boost::fibers::fiber& t){ t.join();}
     static void interruption_point() { }

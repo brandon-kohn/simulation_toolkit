@@ -36,6 +36,11 @@ struct boost_thread_traits
     
     template <typename T>
     using promise_type = boost::promise<T>;
+
+	using condition_variable_type = boost::condition_variable;
+
+    template <typename T>
+	using unique_lock = boost::unique_lock<T>;    
     
     static void interrupt(boost::thread& t){ t.interrupt(); }
     static void join(boost::thread& t){ t.join();}

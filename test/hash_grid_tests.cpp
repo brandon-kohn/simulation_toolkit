@@ -324,26 +324,6 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid)
     EXPECT_TRUE(true);
 }
 
-TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid_wait_mode)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> threads(nOSThreads);
-    threads.set_polling_mode(polling_mode::wait);
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
-    xorshift1024starphi_generator gen;
-
-    for (int i = 0; i < nAccesses; ++i)
-        rndpairs.emplace_back(gen() % extent, gen() % extent);
-
-    for (int i = 0; i < nTimingRuns; ++i)
-        bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping_wait_mode",sPartitions);
-
-    EXPECT_TRUE(true);
-}
-
 template <typename Inputs>
 void bash_sequential_grid(Inputs const& rndpairs, std::string const& name)
 {

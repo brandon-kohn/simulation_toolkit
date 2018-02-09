@@ -12,7 +12,7 @@
 #include <geometrix/test/test.hpp>
 #include <memory>
 
-#define STK_DEBUG_FUNCTION_WRAPPER_DEALLOC 1
+#define STK_DEBUG_FUNCTION_WRAPPER_DEALLOC 0
 
 namespace stk { namespace thread {
 
@@ -91,6 +91,10 @@ namespace stk { namespace thread {
             : m_pImpl(std::move(f.m_pImpl))
         {
 #if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			m_executed = f.m_executed;
+			GEOMETRIX_ASSERT(!m_executed);
+			if (m_executed)
+				throw std::logic_error("function_wrapper should not already be executed");
 			f.m_executed = true;
 #endif
 		}
@@ -99,6 +103,10 @@ namespace stk { namespace thread {
         {
             m_pImpl = std::move(x.m_pImpl);
 #if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			m_executed = x.m_executed;
+			GEOMETRIX_ASSERT(!m_executed);
+			if (m_executed)
+				throw std::logic_error("function_wrapper should not already be executed");
 			x.m_executed = true;
 #endif
 			return *this;
@@ -109,6 +117,7 @@ namespace stk { namespace thread {
             GEOMETRIX_ASSERT(m_pImpl);
             m_pImpl->call();
 #if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			GEOMETRIX_ASSERT(!m_executed);
 			m_executed = true;
 #endif
 		}
@@ -116,7 +125,8 @@ namespace stk { namespace thread {
 		~function_wrapper_with_allocator()
 		{
 #if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
-			if (!m_executed)
+			GEOMETRIX_ASSERT(!m_pImpl || m_executed);
+			if (m_pImpl && !m_executed)
 				throw std::logic_error("function_wrapper not executed");
 #endif		 
 		}

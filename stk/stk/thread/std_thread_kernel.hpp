@@ -33,6 +33,11 @@ struct std_thread_traits
 
     template <typename T>
     using promise_type = std::promise<T>;
+
+    using condition_variable_type = std::condition_variable;
+
+	template <typename T>
+	using unique_lock = std::unique_lock<T>;
     
     static void interrupt(std::thread&){ }
     static void join(std::thread& t){ t.join();}

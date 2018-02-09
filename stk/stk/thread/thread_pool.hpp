@@ -5,184 +5,224 @@
 
 #include <stk/thread/function_wrapper.hpp>
 #include <stk/container/locked_queue.hpp>
+#include <stk/utility/scope_exit.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 
 namespace stk { namespace thread {
 
-template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
-class thread_pool : boost::noncopyable
-{
-    using thread_traits = Traits;
-	using queue_traits = QTraits;
-
-    using thread_type = typename thread_traits::thread_type;
-        
-    template <typename T>
-    using packaged_task = typename Traits::template packaged_task_type<T>;
-	
-	using mutex_type = typename thread_traits::mutex_type;
-	using queue_type = typename queue_traits::template queue_type<function_wrapper*, std::allocator<function_wrapper>, mutex_type>;
-
-    void worker_thread()
+    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
+    class thread_pool : boost::noncopyable
     {
-		if (m_onThreadStart)
-			m_onThreadStart();
+        using thread_traits = Traits;
+        using queue_traits = QTraits;
 
-		function_wrapper* task;
-        unsigned int spincount = 0;
-		bool hasTasks = true;
-		while (!m_done.load(std::memory_order_relaxed))
-		{
-			while (hasTasks)
-			{
-				hasTasks = queue_traits::try_pop(m_tasks, task);
-				if (hasTasks)
-				{
-					std::unique_ptr<function_wrapper> d(task);
-					(*task)();
-				}
-			}
+        using thread_type = typename thread_traits::thread_type;
 
-			if(spincount < 1000)
+        template <typename T>
+        using packaged_task = typename Traits::template packaged_task_type<T>;
+
+        using condition_variable_type = typename Traits::condition_variable_type;
+
+        using mutex_type = typename thread_traits::mutex_type;
+        using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>;
+        using unique_atomic_bool = std::unique_ptr<std::atomic<bool>>;
+        template <typename T>
+        using unique_lock = typename Traits::template unique_lock<T>;
+
+        void worker_thread(std::uint32_t idx)
+        {
+            if (m_onThreadStart)
+                m_onThreadStart();
+            m_nThreads.fetch_add(1, std::memory_order_relaxed);
+            m_active.fetch_add(1, std::memory_order_relaxed);
+            STK_SCOPE_EXIT(
+                m_nThreads.fetch_sub(1, std::memory_order_relaxed);
+                m_active.fetch_sub(1, std::memory_order_relaxed);
+                if (m_onThreadStop)
+                    m_onThreadStop();
+            );
+
+            function_wrapper task;
+            std::uint32_t spincount = 0;
+            bool hasTasks = queue_traits::try_pop(m_tasks, task);
+            while (true)
             {
-                ++spincount;
-				auto backoff = spincount * 10;
-				while(backoff)
+                while (hasTasks)
+                {
+                    task();
+                    spincount = 0;
+					if (!m_stop[idx]->load(std::memory_order_relaxed))
+						hasTasks = queue_traits::try_pop(m_tasks, task);
+					else
+						return;
+                }
+
+                if (++spincount < 100)
+                {
+                    auto backoff = spincount * 10;
+                    while (backoff--)
+                        thread_traits::yield();
+                    hasTasks = queue_traits::try_pop(m_tasks, task);
+                }
+                else
+                {
+                    m_active.fetch_sub(1, std::memory_order_relaxed);
+                    {
+                        unique_lock<mutex_type> lk{ m_mutex };
+                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task) || m_done.load(std::memory_order_relaxed)) || m_stop[idx]->load(std::memory_order_relaxed); });
+                    }
+                    m_active.fetch_add(1, std::memory_order_relaxed);
+                    if (!hasTasks)
+                        return;
+                }
+            }
+        }
+
+    public:
+
+        template <typename T>
+        using future = typename Traits::template future_type<T>;
+
+        thread_pool(std::uint32_t nThreads = std::thread::hardware_concurrency() - 1)
+        {
+            init(nThreads);
+        }
+
+        thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = std::thread::hardware_concurrency() - 1)
+            : m_onThreadStart(onThreadStart)
+            , m_onThreadStop(onThreadStop)
+        {
+            init(nthreads);
+        }
+
+        ~thread_pool()
+        {
+            set_done(true);
+
+            while (m_active.load(std::memory_order_relaxed) != number_threads())
+            {
+                auto lk = unique_lock<mutex_type>{ m_mutex };
+                m_cnd.notify_all();
+            }
+
+            boost::for_each(m_threads, [](thread_type& t) { if (t.joinable()) t.join(); });
+        }
+
+        template <typename Action>
+        future<decltype(std::declval<Action>()())> send(Action&& x)
+        {
+            return send_impl(std::forward<Action>(x));
+        }
+
+        std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+
+        template <typename Pred>
+        void wait_for(Pred&& pred)
+        {
+            function_wrapper task;
+            while (!pred())
+            {
+                if (queue_traits::try_pop(m_tasks, task))
+                {
+                    task();
+                }
+            }
+        }
+
+        template <typename Action>
+        void send_no_future(Action&& m)
+        {
+            function_wrapper p(std::forward<Action>(m));
+            while (!queue_traits::try_push(m_tasks, std::move(p)))
+                thread_traits::yield();
+            unique_lock<mutex_type> lk{ m_mutex };
+            m_cnd.notify_one();
+        }
+
+        template <typename Range, typename TaskFn>
+        void parallel_for(Range&& range, TaskFn&& task)
+        {
+            auto npartitions = number_threads();
+            using iterator_t = typename boost::range_iterator<Range>::type;
+            std::atomic<std::size_t> consumed = 0;
+            partition_work(range, npartitions,
+                [&consumed, &task, this](iterator_t from, iterator_t to) -> void
+            {
+                send_no_future([&consumed, &task, from, to]() -> void
+                {
+                    for (auto i = from; i != to; ++i)
+                    {
+                        task(*i);
+                        consumed.fetch_add(1, std::memory_order_relaxed);
+                    }
+                });
+            }
+            );
+
+            auto njobs = boost::size(range);
+            wait_for([&consumed, njobs]() { return consumed.load(std::memory_order_relaxed) == njobs; });
+        }
+
+    private:
+
+        void set_done(bool v)
+        {
+            m_done.store(v, std::memory_order_relaxed);
+            for (auto& b : m_stop)
+                b->store(v);
+        }
+
+        void init(std::uint32_t nThreads)
+        {
+            GEOMETRIX_ASSERT(nThreads > 1);//! why 1?
+            try
+            {
+				for (std::uint32_t i = 0; i < nThreads; ++i)
 				{
-					thread_traits::yield();
-					--backoff;
+					m_stop.emplace_back(new std::atomic<bool>{ false });
 				}
-			} 
-			else
-			{
-				std::unique_lock<std::mutex> lk{ m_mutex };
-				m_cnd.wait(lk, [&task, &hasTasks, this]() {
-					return (hasTasks = queue_traits::try_pop(m_tasks, task) || m_done.load(std::memory_order_relaxed));
-				});
-			}
-		}
 
-		if (m_onThreadStop)
-			m_onThreadStop();
-    }
-	
-public:
+                m_threads.reserve(nThreads);
+                for (std::uint32_t i = 0; i < nThreads; ++i)
+                    m_threads.emplace_back([i, this]() { worker_thread(i); });
 
-    template <typename T>
-    using future = typename Traits::template future_type<T>;
+                while (number_threads() != m_threads.size())
+                    thread_traits::yield();
+            }
+            catch (...)
+            {
+                set_done(true);
+                throw;
+            }
+        }
 
-    thread_pool(unsigned int nThreads = std::thread::hardware_concurrency()-1)
-        : m_done(false)
-    {
-		init(nThreads);
-    }
+        template <typename Action>
+        future<decltype(std::declval<Action>()())> send_impl(Action&& m)
+        {
+            using result_type = decltype(m());
+            packaged_task<result_type> task(std::forward<Action>(m));
+            auto result = task.get_future();
+            function_wrapper p(std::move(task));
+            while (!queue_traits::try_push(m_tasks, std::move(p)))
+                thread_traits::yield();
+            unique_lock<mutex_type> lk{ m_mutex };
+            m_cnd.notify_one();
+            return std::move(result);
+        }
 
-	thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, unsigned int nthreads = boost::thread::hardware_concurrency()-1)
-		: m_done(false)
-		, m_onThreadStart(onThreadStart)
-		, m_onThreadStop(onThreadStop)
-	{
-		init(nthreads);
-	}
-
-    ~thread_pool()
-    {
-        m_done = true;
-        boost::for_each(m_threads, [](thread_type& t){ t.join(); });
-    }
-
-	template <typename Action>
-    future<decltype(std::declval<Action>()())> send(Action&& x)
-    {
-        return send_impl(std::forward<Action>(x));
-    }
-
-	std::size_t number_threads() const { return m_threads.size(); }
-
-	template <typename Pred>
-	void wait_for(Pred&& pred)
-	{
-		function_wrapper* task;
-		while (!pred())
-		{
-			if (queue_traits::try_pop(m_tasks, task))
-			{
-				std::unique_ptr<function_wrapper> d(task);
-				(*task)();
-			}
-		}
-	}
-
-	template <typename Action>
-	void send_no_future(Action m)
-	{
-		auto pFn = new function_wrapper(m);
-		while (!queue_traits::try_push(m_tasks, pFn))
-			thread_traits::yield();
-		m_cnd.notify_one();
-	}
-
-	template <typename Range, typename TaskFn>
-	void parallel_for(Range&& range, TaskFn task)
-	{
-		auto npartitions = number_threads();
-		using iterator_t = typename boost::range_iterator<Range>::type;
-		std::atomic<std::size_t> consumed = 0;
-		partition_work(range, npartitions,
-			[&consumed, &task, this](iterator_t from, iterator_t to) -> void
-		{
-			send_no_future([&consumed, task, from, to, this]() -> void
-			{
-				for (auto i = from; i != to; ++i)
-					send_no_future([&consumed, i, task]() -> void {consumed.fetch_add(1, std::memory_order_relaxed); task(*i); });
-			});
-		});
-
-		auto njobs = boost::size(range);
-		wait_for([&consumed, njobs]() { return consumed.load(std::memory_order_relaxed) == njobs; });
-	}
-
-private:
-
-	void init(unsigned int nThreads)
-	{
-		GEOMETRIX_ASSERT(nThreads > 1);//! why 1?
-		try
-		{
-			m_threads.reserve(nThreads);
-			for (unsigned int i = 0; i < nThreads; ++i)
-				m_threads.emplace_back([this]() { worker_thread(); });
-		}
-		catch (...)
-		{
-			m_done = true;
-			throw;
-		}
-	}
-
-    template <typename Action>
-    future<decltype(std::declval<Action>()())> send_impl(Action m)
-    {
-        using result_type = decltype(m());
-        packaged_task<result_type> task(m);
-        auto result = task.get_future();
-		auto pFn = new function_wrapper(std::move(task));
-		while (!queue_traits::try_push(m_tasks, pFn))
-			thread_traits::yield();
-		m_cnd.notify_one();
-        return std::move(result);
-    }
-
-    std::atomic<bool>           m_done;
-    std::vector<thread_type>    m_threads;
-    queue_type					m_tasks;
-	std::function<void()>       m_onThreadStart;
-	std::function<void()>       m_onThreadStop;
-	std::mutex                  m_mutex;
-	std::condition_variable     m_cnd;
-};
+        std::atomic<bool>               m_done{ false };
+        std::atomic<std::uint32_t>      m_nThreads{ 0 };
+        std::atomic<std::uint32_t>      m_active{ 0 };
+        std::vector<unique_atomic_bool> m_stop;
+        std::vector<thread_type>        m_threads;
+        queue_type                      m_tasks;
+        std::function<void()>           m_onThreadStart;
+        std::function<void()>           m_onThreadStop;
+        mutex_type                      m_mutex;
+        condition_variable_type         m_cnd;
+    };
 
 }}//! namespace stk::thread;
 
