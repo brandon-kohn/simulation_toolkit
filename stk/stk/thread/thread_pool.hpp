@@ -146,45 +146,64 @@ namespace stk { namespace thread {
         {
             auto npartitions = number_threads();
             using iterator_t = typename boost::range_iterator<Range>::type;
-            std::atomic<std::size_t> consumed = 0;
+			std::vector<future<void>> fs;
+			fs.reserve(npartitions);
             partition_work(range, npartitions,
-                [&consumed, &task, this](iterator_t from, iterator_t to) -> void
-            {
-                send_no_future([&consumed, &task, from, to]() -> void
-                {
-                    for (auto i = from; i != to; ++i)
-                    {
-                        task(*i);
-                        consumed.fetch_add(1, std::memory_order_relaxed);
-                    }
-                });
-            }
+                [&fs, &task, this](iterator_t from, iterator_t to) -> void
+				{
+					fs.emplace_back(send([&task, from, to]() -> void
+					{
+						for (auto i = from; i != to; ++i)
+						{
+							task(*i);
+						}
+					}));
+				}
             );
 
-            auto njobs = boost::size(range);
-            wait_for([&consumed, njobs]() { return consumed.load(std::memory_order_relaxed) == njobs; });
+			function_wrapper tsk;
+			for (auto it = fs.begin(); it != fs.end();)
+			{
+				if (!thread_traits::is_ready(*it))
+				{
+					if (queue_traits::try_pop(m_tasks, tsk))
+						tsk();
+				}
+				else
+					++it;
+			}
         }
 
 		template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
         {
-            auto npartitions = number_threads();
-            std::atomic<std::size_t> consumed = 0;
+            auto npartitions = 35 * number_threads();
+			std::vector<future<void>> fs;
+			fs.reserve(npartitions);
             partition_work(count, npartitions,
-                [&consumed, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                [&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
 				{
-					send_no_future([&consumed, &task, from, to]() -> void
+					fs.emplace_back(send([&task, from, to]() -> void
 					{
 						for (auto i = from; i != to; ++i)
 						{
 							task(i);
-							consumed.fetch_add(1, std::memory_order_relaxed);
 						}
-					});
+					}));
 				}
             );
 
-            wait_for([&consumed, count]() { return consumed.load(std::memory_order_relaxed) == count; });
+			function_wrapper tsk;
+			for (auto it = fs.begin(); it != fs.end();)
+			{
+				if (!thread_traits::is_ready(*it))
+				{
+					if (queue_traits::try_pop(m_tasks, tsk))
+						tsk();
+				}
+				else
+					++it;
+			}
         }
 
     private:

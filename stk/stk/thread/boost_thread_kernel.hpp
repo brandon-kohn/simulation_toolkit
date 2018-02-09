@@ -47,6 +47,12 @@ struct boost_thread_traits
     static void interruption_point() { boost::this_thread::interruption_point(); }
     
     static void yield() { boost::this_thread::yield(); }
+
+	template <typename T>
+    static bool is_ready(const future_type<T>& f)
+    {
+        return f.wait_for(boost::chrono::seconds(0)) == boost::future_status::ready;
+    }
 };
 
 }}//! namespace stk::thread;

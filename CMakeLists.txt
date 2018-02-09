@@ -46,7 +46,6 @@ add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
 add_subdirectory(junction/)
 add_subdirectory(libcds/)
-add_subdirectory(enkiTS/)
 
 # Tests
 if(BUILD_TESTS)

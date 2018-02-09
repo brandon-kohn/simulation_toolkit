@@ -236,47 +236,65 @@ namespace stk { namespace thread {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
             using iterator_t = typename boost::range_iterator<Range>::type;
-            std::atomic<std::size_t> consumed = 0;
-            partition_work(range, npartitions,
-                [nthreads, &consumed, &task, this](iterator_t from, iterator_t to) -> void
+ 			std::vector<future<void>> fs;
+			fs.reserve(npartitions);
+			partition_work(range, npartitions,
+                [&fs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
                 {
                     std::uint32_t threadID = get_rnd() % nthreads;
-                    send_no_future(threadID, [&consumed, &task, from, to, this]() -> void
+                    fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
                         {
                             task(*i);
-                            consumed.fetch_add(1, std::memory_order_relaxed);
                         }
-                    });
+                    }));
                 }
             );
 
-            auto njobs = boost::size(range);
-            wait_for([&consumed, njobs]() { return consumed.load(std::memory_order_relaxed) == njobs; });
-            GEOMETRIX_ASSERT(njobs == consumed.load());
+			fun_wrapper tsk;
+			for(auto it = fs.begin() ; it != fs.end();)
+			{
+				if (!thread_traits::is_ready(*it))
+				{
+					if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+						tsk();
+				}
+				else
+					++it;
+			}
         }
 	
 		template <typename TaskFn>
 		void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
 		{
 			auto npartitions = number_threads();
-			std::atomic<std::size_t> consumed = 0;
+			std::vector<future<void>> fs;
+			fs.reserve(npartitions);
 			partition_work(count, npartitions,
-				[&consumed, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+				[&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
 				{
-					send_no_future([&consumed, &task, from, to]() -> void
+					fs.emplace_back(send([&task, from, to]() -> void
 					{
 						for (auto i = from; i != to; ++i)
 						{
 							task(i);
-							consumed.fetch_add(1, std::memory_order_relaxed);
 						}
-					});
+					}));
 				}
 			);
 
-			wait_for([&consumed, count]() { return consumed.load(std::memory_order_relaxed) == count; });
+			fun_wrapper tsk;
+			for(auto it = fs.begin() ; it != fs.end();)
+			{
+				if (!thread_traits::is_ready(*it))
+				{
+					if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+						tsk();
+				}
+				else
+					++it;
+			}
 		}
         
 		std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
