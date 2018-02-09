@@ -256,8 +256,30 @@ namespace stk { namespace thread {
             wait_for([&consumed, njobs]() { return consumed.load(std::memory_order_relaxed) == njobs; });
             GEOMETRIX_ASSERT(njobs == consumed.load());
         }
+	
+		template <typename TaskFn>
+		void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
+		{
+			auto npartitions = number_threads();
+			std::atomic<std::size_t> consumed = 0;
+			partition_work(count, npartitions,
+				[&consumed, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+				{
+					send_no_future([&consumed, &task, from, to]() -> void
+					{
+						for (auto i = from; i != to; ++i)
+						{
+							task(i);
+							consumed.fetch_add(1, std::memory_order_relaxed);
+						}
+					});
+				}
+			);
 
-        std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+			wait_for([&consumed, count]() { return consumed.load(std::memory_order_relaxed) == count; });
+		}
+        
+		std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
 
         template <typename Pred>
         void wait_for(Pred&& pred)
@@ -306,7 +328,6 @@ namespace stk { namespace thread {
         template <typename Action>
         future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
         {
-            GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
             using result_type = decltype(m());
             packaged_task<result_type> task(std::forward<Action>(m));
             auto result = task.get_future();
@@ -333,8 +354,6 @@ namespace stk { namespace thread {
         template <typename Action>
         void send_no_future_impl(std::uint32_t localIndex, Action&& m)
         {
-            GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
-
             fun_wrapper p(m_allocator, std::forward<Action>(m));
             if (localIndex) //!= static_cast<std::uint32_t>(-1))
             {
