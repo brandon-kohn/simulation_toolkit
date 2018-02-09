@@ -19,6 +19,8 @@
 #include <geometrix/utility/scope_timer.ipp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/boost_thread_kernel.hpp>
+
+#include <boost/range/irange.hpp>
 #include <chrono>
 
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
@@ -131,84 +133,6 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs)
 
     EXPECT_EQ(njobs*nTimingRuns, consumed.load());
 }
-
-TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_creator_task)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-    using future_t = boost::future<void>;
-
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
-
-	std::atomic<int> consumed = 0;
-	auto task = [&consumed]() {consumed.fetch_add(1, std::memory_order_relaxed); };
-	auto add_tasks = [&pool, &task]() 
-	{ 
-		for(int i = 0; i < 1024; ++i) 
-			pool.send_no_future(task);
-	};
-	for (int i = 0; i < nTimingRuns; ++i)
-    {
-		consumed.store(0);
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("moody_64k empty with creator");
-            for(int n = 0; n < 64; ++n)
-				pool.send_no_future(add_tasks);
-			pool.wait_for([&consumed]()
-			{ 
-				return consumed.load(std::memory_order_relaxed) == njobs;
-			});
-        }
-		EXPECT_EQ(njobs, consumed.load());
-    }
-}
-
-TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_creator_task_and_schedule)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-    using future_t = boost::future<void>;
-
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
-	auto npartitions = nOSThreads;
-	auto schedule = partition_work(njobs, npartitions);
-	std::atomic<int> consumed = 0;
-	std::vector<int> called(njobs, 0);
-	auto pconsumed = &consumed;
-	auto pcalled = &called;
-	for (int i = 0; i < nTimingRuns; ++i)
-    {
-		consumed.store(0);
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("moody_64k empty with creator and schedule");
-			for (std::size_t idx = 0; idx < schedule.size(); ++idx)
-			{
-				auto add_tasks = [pconsumed, pcalled, &pool, &schedule, idx]()
-				{
-					auto& range = schedule[idx];
-					std::size_t q = range.first;
-					for (; q < range.second; ++q)
-					{
-						auto task = [pconsumed, q, pcalled]() {pconsumed->fetch_add(1, std::memory_order_relaxed); (*pcalled)[q] = 1; };
-						pool.send_no_future(task);
-					}
-				};
-				pool.send_no_future(add_tasks);
-			}
-			pool.wait_for([&consumed]()
-			{
-				return consumed.load(std::memory_order_relaxed) == njobs;
-			});
-        }
-		EXPECT_EQ(njobs, consumed.load());
-		for (auto i = 0; i < called.size(); ++i)
-			EXPECT_EQ(1, called[i]);
-    }
-}
-
-#include <boost/range/irange.hpp>
 
 TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
