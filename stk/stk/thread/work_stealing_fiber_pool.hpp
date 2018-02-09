@@ -49,7 +49,7 @@ class work_stealing_fiber_pool : boost::noncopyable
 	using fiber_mutex_type = boost::fibers::mutex;
 	using fiber_lock_type = std::unique_lock<fiber_mutex_type>;
 
-    using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, fiber_mutex_type>;
+    using queue_type = typename queue_traits::template queue_type<function_wrapper*, std::allocator<function_wrapper*>, fiber_mutex_type>;
 	using queue_ptr = std::unique_ptr<queue_type>;
 
     void os_thread(std::size_t nThreads, std::size_t nFibersPerThread, unsigned int idx)
@@ -102,22 +102,25 @@ class work_stealing_fiber_pool : boost::noncopyable
 		);
 
 		m_workQIndex = tid;
-		function_wrapper task;
+		function_wrapper* task;
 		while (!m_done.load(std::memory_order_relaxed))
 		{
 			if (poll(tid, task))
-				task();
-			else if (check_suspend_polling(tid, task));
+			{
+				std::unique_ptr<function_wrapper> d(task);
+				(*task)();
+			}
+			else if (check_suspend_polling());
 			boost::this_fiber::yield();
 		}
 	}
 
-	bool poll(unsigned int tIndex, function_wrapper& task)
+	bool poll(unsigned int tIndex, function_wrapper*& task)
 	{
 		return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
 	}
 
-	bool check_suspend_polling(unsigned int tIndex, function_wrapper& task)
+	bool check_suspend_polling()
 	{
 		//! I'm assuming no further tasks are submitted when this is called. This is a hard precondition.
 		if (m_suspendPolling.load(std::memory_order_relaxed))
@@ -134,17 +137,17 @@ class work_stealing_fiber_pool : boost::noncopyable
 		return false;
 	}
 
-	bool pop_local_queue_task(unsigned int i, function_wrapper& task)
+	bool pop_local_queue_task(unsigned int i, function_wrapper*& task)
 	{
 		return queue_traits::try_pop(*m_localQs[i], task);
 	}
 
-	bool pop_task_from_pool_queue(function_wrapper& task)
+	bool pop_task_from_pool_queue(function_wrapper*& task)
 	{
 		return queue_traits::try_pop(m_poolQ, task);
 	}
 
-	bool try_steal(function_wrapper& task)
+	bool try_steal(function_wrapper*& task)
 	{
 		for (unsigned int i = 0; i < m_localQs.size(); ++i)
 		{
@@ -268,10 +271,17 @@ private:
 
 		auto localIndex = *m_workQIndex;
 		m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
+		auto pFn = new function_wrapper(std::move(task));
 		if (localIndex != static_cast<std::uint32_t>(-1))
-			queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
+		{
+			while (!queue_traits::try_push(*m_localQs[localIndex], pFn))
+				boost::this_fiber::yield();
+		}
 		else
-			queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+		{
+			while (!queue_traits::try_push(m_poolQ, pFn))
+				boost::this_fiber::yield();
+		}
 
         return std::move(result);
     } 
@@ -284,10 +294,17 @@ private:
 		auto result = task.get_future();
 
 		m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
+		auto pFn = new function_wrapper(std::move(task));
 		if (threadIndex != static_cast<std::uint32_t>(-1))
-			queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
+		{
+			while (!queue_traits::try_push(*m_localQs[threadIndex], pFn))
+				boost::this_fiber::yield();
+		}
 		else
-			queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
+		{
+			while (!queue_traits::try_push(m_poolQ, pFn))
+				boost::this_fiber::yield();
+		}
 
 		return std::move(result);
 	}

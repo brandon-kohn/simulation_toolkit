@@ -9,7 +9,10 @@
 #pragma once
 
 #include <geometrix/utility/assert.hpp>
+#include <geometrix/test/test.hpp>
 #include <memory>
+
+#define STK_DEBUG_FUNCTION_WRAPPER_DEALLOC 1
 
 namespace stk { namespace thread {
 
@@ -29,6 +32,7 @@ namespace stk { namespace thread {
         template <typename F>
         struct move_impl_type : impl_base
         {
+			using f_type = typename std::decay<F>::type;
             move_impl_type(F&& f)
                 : m_f(std::move(f))
             {}
@@ -38,7 +42,7 @@ namespace stk { namespace thread {
                 m_f();
             }
 
-            F m_f;
+            f_type m_f;
             char cachepad[64];
         };
 
@@ -85,19 +89,37 @@ namespace stk { namespace thread {
 
         function_wrapper_with_allocator(function_wrapper_with_allocator&& f)
             : m_pImpl(std::move(f.m_pImpl))
-        {}
+        {
+#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			f.m_executed = true;
+#endif
+		}
 
         function_wrapper_with_allocator& operator=(function_wrapper_with_allocator&& x)
         {
             m_pImpl = std::move(x.m_pImpl);
-            return *this;
+#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			x.m_executed = true;
+#endif
+			return *this;
         }
 
         void operator()()
         {
             GEOMETRIX_ASSERT(m_pImpl);
             m_pImpl->call();
-        }
+#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			m_executed = true;
+#endif
+		}
+
+		~function_wrapper_with_allocator()
+		{
+#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+			if (!m_executed)
+				throw std::logic_error("function_wrapper not executed");
+#endif		 
+		}
 
         bool empty() const
         {
@@ -107,6 +129,9 @@ namespace stk { namespace thread {
     private:
 
         std::unique_ptr<impl_base, deleter> m_pImpl;
+#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
+		bool m_executed{ false };
+#endif
     };
 
 }}//! namespace stk::thread;

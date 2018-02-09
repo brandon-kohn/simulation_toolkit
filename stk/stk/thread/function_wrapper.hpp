@@ -28,6 +28,8 @@ namespace stk { namespace thread {
         template <typename F>
         struct move_impl_type : impl_base
         {
+            using f_type = typename std::decay<F>::type;
+
             move_impl_type(F&& f)
                 : m_f(std::move(f))
             {}
@@ -37,7 +39,7 @@ namespace stk { namespace thread {
                 m_f();
             }
 
-            F m_f;
+            f_type m_f;
             char cachepad[64];
         };
 

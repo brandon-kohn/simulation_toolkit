@@ -3635,9 +3635,9 @@ struct moodycamel_concurrent_queue_traits
 	using queue_type = moodycamel::ConcurrentQueue<T>;
 
 	template <typename T, typename Traits, typename Value>
-	static void push(moodycamel::ConcurrentQueue<T, Traits>& q, Value&& value)
+	static bool try_push(moodycamel::ConcurrentQueue<T, Traits>& q, Value&& value)
 	{
-		q.enqueue(std::forward<Value>(value));
+		return q.enqueue(std::forward<Value>(value));
 	}
 
 	template <typename T, typename Traits>

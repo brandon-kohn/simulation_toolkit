@@ -38,7 +38,7 @@ class active_object
    
     using thread_type = typename thread_traits::thread_type;
     using mutex_type = typename thread_traits::mutex_type;
-    using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>; 
+    using queue_type = typename queue_traits::template queue_type<function_wrapper*, std::allocator<function_wrapper*>, mutex_type>; 
 
     template <typename T>
     using future = typename Traits::template future_type<T>;
@@ -103,8 +103,9 @@ private:
         
         packaged_task<result_type> task(std::forward<Action>(m));
         future<result_type> result(task.get_future());
-
-        queue_traits::push(m_actionQueue, function_wrapper(std::move(task)));
+		auto pFn = new function_wrapper(std::move(task));
+		while (!queue_traits::try_push(m_actionQueue, pFn))
+			thread_traits::yield();
 
         return std::move( result );
     }
@@ -113,10 +114,14 @@ private:
     {
         while( !m_done )
         {
-            function_wrapper action;
-            if(queue_traits::try_pop(m_actionQueue, action))
-                action();
-            thread_traits::yield();
+            function_wrapper* action;
+			if (queue_traits::try_pop(m_actionQueue, action))
+			{
+				std::unique_ptr<function_wrapper> d(action);
+				(*action)();
+			}
+            else
+				thread_traits::yield();
             thread_traits::interruption_point();
         }
     }
