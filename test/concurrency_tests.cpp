@@ -15,6 +15,7 @@
 #include <stk/thread/fiber_pool.hpp> //-> requires C++11 with constexpr/noexcept etc. vs140 etc.
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/container/fine_locked_hash_map.hpp>
+#include <stk/thread/boost_thread_kernel.hpp>
 #include <boost/thread/futures/wait_for_all.hpp>
 
 #include <boost/context/stack_traits.hpp>
@@ -144,7 +145,7 @@ TEST(thread_pool_test, construct)
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-	thread_pool<> obj;
+	thread_pool<locked_queue_traits, boost_thread_traits> obj;
 
 	std::atomic<bool> isRun(false);
 	auto r = boost::when_all( obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })
@@ -166,7 +167,7 @@ TEST(work_stealing_thread_pool_test, construct)
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-	work_stealing_thread_pool<> obj;
+	work_stealing_thread_pool<locked_queue_traits, boost_thread_traits> obj;
 
 	std::atomic<bool> isRun(false);
 	auto r = boost::when_all(obj.send([&]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(10)); })

@@ -27,7 +27,7 @@
 
 namespace stk { namespace thread {
 
-    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
+    template <typename QTraits = locked_queue_traits, typename Traits = std_thread_traits>
     class work_stealing_thread_pool : boost::noncopyable
     {
         using thread_traits = Traits;

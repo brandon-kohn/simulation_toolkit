@@ -6,13 +6,13 @@
 #include <stk/thread/function_wrapper.hpp>
 #include <stk/container/locked_queue.hpp>
 #include <stk/utility/scope_exit.hpp>
-#include <stk/thread/boost_thread_kernel.hpp>
+#include <stk/thread/std_thread_kernel.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 
 namespace stk { namespace thread {
 
-    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
+    template <typename QTraits = locked_queue_traits, typename Traits = std_thread_traits>
     class thread_pool : boost::noncopyable
     {
         using thread_traits = Traits;
