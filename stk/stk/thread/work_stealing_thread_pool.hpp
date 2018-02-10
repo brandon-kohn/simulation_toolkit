@@ -367,7 +367,7 @@ namespace stk { namespace thread {
             }
 
             {
-                auto lk = std::unique_lock<mutex_type>{ m_pollingMtx };
+                auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                 m_pollingCnd.notify_one();
             }
             return std::move(result);
@@ -388,7 +388,7 @@ namespace stk { namespace thread {
                     thread_traits::yield();
             }
 
-            auto lk = std::unique_lock<mutex_type>{ m_pollingMtx };
+            auto lk = unique_lock<mutex_type>{ m_pollingMtx };
             m_pollingCnd.notify_one();
         }
 

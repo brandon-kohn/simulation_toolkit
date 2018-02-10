@@ -212,41 +212,6 @@ TEST(fiber_pool_test, construct)
 }
 
 #include <stk/thread/work_stealing_fiber_pool.hpp>
-TEST(work_stealing_fiber_pool_test, suspend_exception)
-{
-	using namespace ::testing;
-	using namespace stk;
-	using namespace stk::thread;
-	auto alloc = boost::fibers::fixedsize_stack{64 * 1024};
-	work_stealing_fiber_pool<> pool{ 10, alloc };
-
-	std::vector<boost::fibers::future<void>> r;
-	r.emplace_back(pool.send([]() -> void { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([]() -> void { throw std::exception(); }));
-	r.emplace_back(pool.send([]() -> void { throw std::exception(); }));
-	r.emplace_back(pool.send([]() -> void { throw std::exception(); }));
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	
-	boost::for_each(r, [](const boost::fibers::future<void>& f) { f.wait(); });
-	r.clear();
-
-	pool.suspend_polling();
-	pool.resume_polling();
-
-	std::atomic<bool> isRun(false);
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); }));
-	r.emplace_back(pool.send([&]() -> void { boost::this_fiber::sleep_for(std::chrono::milliseconds(1)); isRun = true; }));
-
-	boost::for_each(r, [](const boost::fibers::future<void>& f) { f.wait(); });
-
-	EXPECT_TRUE(isRun);
-}
-
 #include <stk/thread/thread_specific.hpp>
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);

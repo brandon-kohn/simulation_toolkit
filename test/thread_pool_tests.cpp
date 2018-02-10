@@ -86,6 +86,23 @@ TEST(timing, test_partition_work_empty)
 	EXPECT_EQ(njobs, count);
 }
 
+TEST(timing, test_partition_work_one_item)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	const int njobs = 1;
+	std::vector<int> items = { 1 };
+	auto npartitions = nOSThreads;
+	auto schedule = partition_work(items, npartitions);
+	int count = 0;
+	for (auto range : schedule)
+		for (auto i : range)
+			++count;
+	EXPECT_EQ(njobs, count);
+}
+
 TEST(timing, test_partition_work_fewer_items_than_partitions)
 {
 	using namespace ::testing;
