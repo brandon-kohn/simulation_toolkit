@@ -49,29 +49,33 @@ namespace stk { namespace thread {
             bool hasTasks = queue_traits::try_pop(m_tasks, task);
             while (true)
             {
-                while (hasTasks)
+                if(hasTasks)
                 {
                     task();
-                    spincount = 0;
-					if (!m_stop[idx]->load(std::memory_order_relaxed))
+					if (BOOST_LIKELY(!m_stop[idx]->load(std::memory_order_relaxed)))
+					{
+						spincount = 0;
 						hasTasks = queue_traits::try_pop(m_tasks, task);
+					}
 					else
 						return;
                 }
-
-                if (++spincount < 100)
+				else if (++spincount < 100)
                 {
                     auto backoff = spincount * 10;
                     while (backoff--)
                         thread_traits::yield();
-                    hasTasks = queue_traits::try_pop(m_tasks, task);
+					if (BOOST_LIKELY(!m_stop[idx]->load(std::memory_order_relaxed)))
+                        hasTasks = queue_traits::try_pop(m_tasks, task);
+					else
+						return;
                 }
                 else
                 {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         unique_lock<mutex_type> lk{ m_mutex };
-                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_done.load(std::memory_order_relaxed) || m_stop[idx]->load(std::memory_order_relaxed); });
+                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_stop[idx]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTasks)

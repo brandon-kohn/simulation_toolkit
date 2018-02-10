@@ -84,39 +84,43 @@ namespace stk { namespace thread {
             fun_wrapper task;
             std::uint32_t spincount = 0;
             bool hasTask = poll(tIndex, task);
-            while (true)
-            {
-                while(hasTask)
-                {
-                    task();
-                    spincount = 0;
-                    if (!m_stop[tIndex]->load(std::memory_order_relaxed))
-                        hasTask = poll(tIndex, task);
-                    else
-                        return;
-                }
-
-                if (++spincount < 100)
+			while (true)
+			{
+				if (hasTask)
+				{
+					task();
+					if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+					{
+						spincount = 0;
+	                    hasTask = poll(tIndex, task);
+					}
+					else
+						return;
+				}
+				else if (++spincount < 100)
                 {
                     auto backoff = spincount * 10;
                     while (backoff--)
                         thread_traits::yield();
-
-                    hasTask = poll(tIndex, task);
+					if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+						hasTask = poll(tIndex, task);
+					else
+						return;
                 }
                 else
                 {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [tIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, task)) || m_done.load(std::memory_order_relaxed) || m_stop[tIndex]->load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [tIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
                         return;
                 }
-            }
-        }
+			}
+			return;
+       }
 
         bool poll(std::uint32_t tIndex, fun_wrapper& task)
         {
