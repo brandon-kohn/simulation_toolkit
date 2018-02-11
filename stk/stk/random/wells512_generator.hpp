@@ -33,18 +33,18 @@ namespace stk {
 
         BOOST_FORCEINLINE result_type operator()()
         {
-           std::uint32_t a = m_state[index];
-           std::uint32_t c = m_state[(index+13)&15];
+           std::uint32_t a = m_state[m_index];
+           std::uint32_t c = m_state[(m_index+13)&15];
            std::uint32_t b = a^c^(a<<16)^(c<<15);
-           c = m_state[(index+9)&15];
+           c = m_state[(m_index+9)&15];
            c ^= (c>>11);
-           a = m_state[index] = b^c;
+           a = m_state[m_index] = b^c;
            std::uint32_t d = a^((a<<5)&0xDA442D24UL);
-           index = (index + 15)&15;
-           a = m_state[index];
-           m_state[index] = a^b^d^(a<<2)^(b<<18)^(c<<28);
+           m_index = (m_index + 15)&15;
+           a = m_state[m_index];
+           m_state[m_index] = a^b^d^(a<<2)^(b<<18)^(c<<28);
            
-           auto r = m_state[index];
+           auto r = m_state[m_index];
            GEOMETRIX_ASSERT(r >= well512_generator::min() && r <= well512_generator::max());
            return r;
         }
