@@ -8,10 +8,7 @@
 //
 #ifndef STK_WELLS512_GENERATOR_HPP
 #define STK_WELLS512_GENERATOR_HPP
-
-#if defined(_MSC_VER)
-    #pragma once
-#endif
+#pragma once
 
 #include <geometrix/utility/assert.hpp>
 #include <array>
@@ -26,15 +23,15 @@ namespace stk {
 
         wells512_generator(unsigned int seed = 42)
         {
-            seed(seed);
+            this->seed(seed);
         }
 
         using result_type = std::uint32_t;
 
-        static BOOST_CONSTEXPR result_type min(){ return 0; }
-        static BOOST_CONSTEXPR result_type max(){ return (std::numeric_limits<result_type>::max)(); }
+        static BOOST_CONSTEXPR result_type min BOOST_PREVENT_MACRO_SUBSTITUTION (){ return 0; }
+        static BOOST_CONSTEXPR result_type max BOOST_PREVENT_MACRO_SUBSTITUTION (){ return (std::numeric_limits<result_type>::max)(); }
 
-        BOOST_FORCEINLINE result_type operator()
+        BOOST_FORCEINLINE result_type operator()()
         {
            std::uint32_t a = m_state[index];
            std::uint32_t c = m_state[(index+13)&15];
