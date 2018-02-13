@@ -45,7 +45,7 @@ public:
     iterator                  find(const key_type& x);
     const_iterator            find(const key_type& x) const;
     std::pair<iterator, bool> insert(const value_type& item);
-    iterator                  insert(const iterator&, const value_type& item)
+    iterator                  insert(const iterator&, const value_type& item);
     bool                      contains(const key_type& x) const;
     iterator                  erase(const key_type& x);
     iterator                  erase(const_iterator it);
@@ -86,7 +86,7 @@ public:
 ```
 ###### Notes on use:
 
-The iterators returned via the skiplist interface are thread-safe in the sense that the underlying nodes to which the iterator refers will not be deleted while the iterator exists. No guarantees are made about iterator traversals in the presense of writers to the skiplist. Adding new elements to the skiplist should be fine. Erasing elements may cause iteration traversals to terminate prematurely.
+The iterators returned via the skiplist interface are thread-safe in the sense that the underlying nodes to which the iterator refers will not be deleted while the iterator exists. No guarantees are made about iterator traversals in the presence of writers to the skiplist. Adding new elements to the skiplist should be fine. Erasing elements may cause iteration traversals to terminate prematurely.
 
 The actual data held by the iterators is not guaranteed to be thread-safe to access. Users must handle synchronization when modifying the data in the skiplist.
 
