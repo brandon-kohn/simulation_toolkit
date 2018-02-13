@@ -109,7 +109,7 @@ TEST(timing, test_partition_work_fewer_items_than_partitions)
 	using namespace stk;
 	using namespace stk::thread;
 
-	const int njobs = 10;
+	const int njobs = nOSThreads - 1;
 	std::vector<int> items(njobs, 1);
 	auto npartitions = nOSThreads;
 	auto schedule = partition_work(items, npartitions);
