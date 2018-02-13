@@ -133,7 +133,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs)
     work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
     std::vector<future_t> fs;
     fs.reserve(njobs);
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
     for (int i = 0; i < nTimingRuns; ++i)
     {
         {
@@ -159,7 +159,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
 
 	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -181,7 +181,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
 
 	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -203,7 +203,7 @@ TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 
 	thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -225,7 +225,7 @@ TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
 
 	thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
