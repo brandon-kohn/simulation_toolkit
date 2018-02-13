@@ -32,10 +32,14 @@ namespace stk {	namespace thread {
 		{		
 			if (schedulerPolicy)
 				schedulerPolicy(idx);
+			m_nThreads.fetch_add(1, std::memory_order_relaxed);
+			STK_SCOPE_EXIT(
+				m_nThreads.fetch_sub(1, std::memory_order_relaxed);
+			);
 			m_barrier.wait();
 
-			fiber_lock_type lk{ m_fiberMutex };
-			m_shutdownCondition.wait(lk, [this]() { return m_done.load(); });
+			std::unique_lock<thread_mutex_type> lk{ m_threadMutex };
+			m_shutdownCondition.wait(lk, [this]() { return m_done.load(std::memory_order_relaxed); });
 
 			GEOMETRIX_ASSERT(m_done);
 		}
@@ -56,14 +60,11 @@ namespace stk {	namespace thread {
 
 			try
 			{
-				auto nCPUS = std::thread::hardware_concurrency();
 				m_threads.reserve(nOSThreads - 1);
-
-				for (unsigned int i = 1; i < nOSThreads; ++i)
-					m_threads.emplace_back([this, schedulerPolicy](std::size_t nThreads, unsigned int idx) { os_thread(nThreads, idx, schedulerPolicy); }, nOSThreads, i);
-
 				if( schedulerPolicy )
 					schedulerPolicy(0);
+				for (unsigned int i = 1; i < nOSThreads; ++i)
+					m_threads.emplace_back([this, schedulerPolicy](std::size_t nThreads, unsigned int idx) { os_thread(nThreads, idx, schedulerPolicy); }, nOSThreads, i);
 
 				m_barrier.wait();
 			}
@@ -79,7 +80,7 @@ namespace stk {	namespace thread {
 			shutdown();
 		}
 
-		std::size_t number_threads() const { return m_threads.size(); }
+		std::uint32_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
 		
 		template <typename Action>
 		future<decltype(std::declval<Action>()())> async(Action&& x)
@@ -93,7 +94,6 @@ namespace stk {	namespace thread {
 			return async_impl(std::forward<Action>(x));
 		}
 
-
 	private:
 
 		template <typename Action>
@@ -104,31 +104,26 @@ namespace stk {	namespace thread {
 
 		void shutdown()
 		{
-			boost::this_fiber::yield();//! give fibers a chance to finish?
+			m_done.store(true);
+			while(number_threads())
+			    m_shutdownCondition.notify_all();
 
-			bool b = false;
-			if (m_done.compare_exchange_strong(b, true))
+			boost::for_each(m_threads, [](thread_type& t)
 			{
-				m_shutdownCondition.notify_all();
-
-				boost::for_each(m_threads, [](thread_type& t)
+				try
 				{
-					try
-					{
-						if (t.joinable())
-							t.join();
-					}
-					catch (...)
-					{
-					}
-				});
-			}
+					if (t.joinable())
+						t.join();
+				}
+				catch (...)
+				{}
+			});
 		}
 
 		std::vector<thread_type>                m_threads;
-		std::atomic<bool>                       m_done;
+		std::atomic<bool>                       m_done{ false };
+		std::atomic<std::uint32_t>              m_nThreads{ 0 };
 		thread_mutex_type						m_threadMutex;
-		fiber_mutex_type                        m_fiberMutex;
 		boost::fibers::condition_variable_any   m_shutdownCondition;
 		allocator_type                          m_alloc;
 		barrier<thread_mutex_type>				m_barrier;

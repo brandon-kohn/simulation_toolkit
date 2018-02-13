@@ -105,7 +105,7 @@ namespace stk { namespace thread {
         {
             set_done(true);
 
-            while (m_active.load(std::memory_order_relaxed) != number_threads())
+            //while (number_threads())
             {
                 auto lk = unique_lock<mutex_type>{ m_mutex };
                 m_cnd.notify_all();
@@ -181,7 +181,7 @@ namespace stk { namespace thread {
 		template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
         {
-            auto npartitions = 35 * number_threads();
+            auto npartitions = number_threads();
 			std::vector<future<void>> fs;
 			fs.reserve(npartitions);
             partition_work(count, npartitions,

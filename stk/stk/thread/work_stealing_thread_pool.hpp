@@ -195,7 +195,7 @@ namespace stk { namespace thread {
         {
             set_done(true);
 
-            while (m_active.load(std::memory_order_relaxed) != number_threads())
+            //while (number_threads())//! This hangs if the pool is a global as the threads seem to exit without running their scope exit in that case.
             {
                 auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                 m_pollingCnd.notify_all();

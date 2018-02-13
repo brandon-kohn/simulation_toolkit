@@ -45,7 +45,7 @@ namespace stk {
            m_state[m_index] = a^b^d^(a<<2)^(b<<18)^(c<<28);
            
            auto r = m_state[m_index];
-           GEOMETRIX_ASSERT(r >= well512_generator::min() && r <= well512_generator::max());
+           GEOMETRIX_ASSERT(r >= (wells512_generator::min)() && r <= (wells512_generator::max)());
            return r;
         }
         
