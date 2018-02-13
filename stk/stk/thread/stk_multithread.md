@@ -501,7 +501,7 @@ namespace stk { namespace thread {
 
         //! Maps a task whose signature is `R(Range::value_type)` into each item in `range` and submits the tasks into the threadpool. Returns void.
         template <typename Range, typename TaskFn>
-        void parallel_for(Range&& range, TaskFn&& task)
+        void parallel_for(Range&& range, TaskFn&& task);
 
         //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool. Returns void.
         template <typename TaskFn>
