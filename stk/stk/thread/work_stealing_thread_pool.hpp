@@ -16,7 +16,6 @@
 #include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/utility/scope_exit.hpp>
-#include <stk/thread/pool_polling_mode.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #endif
@@ -27,7 +26,7 @@
 
 namespace stk { namespace thread {
 
-    template <typename QTraits = locked_queue_traits, typename Traits = std_thread_traits>
+    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
     class work_stealing_thread_pool : boost::noncopyable
     {
         using thread_traits = Traits;
