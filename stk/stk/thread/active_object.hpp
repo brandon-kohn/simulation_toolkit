@@ -112,30 +112,24 @@ namespace stk { namespace thread {
         void run()
         {
             function_wrapper task;
-            std::uint32_t spincount = 0;
             bool hasTasks = queue_traits::try_pop(m_tasks, task);
             while (true)
             {
-                if (hasTasks)
+                while(hasTasks)
                 {
                     task();
                     if (BOOST_LIKELY(!m_done.load(std::memory_order_relaxed)))
-                    {
-                        spincount = 0;
                         hasTasks = queue_traits::try_pop(m_tasks, task);
-                    }
                     else
                         return;
                 }
-                else
-                {
-                    {
-                        unique_lock<mutex_type> lk{ m_mutex };
-                        m_cnd.wait(lk, [&task, &hasTasks, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_done.load(std::memory_order_relaxed); });
-                    }
-                    if (!hasTasks)
-                        return;
+
+				{
+                    unique_lock<mutex_type> lk{ m_mutex };
+                    m_cnd.wait(lk, [&task, &hasTasks, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_done.load(std::memory_order_relaxed); });
                 }
+                if (!hasTasks)
+                    return;
             }
         }
 
