@@ -84,28 +84,28 @@ namespace stk { namespace thread {
             fun_wrapper task;
             std::uint32_t spincount = 0;
             bool hasTask = poll(tIndex, task);
-			while (true)
-			{
-				if (hasTask)
-				{
-					task();
-					if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
-					{
-						spincount = 0;
-	                    hasTask = poll(tIndex, task);
-					}
-					else
-						return;
-				}
-				else if (++spincount < 100)
+            while (true)
+            {
+                if (hasTask)
+                {
+                    task();
+                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                    {
+                        spincount = 0;
+                        hasTask = poll(tIndex, task);
+                    }
+                    else
+                        return;
+                }
+                else if (++spincount < 100)
                 {
                     auto backoff = spincount * 10;
                     while (backoff--)
                         thread_traits::yield();
-					if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
-						hasTask = poll(tIndex, task);
-					else
-						return;
+                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                        hasTask = poll(tIndex, task);
+                    else
+                        return;
                 }
                 else
                 {
@@ -118,8 +118,8 @@ namespace stk { namespace thread {
                     if (!hasTask)
                         return;
                 }
-			}
-			return;
+            }
+            return;
        }
 
         bool poll(std::uint32_t tIndex, fun_wrapper& task)
@@ -240,9 +240,9 @@ namespace stk { namespace thread {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
             using iterator_t = typename boost::range_iterator<Range>::type;
- 			std::vector<future<void>> fs;
-			fs.reserve(npartitions);
-			partition_work(range, npartitions,
+            std::vector<future<void>> fs;
+            fs.reserve(npartitions);
+            partition_work(range, npartitions,
                 [&fs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
                 {
                     std::uint32_t threadID = get_rnd() % nthreads;
@@ -256,52 +256,54 @@ namespace stk { namespace thread {
                 }
             );
 
-			fun_wrapper tsk;
-			for(auto it = fs.begin() ; it != fs.end();)
-			{
-				if (!thread_traits::is_ready(*it))
-				{
-					if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
-						tsk();
-				}
-				else
-					++it;
-			}
+            fun_wrapper tsk;
+            for(auto it = fs.begin() ; it != fs.end();)
+            {
+                if (!thread_traits::is_ready(*it))
+                {
+                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                        tsk();
+                }
+                else
+                    ++it;
+            }
         }
-	
-		template <typename TaskFn>
-		void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
-		{
-			auto npartitions = number_threads();
-			std::vector<future<void>> fs;
-			fs.reserve(npartitions);
-			partition_work(count, npartitions,
-				[&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
-				{
-					fs.emplace_back(send([&task, from, to]() -> void
-					{
-						for (auto i = from; i != to; ++i)
-						{
-							task(i);
-						}
-					}));
-				}
-			);
 
-			fun_wrapper tsk;
-			for(auto it = fs.begin() ; it != fs.end();)
-			{
-				if (!thread_traits::is_ready(*it))
-				{
-					if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
-						tsk();
-				}
-				else
-					++it;
-			}
-		}
-        
-		std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+        template <typename TaskFn>
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
+        {
+            auto nthreads = number_threads();
+            auto npartitions = nthreads * nthreads;
+            std::vector<future<void>> fs;
+            fs.reserve(npartitions);
+            partition_work(count, npartitions,
+                [nthreads, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                {
+                    std::uint32_t threadID = get_rnd() % nthreads;
+                    fs.emplace_back(send(threadID % nthreads, [&task, from, to]() -> void
+                    {
+                        for (auto i = from; i != to; ++i)
+                        {
+                            task(i);
+                        }
+                    }));
+                }
+            );
+
+            fun_wrapper tsk;
+            for(auto it = fs.begin() ; it != fs.end();)
+            {
+                if (!thread_traits::is_ready(*it))
+                {
+                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                        tsk();
+                }
+                else
+                    ++it;
+            }
+        }
+
+        std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
 
         template <typename Pred>
         void wait_for(Pred&& pred)

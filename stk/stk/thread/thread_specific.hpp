@@ -60,11 +60,15 @@ class thread_specific
         instance_map& operator=(instance_map&&)=delete;
         ~instance_map()
         {
-            for(auto const& i : *this)
+            for (auto& i : *this)
+            {
+                if (i.first->m_deinitializer)
+                    i.first->m_deinitializer(i.second);
                 i.first->m_maps.erase(this);
+            }
         }
     };
-
+    friend struct instance_map;
     static instance_map& hive();
 
 public:
@@ -89,6 +93,12 @@ public:
     template <typename Initializer>
     thread_specific( Initializer&& init )
         : m_initializer( std::forward<Initializer>(init) )
+    {}
+
+    template <typename Initializer, typename Deinitializer>
+    thread_specific( Initializer&& init, Deinitializer&& deinit)
+        : m_initializer( std::forward<Initializer>(init) )
+        , m_deinitializer( std::forward<Deinitializer>(deinit) )
     {}
 
     template <typename Value>
@@ -159,34 +169,69 @@ private:
     {
         auto& m = hive();
         auto key = this;
-        m.erase(key);
-        std::for_each(m_maps.begin(), m_maps.end(), [key](instance_map* pMap)
+        if (!m_deinitializer)
         {
-            pMap->erase(key);
-        });
+            m.erase(key);
+            std::for_each(m_maps.begin(), m_maps.end(), [key, this](instance_map* pMap)
+            {
+                pMap->erase(key);
+            });
+        }
+        else
+        {
+            auto it = m.find(key);
+            if (it != m.end())
+            {
+                m_deinitializer(it->second);
+                m.erase(it);
+            }
+            std::for_each(m_maps.begin(), m_maps.end(), [key, this](instance_map* pMap)
+            {
+                auto it = pMap->find(key);
+                if (it != pMap->end())
+                {
+                    m_deinitializer(it->second);
+                    pMap->erase(it);
+                }
+            });
+        }
 
         GEOMETRIX_ASSERT(m.find(this) == m.end());
     }
 
     std::function<T()> m_initializer;
+    std::function<void(T&)> m_deinitializer;
     mutable lock_free_concurrent_set<instance_map*> m_maps;
 
 };
 
 }}//! stk::thread.
 
+#ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
+namespace stk { namespace thread {
+    template <typename T>
+    inline thread_specific<T>::instance_map& thread_specific<T>::hive()
+    {
+        static thread_local instance_map instance;
+        instance_map& m = instance;
+        return m;
+    }
+}}//! namespace stk::thread;
+
+#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)
+#else
 //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
 //! There should be only one such definition for each type T specified.
 #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)                  \
 namespace stk { namespace thread {                                  \
 template <>                                                         \
 inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
-{                                   \
-    static thread_local instance_map instance;                  \
-    instance_map& m = instance;                                 \
-    return m;                                                   \
+{                                                                   \
+    static thread_local instance_map instance;                      \
+    instance_map& m = instance;                                     \
+    return m;                                                       \
 }                                                                   \
 }}                                                                  \
 /***/
-
+#endif
 #endif //! STK_THREAD_THREAD_SPECIFIC_HPP
