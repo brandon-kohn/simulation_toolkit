@@ -185,7 +185,7 @@ void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string con
     {
         GEOMETRIX_MEASURE_SCOPE_TIME(name);
 		pool.parallel_for(rndpairs,
-			[&sut](const Inputs::value_type& p) -> void {
+			[&sut](const typename Inputs::value_type& p) -> void {
                 auto& c = sut.get_cell(p.first, p.second);
                 c.set_position(stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters));
             }
@@ -223,7 +223,7 @@ void bash_grid_with_striping_fibers(Pool& pool, Inputs const& rndpairs, std::str
     {
         GEOMETRIX_MEASURE_SCOPE_TIME(name);
 		pool.parallel_for(rndpairs,
-			[&sut](const Inputs::value_type& p) -> void {
+			[&sut](const typename Inputs::value_type& p) -> void {
                 auto& c = sut.get_cell(p.first, p.second);
                 c.set_position(stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters));
 				boost::this_fiber::yield();

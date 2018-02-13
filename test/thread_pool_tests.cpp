@@ -109,7 +109,7 @@ TEST(timing, test_partition_work_fewer_items_than_partitions)
 	using namespace stk;
 	using namespace stk::thread;
 
-	const int njobs = 10;
+	const int njobs = nOSThreads - 1;
 	std::vector<int> items(njobs, 1);
 	auto npartitions = nOSThreads;
 	auto schedule = partition_work(items, npartitions);
@@ -131,7 +131,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
 
 	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -153,7 +153,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
 
 	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -175,7 +175,7 @@ TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 
 	thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -197,7 +197,7 @@ TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
 
 	thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-	std::atomic<int> consumed = 0;
+	std::atomic<int> consumed{0};
 	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	for (int i = 0; i < nTimingRuns; ++i)
