@@ -9,6 +9,7 @@
 #ifndef STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #define STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #pragma once
+
 #include <stk/thread/function_wrapper_with_allocator.hpp>
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
@@ -16,7 +17,6 @@
 #include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/utility/scope_exit.hpp>
-#include <stk/thread/pool_polling_mode.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #endif
@@ -27,7 +27,7 @@
 
 namespace stk { namespace thread {
 
-    template <typename QTraits = locked_queue_traits, typename Traits = std_thread_traits>
+    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
     class work_stealing_thread_pool : boost::noncopyable
     {
         using thread_traits = Traits;
@@ -239,34 +239,7 @@ namespace stk { namespace thread {
         {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
-            using iterator_t = typename boost::range_iterator<Range>::type;
-            std::vector<future<void>> fs;
-            fs.reserve(npartitions);
-            partition_work(range, npartitions,
-                [&fs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
-                {
-                    std::uint32_t threadID = get_rnd() % nthreads;
-                    fs.emplace_back(send(threadID, [&task, from, to]() -> void
-                    {
-                        for (auto i = from; i != to; ++i)
-                        {
-                            task(*i);
-                        }
-                    }));
-                }
-            );
-
-            fun_wrapper tsk;
-            for(auto it = fs.begin() ; it != fs.end();)
-            {
-                if (!thread_traits::is_ready(*it))
-                {
-                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
-                        tsk();
-                }
-                else
-                    ++it;
-            }
+            parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions); 
         }
 
         template <typename TaskFn>
@@ -274,33 +247,19 @@ namespace stk { namespace thread {
         {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
-            std::vector<future<void>> fs;
-            fs.reserve(npartitions);
-            partition_work(count, npartitions,
-                [nthreads, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
-                {
-                    std::uint32_t threadID = get_rnd() % nthreads;
-                    fs.emplace_back(send(threadID % nthreads, [&task, from, to]() -> void
-                    {
-                        for (auto i = from; i != to; ++i)
-                        {
-                            task(i);
-                        }
-                    }));
-                }
-            );
+            parallel_apply_impl(count, std::forward<TaskFn>(task), nthreads, npartitions); 
+        }
 
-            fun_wrapper tsk;
-            for(auto it = fs.begin() ; it != fs.end();)
-            {
-                if (!thread_traits::is_ready(*it))
-                {
-                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
-                        tsk();
-                }
-                else
-                    ++it;
-            }
+        template <typename Range, typename TaskFn>
+        void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions)
+        {
+            parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), number_threads(), npartitions); 
+        }
+
+        template <typename TaskFn>
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions)
+        {
+            parallel_apply_impl(count, std::forward<TaskFn>(task), number_threads(), npartitions); 
         }
 
         std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
@@ -349,6 +308,70 @@ namespace stk { namespace thread {
             }
         }
 
+        template <typename Range, typename TaskFn>
+        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions)
+        {
+            using iterator_t = typename boost::range_iterator<Range>::type;
+            std::vector<future<void>> fs;
+            fs.reserve(npartitions);
+            partition_work(range, npartitions,
+                [&fs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
+                {
+                    std::uint32_t threadID = get_rnd() % nthreads;
+                    fs.emplace_back(send(threadID, [&task, from, to]() -> void
+                    {
+                        for (auto i = from; i != to; ++i)
+                        {
+                            task(*i);
+                        }
+                    }));
+                }
+            );
+
+            fun_wrapper tsk;
+            for(auto it = fs.begin() ; it != fs.end();)
+            {
+                if (!thread_traits::is_ready(*it))
+                {
+                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                        tsk();
+                }
+                else
+                    ++it;
+            }
+        }
+
+        template <typename TaskFn>
+        void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions)
+        {
+            std::vector<future<void>> fs;
+            fs.reserve(npartitions);
+            partition_work(count, npartitions,
+                [nthreads, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                {
+                    std::uint32_t threadID = get_rnd() % nthreads;
+                    fs.emplace_back(send(threadID % nthreads, [&task, from, to]() -> void
+                    {
+                        for (auto i = from; i != to; ++i)
+                        {
+                            task(i);
+                        }
+                    }));
+                }
+            );
+
+            fun_wrapper tsk;
+            for(auto it = fs.begin() ; it != fs.end();)
+            {
+                if (!thread_traits::is_ready(*it))
+                {
+                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                        tsk();
+                }
+                else
+                    ++it;
+            }
+        }
         template <typename Action>
         future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
         {

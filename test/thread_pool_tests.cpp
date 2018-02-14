@@ -123,34 +123,6 @@ TEST(timing, test_partition_work_fewer_items_than_partitions)
 
 size_t nTimingRuns = 20;
 const int njobs = 1024 * 1024;
-TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-    using future_t = std::future<void>;
-
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
-    std::vector<future_t> fs;
-    fs.reserve(njobs);
-	std::atomic<int> consumed{0};
-    for (int i = 0; i < nTimingRuns; ++i)
-    {
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("moody_64k empty");
-            for(int n = 0; n < njobs; ++n)
-            {
-				fs.emplace_back(pool.send([&consumed]() {consumed.fetch_add(1, std::memory_order_relaxed); }));
-            }
-
-            boost::for_each(fs, [](const future_t& f) { f.wait(); });
-        }
-        fs.clear();
-    }
-
-    EXPECT_EQ(njobs*nTimingRuns, consumed.load());
-}
-
 TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
 	using namespace ::testing;

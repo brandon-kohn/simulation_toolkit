@@ -33,8 +33,10 @@ namespace stk { namespace thread {
 		{
 			auto portion_start = portion_end;
 			std::advance(portion_end, portion + (--remainder >= 0 ? 1 : 0));
-			if(portion_start != portion_end)
+			if (portion_start != portion_end)
 				chunks.emplace_back(boost::make_iterator_range(portion_start, portion_end));
+			else
+				break;
 		}
 
 		return chunks;
@@ -55,8 +57,10 @@ namespace stk { namespace thread {
 		{
 			auto portion_start = portion_end;
 			std::advance(portion_end, portion + (--remainder >= 0 ? 1 : 0));
-			if(portion_start != portion_end)
-                fn(portion_start, portion_end);
+			if (portion_start != portion_end)
+				fn(portion_start, portion_end);
+			else
+				break;
 		}
 	}
 
@@ -72,8 +76,10 @@ namespace stk { namespace thread {
 		{
 			auto portion_start = portion_end;
 			portion_end += portion + (--remainder >= 0 ? 1 : 0);
-			if(portion_start != portion_end)
+			if (portion_start != portion_end)
 				chunks.emplace_back(portion_start, portion_end);
+			else
+				break;
 		}
 
 		return chunks;
@@ -90,8 +96,10 @@ namespace stk { namespace thread {
 		{
 			auto portion_start = portion_end;
 			portion_end += portion + (--remainder >= 0 ? 1 : 0);
-			if(portion_start != portion_end)
-                fn(portion_start, portion_end);
+			if (portion_start != portion_end)
+				fn(portion_start, portion_end);
+			else
+				break;
 		}
 	}
 }}//! namespace stk::thread;
