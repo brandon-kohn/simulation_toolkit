@@ -44,7 +44,7 @@ namespace stk {
 
         size_type max_size() const
         {
-            return (static_cast<size_t>(0) – static_cast<size_t>(1)) / sizeof(T);
+            return (static_cast<size_t>(0) - static_cast<size_t>(1)) / sizeof(T);
         }
 
         template <typename U> 
@@ -73,7 +73,7 @@ namespace stk {
                 return nullptr;
 
             if (n > max_size()) 
-                throw std::length_error(“rpmalloc_allocator<T>::allocate() – Integer overflow.”);
+                throw std::length_error("rpmalloc_allocator<T>::allocate() - Integer overflow.");
 
             void * const pv = rpmalloc(n * sizeof(T));
 
@@ -96,7 +96,7 @@ namespace stk {
 
     private:
 
-        rpmalloc_allocator& operator=(const rpmalloc_allocator&) = delete
+		rpmalloc_allocator & operator=(const rpmalloc_allocator&) = delete;
 
     };
 }//! namespace stk;
