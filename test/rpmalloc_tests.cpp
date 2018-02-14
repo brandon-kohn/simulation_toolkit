@@ -47,8 +47,9 @@ TEST(rpmalloc_test_suite, cross_thread_bench)
     using namespace stk::thread;
     std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
 	{
-		work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);
-		using future_t = std::future<void>;
+		using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
+		pool_t pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);
+		using future_t = pool_t::future<void>;
 		std::vector<future_t> futures;
 		futures.reserve(nAllocations);
 		{
@@ -72,9 +73,10 @@ TEST(rpmalloc_test_suite, cross_thread_bench_malloc_free)
 {
     using namespace stk::thread;
     std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
+	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
+    pool_t pool(nOSThreads);
 
-    using future_t = std::future<void>;
+    using future_t = pool_t::future<void>;
     std::vector<future_t> futures;
     futures.reserve(nAllocations);
     {
