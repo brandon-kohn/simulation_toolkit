@@ -8,11 +8,10 @@
 //
 #pragma once
 
+#include <stk/thread/fixed_function.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/test/test.hpp>
 #include <memory>
-
-#define STK_DEBUG_FUNCTION_WRAPPER_DEALLOC 0
 
 namespace stk { namespace thread {
 
@@ -82,66 +81,48 @@ namespace stk { namespace thread {
         function_wrapper_with_allocator(const function_wrapper_with_allocator&) = delete;
         function_wrapper_with_allocator& operator=(const function_wrapper_with_allocator&) = delete;
 
-        template <typename F>
+        template <typename F, typename std::enable_if<fixed_function<void()>::storage_size < sizeof(typename std::decay<F>::type), int>::type = 0>
         function_wrapper_with_allocator(alloc_t& alloc, F&& f)
             : m_pImpl( make_impl(std::forward<F>(f), alloc) )
         {}
 
+        template <typename F, typename std::enable_if<sizeof(typename std::decay<F>::type) <= fixed_function<void()>::storage_size, int>::type = 0>
+        function_wrapper_with_allocator(alloc_t& alloc, F&& f)
+            : m_fixed_function(std::forward<F>(f))
+        {}
+
         function_wrapper_with_allocator(function_wrapper_with_allocator&& f)
             : m_pImpl(std::move(f.m_pImpl))
-        {
-#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
-			m_executed = f.m_executed;
-			GEOMETRIX_ASSERT(!m_executed);
-			if (m_executed)
-				throw std::logic_error("function_wrapper should not already be executed");
-			f.m_executed = true;
-#endif
-		}
+            , m_fixed_function(std::move(f.m_fixed_function))
+        {}
 
         function_wrapper_with_allocator& operator=(function_wrapper_with_allocator&& x)
         {
             m_pImpl = std::move(x.m_pImpl);
-#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
-			m_executed = x.m_executed;
-			GEOMETRIX_ASSERT(!m_executed);
-			if (m_executed)
-				throw std::logic_error("function_wrapper should not already be executed");
-			x.m_executed = true;
-#endif
+            m_fixed_function = std::move(x.m_fixed_function);
 			return *this;
         }
 
         void operator()()
         {
-            GEOMETRIX_ASSERT(m_pImpl);
-            m_pImpl->call();
-#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
-			GEOMETRIX_ASSERT(!m_executed);
-			m_executed = true;
-#endif
+            if(!m_pImpl)
+                m_fixed_function(); 
+            else
+                m_pImpl->call();
 		}
 
 		~function_wrapper_with_allocator()
-		{
-#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
-			GEOMETRIX_ASSERT(!m_pImpl || m_executed);
-			if (m_pImpl && !m_executed)
-				throw std::logic_error("function_wrapper not executed");
-#endif		 
-		}
+		{}
 
         bool empty() const
         {
-            return !m_pImpl;
+            return !m_pImpl || m_fixed_function.empty();
         }
 
     private:
 
         std::unique_ptr<impl_base, deleter> m_pImpl;
-#if GEOMETRIX_TEST_ENABLED(STK_DEBUG_FUNCTION_WRAPPER_DEALLOC)
-		bool m_executed{ false };
-#endif
+        fixed_function<void(), 128> m_fixed_function;
     };
 
 }}//! namespace stk::thread;

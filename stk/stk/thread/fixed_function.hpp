@@ -45,10 +45,11 @@ namespace stk
     template <typename R, typename... ARGS, size_t STORAGE_SIZE>
     class fixed_function<R(ARGS...), STORAGE_SIZE>
     {
-
         typedef R (*func_ptr_type)(ARGS...);
 
     public:
+
+        static const std::size_t storage_size = STORAGE_SIZE;
 
         fixed_function()
             : m_function_ptr(nullptr)
@@ -132,6 +133,11 @@ namespace stk
             if(!m_method_ptr) 
                 throw std::runtime_error("call of empty functor");
             return m_method_ptr(&m_storage, m_function_ptr, args...);
+        }
+
+        bool empty() const 
+        {
+            return !m_method_ptr;
         }
 
     private:
