@@ -12,7 +12,7 @@
 
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
-//#include <stk/utility/rpmalloc_system.hpp>
+#include <stk/utility/rpmalloc_system.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 
 namespace test
@@ -40,20 +40,15 @@ namespace test
     };
 }//! namespace test;
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(unsigned int);
-//STK_INSTANTIATE_RPMALLOC_SYSTEM();//! Calls rpmalloc_initialize() and finalize() using RAII in a global.
+STK_INSTANTIATE_RPMALLOC_SYSTEM();//! Calls rpmalloc_initialize() and finalize() using RAII in a global.
 std::size_t nAllocations = 1000000;
-/*
 TEST(rpmalloc_test_suite, cross_thread_bench)
 {
-    rpmalloc_initialize();
-	auto threadInit = []() { rpmalloc_thread_initialize(); };
-	auto threadDeinit = []() { rpmalloc_thread_finalize(); };
     using namespace stk::thread;
     std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
 	{
-		work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(threadInit, threadDeinit, nOSThreads);
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		using future_t = boost::future<void>;
+		work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);
+		using future_t = std::future<void>;
 		std::vector<future_t> futures;
 		futures.reserve(nAllocations);
 		{
@@ -71,8 +66,7 @@ TEST(rpmalloc_test_suite, cross_thread_bench)
 			boost::for_each(futures, [](const future_t& f) { f.wait(); });
 		}
 	}
-    rpmalloc_finalize();
-}*/
+}
 
 TEST(rpmalloc_test_suite, cross_thread_bench_malloc_free)
 {
@@ -80,7 +74,7 @@ TEST(rpmalloc_test_suite, cross_thread_bench_malloc_free)
     std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
     work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
-    using future_t = boost::future<void>;
+    using future_t = std::future<void>;
     std::vector<future_t> futures;
     futures.reserve(nAllocations);
     {
