@@ -9,6 +9,7 @@
 #ifndef STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #define STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #pragma once
+
 #include <stk/thread/function_wrapper_with_allocator.hpp>
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
