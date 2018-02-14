@@ -9,8 +9,7 @@
 #pragma once  
 
 #include <rpmalloc/rpmalloc.h>
-#include <stk/thread/once_block.hpp>
-#include <stk/utility/boost_unique_ptr.hpp>
+#include <memory>
 
 namespace stk {
 
@@ -23,19 +22,13 @@ namespace stk {
     
         ~rpmalloc_system()
         {
-            STK_ONCE_BLOCK()
-            {
-                rpmalloc_finalize();
-            }
+            rpmalloc_finalize();
         }
 
     private:
         rpmalloc_system()
         {
-            STK_ONCE_BLOCK()
-            {
-                rpmalloc_initialize();
-            }
+            rpmalloc_initialize();
         }
     };
 
