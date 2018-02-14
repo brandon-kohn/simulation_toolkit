@@ -198,9 +198,10 @@ namespace stk {
 		using queue_type = locked_queue<T, Alloc, Mutex>;
 
 		template <typename T, typename Alloc, typename Mutex, typename Value>
-		static void push(locked_queue<T, Alloc, Mutex>& q, Value&& value)
+		static bool try_push(locked_queue<T, Alloc, Mutex>& q, Value&& value)
 		{
 			q.push_or_wait(std::forward<Value>(value));
+			return true;
 		}
 
 		template <typename T, typename Alloc, typename Mutex>

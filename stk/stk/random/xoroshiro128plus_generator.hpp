@@ -27,26 +27,26 @@ namespace stk {
     //! MT19937-64      2^19937 − 1 258             258             516     LinearComp  2.55        1.15
     class xoroshiro128plus_generator
     {
-        static BOOST_FORCEINLINE uint64_t rotl(const uint64_t x, int k) 
+        static BOOST_CONSTEXPR uint64_t rotl(const uint64_t x, int k)
         {
             return (x << k) | (x >> (64 - k));
         }
-        
+
     public:
 
         xoroshiro128plus_generator(std::uint64_t seed = 42)
         {
-            seed(seed);
+            this->seed(seed);
         }
 
         using result_type = std::uint64_t;
 
-        static BOOST_CONSTEXPR result_type min(){ return 0; }
-        static BOOST_CONSTEXPR result_type max(){ return (std::numeric_limits<result_type>::max)(); }
+        static BOOST_CONSTEXPR result_type min BOOST_PREVENT_MACRO_SUBSTITUTION (){ return 0; }
+        static BOOST_CONSTEXPR result_type max BOOST_PREVENT_MACRO_SUBSTITUTION (){ return (std::numeric_limits<result_type>::max)(); }
 
-        BOOST_FORCEINLINE result_type operator()
+        BOOST_FORCEINLINE result_type operator()()
         {
-           	const auto s0 = m_state[0];
+            const auto s0 = m_state[0];
             auto s1 = m_state[1];
             const auto r = s0 + s1;
             s1 ^= s0;
@@ -54,9 +54,9 @@ namespace stk {
             m_state[1] = rotl(s1, 36); // c
 
             GEOMETRIX_ASSERT(r >= (min)() && r <= (max)());
-           return r;
+            return r;
         }
-        
+
         void seed(std::uint64_t seed = 42)
         {
             std::seed_seq seq{seed};
@@ -64,7 +64,7 @@ namespace stk {
         }
 
     private:
-    
+
         std::array<std::uint64_t, 2> m_state;
     };
 

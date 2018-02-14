@@ -33,11 +33,21 @@ struct std_thread_traits
 
     template <typename T>
     using promise_type = std::promise<T>;
+
+    using condition_variable_type = std::condition_variable;
+
+	template <typename T>
+	using unique_lock = std::unique_lock<T>;
     
     static void interrupt(std::thread&){ }
     static void join(std::thread& t){ t.join();}
     static void interruption_point() {  }
     static void yield() { std::this_thread::yield(); }
+    template <typename T>
+    static bool is_ready(future_type<T>& f)
+    {
+        return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+    }
 };
 
 }}//! namespace stk::thread;

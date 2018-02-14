@@ -118,27 +118,6 @@ TEST(concurrent_hash_grid_2d_tests, construct_and_delete)
 
     EXPECT_EQ(0, cell<null_mutex>::update(0));
 }
-#include <boost/range/iterator.hpp>
-template <typename Container>
-inline std::vector<boost::iterator_range<typename boost::range_iterator<Container>::type>> partition_work(Container& cont, const std::ptrdiff_t num)
-{
-    using iterator = typename boost::range_iterator<Container>::type;
-    auto first = std::begin(cont);
-    auto last = std::end(cont);
-    auto total = std::distance(first,last);
-    auto portion = std::ptrdiff_t{ total / num };
-    std::vector<boost::iterator_range<iterator>> chunks(num);
-    auto portion_end = first;
-    std::generate(std::begin(chunks), std::end(chunks), [&portion_end, portion]()
-    {
-        auto portion_start = portion_end;
-        std::advance(portion_end, portion);
-        return boost::make_iterator_range(portion_start, portion_end);
-    });
-
-    chunks.back() = boost::make_iterator_range(std::begin(chunks.back()), last);
-    return chunks;
-}
 
 template <typename Mutex, typename Pool, typename Inputs>
 void bash_grid(Pool& pool, Inputs const& rndpairs, std::string const& name, std::size_t partitionSize)
@@ -203,23 +182,14 @@ void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string con
     using future_t = typename Pool::template future<void>;
     std::vector<future_t> fs;
 
-    auto partitions = partition_work(rndpairs, partitionSize);
-    GEOMETRIX_ASSERT(partitions.size() == partitionSize);
-    fs.reserve(partitions.size());
     {
         GEOMETRIX_MEASURE_SCOPE_TIME(name);
-        int idx = 0;
-        for (auto const& items : partitions)
-        {
-            fs.emplace_back(pool.send(idx++ % pool.number_threads(), [&sut, &items]() -> void {
-                for (auto p : items)
-                {
-                    auto& c = sut.get_cell(p.first, p.second);
-                    c.set_position(stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters));
-                }
-            }));
-        }
-        boost::for_each(fs, [](const future_t& f) { f.wait(); });
+		pool.parallel_for(rndpairs,
+			[&sut](const typename Inputs::value_type& p) -> void {
+                auto& c = sut.get_cell(p.first, p.second);
+                c.set_position(stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters));
+            }
+		);
     }
 
     auto cmp = make_tolerance_policy();
@@ -232,6 +202,46 @@ void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string con
         EXPECT_TRUE(geometrix::numeric_sequence_equals(pCell->pos, stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters), cmp));
     }
 }
+
+template <typename Mutex, typename Pool, typename Inputs>
+void bash_grid_with_striping_fibers(Pool& pool, Inputs const& rndpairs, std::string const& name, std::size_t partitionSize)
+{
+    using namespace geometrix;
+    using namespace stk;
+    using namespace stk::thread;
+
+    double xmin = 0;
+    double xmax = extent;
+    double ymin = 0;
+    double ymax = extent;
+    grid_traits<double> grid(xmin, xmax, ymin, ymax, 3.0);
+    concurrent_hash_grid_2d<cell<Mutex>, grid_traits<double>> sut(grid);
+
+    using future_t = typename Pool::template future<void>;
+    std::vector<future_t> fs;
+
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME(name);
+		pool.parallel_for(rndpairs,
+			[&sut](const typename Inputs::value_type& p) -> void {
+                auto& c = sut.get_cell(p.first, p.second);
+                c.set_position(stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters));
+				boost::this_fiber::yield();
+            }
+		);
+    }
+
+    auto cmp = make_tolerance_policy();
+    for (auto p : rndpairs)
+    {
+        auto i = p.first;
+        auto j = p.second;
+        auto pCell = sut.find_cell(i, j);
+        ASSERT_NE(nullptr, pCell);
+        EXPECT_TRUE(geometrix::numeric_sequence_equals(pCell->pos, stk::point2(p.first * boost::units::si::meters, p.second * boost::units::si::meters), cmp));
+    }
+}
+
 
 unsigned nTimingRuns = 20;
 int nAccesses = 1000000;
@@ -259,7 +269,7 @@ TEST(timing, fibers_moodycamel_concurrentQ_bash_grid)
 }
 
 #include <stk/thread/work_stealing_fiber_pool.hpp>
-TEST(timing, work_stealing_fibers_moodycamel_concurrentQ_bash_grid)
+TEST(timing, work_stealing_fibers_moodycamel_concurrentQ_bash_grid_with_striping)
 {
     using namespace geometrix;
     using namespace ::testing;
@@ -274,7 +284,8 @@ TEST(timing, work_stealing_fibers_moodycamel_concurrentQ_bash_grid)
         rndpairs.emplace_back(gen() % extent, gen() % extent);
 
     for (int i = 0; i < nTimingRuns; ++i)
-        bash_grid_with_striping<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, rndpairs, "work_stealing_fibers_bash_grid_with_striping",sPartitions);
+        bash_grid_with_striping_fibers<boost::fibers::mutex>(fibers, rndpairs, "work_stealing_fibers_bash_grid_with_striping",sPartitions);
+        //bash_grid_with_striping_fibers<tiny_atomic_spin_lock<eager_fiber_yield_wait<5000>>>(fibers, rndpairs, "work_stealing_fibers_bash_grid_with_striping",sPartitions);
 
     EXPECT_TRUE(true);
 }
@@ -326,7 +337,7 @@ TEST(timing, threads_moodycamel_concurrentQ_bash_grid)
     EXPECT_TRUE(true);
 }
 
-TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid)
+TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid_with_striping)
 {
     using namespace ::testing;
     using namespace stk;
@@ -341,26 +352,6 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid)
 
     for (int i = 0; i < nTimingRuns; ++i)
         bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping",sPartitions);
-
-    EXPECT_TRUE(true);
-}
-
-TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid_wait_mode)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> threads(nOSThreads);
-    threads.set_polling_mode(polling_mode::wait);
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
-    xorshift1024starphi_generator gen;
-
-    for (int i = 0; i < nAccesses; ++i)
-        rndpairs.emplace_back(gen() % extent, gen() % extent);
-
-    for (int i = 0; i < nTimingRuns; ++i)
-        bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping_wait_mode",sPartitions);
 
     EXPECT_TRUE(true);
 }

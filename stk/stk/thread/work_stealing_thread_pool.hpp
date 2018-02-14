@@ -9,299 +9,405 @@
 #ifndef STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #define STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
 #pragma once
-
-#include <stk/thread/function_wrapper.hpp>
+#include <stk/thread/function_wrapper_with_allocator.hpp>
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
 #include <stk/container/locked_queue.hpp>
+#include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/utility/scope_exit.hpp>
 #include <stk/thread/pool_polling_mode.hpp>
-
+#ifdef STK_USE_JEMALLOC
+#include <stk/utility/jemallocator.hpp>
+#endif
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
-
+#include <algorithm>
 #include <memory>
 
 namespace stk { namespace thread {
 
-	template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
-	class work_stealing_thread_pool : boost::noncopyable
-	{
-		using thread_traits = Traits;
-		using queue_traits = QTraits;
+    template <typename QTraits = locked_queue_traits, typename Traits = std_thread_traits>
+    class work_stealing_thread_pool : boost::noncopyable
+    {
+        using thread_traits = Traits;
+        using queue_traits = QTraits;
 
-		using thread_type = typename thread_traits::thread_type;
+        using thread_type = typename thread_traits::thread_type;
 
-		template <typename T>
-		using packaged_task = typename Traits::template packaged_task_type<T>;
+        template <typename T>
+        using packaged_task = typename Traits::template packaged_task_type<T>;
 
-		using mutex_type = typename thread_traits::mutex_type;
-		using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>;
-		using queue_ptr = std::unique_ptr<queue_type>;
+        using condition_variable_type = typename Traits::condition_variable_type;
 
-		void worker_thread(unsigned int tIndex)
-		{
-			if (m_onThreadStart)
-				m_onThreadStart();
+        using mutex_type = typename thread_traits::mutex_type;
+#ifdef STK_USE_JEMALLOC
+        using alloc_type = stk::jemallocator<char>;
+#else
+        using alloc_type = std::allocator<char>;
+#endif
+        using fun_wrapper = function_wrapper_with_allocator<alloc_type>;
+        using queue_type = typename queue_traits::template queue_type<fun_wrapper, std::allocator<fun_wrapper>, mutex_type>;
+        using queue_ptr = std::unique_ptr<queue_type>;
+        using unique_atomic_bool = std::unique_ptr<std::atomic<bool>>;
 
-			m_nThreads.fetch_add(1, std::memory_order_relaxed);
-			m_active.fetch_add(1, std::memory_order_relaxed);
-			STK_SCOPE_EXIT(
-				m_active.fetch_sub(1, std::memory_order_relaxed);
-				m_nThreads.fetch_sub(1, std::memory_order_relaxed);
-				if (m_onThreadStop)
-					m_onThreadStop();
-			);
+        template <typename T>
+        using unique_lock = typename Traits::template unique_lock<T>;
 
-			m_workQIndex = tIndex;
-			function_wrapper task;
+        static stk::detail::random_xor_shift_generator create_generator()
+        {
+            std::random_device rd;
+            return stk::detail::random_xor_shift_generator(rd());
+        }
 
-		polling_mode_fast:
-			{
-				while (!m_done.load(std::memory_order_relaxed))
-				{
-					if (poll(tIndex, task))
-						task();
-					else if (check_suspend_polling(tIndex, task));
-					else if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
-						goto polling_mode_wait;
-					else
-						thread_traits::yield();
-				}
-				return;
-			}
-		polling_mode_wait:
-			{
-				while (!m_done.load(std::memory_order_relaxed))
-				{
-					if (poll(tIndex, task))
-						task();
-					else if (check_suspend_polling(tIndex, task));
-					else if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::fast)
-							goto polling_mode_fast;
-					else
-					{
-						m_active.fetch_sub(1, std::memory_order_relaxed);
-						auto lk = std::unique_lock<mutex_type>{ m_pollingMtx };
-						m_pollingCnd.wait_for(lk, std::chrono::milliseconds(500), [this]() {return m_pollingMode.load(std::memory_order_relaxed) != polling_mode::wait || m_done.load(std::memory_order_relaxed); });
-						m_active.fetch_add(1, std::memory_order_relaxed);
-					}
-				}
-				return;
-			}
-		}
+        static std::uint32_t get_rnd()
+        {
+            static auto rnd = create_generator();
+            return rnd();
+        }
 
-		bool poll(unsigned int tIndex, function_wrapper& task)
-		{
-			return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
-		}
+        void worker_thread(std::uint32_t tIndex)
+        {
+            if (m_onThreadStart)
+                m_onThreadStart();
 
-		bool check_suspend_polling(unsigned int tIndex, function_wrapper& task)
-		{
-			//! I'm assuming no further tasks are submitted when this is called. This is a hard precondition.
-			if (m_suspendPolling.load(std::memory_order_relaxed))
-			{
-				m_active.fetch_sub(1, std::memory_order_relaxed);
-				{
-					auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
-					m_suspendCdn.wait(lk, [this]() { return !m_suspendPolling.load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
-				}
-				m_active.fetch_add(1, std::memory_order_relaxed);
-				return true;
-			}
+            m_nThreads.fetch_add(1, std::memory_order_relaxed);
+            m_active.fetch_add(1, std::memory_order_relaxed);
+            STK_SCOPE_EXIT(
+                m_active.fetch_sub(1, std::memory_order_relaxed);
+                m_nThreads.fetch_sub(1, std::memory_order_relaxed);
+                if (m_onThreadStop)
+                    m_onThreadStop();
+            );
 
-			return false;
-		}
+            get_local_index() = tIndex+1;
+            fun_wrapper task;
+            std::uint32_t spincount = 0;
+            bool hasTask = poll(tIndex, task);
+            while (true)
+            {
+                if (hasTask)
+                {
+                    task();
+                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                    {
+                        spincount = 0;
+                        hasTask = poll(tIndex, task);
+                    }
+                    else
+                        return;
+                }
+                else if (++spincount < 100)
+                {
+                    auto backoff = spincount * 10;
+                    while (backoff--)
+                        thread_traits::yield();
+                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                        hasTask = poll(tIndex, task);
+                    else
+                        return;
+                }
+                else
+                {
+                    m_active.fetch_sub(1, std::memory_order_relaxed);
+                    {
+                        auto lk = unique_lock<mutex_type>{ m_pollingMtx };
+                        m_pollingCnd.wait(lk, [tIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                    }
+                    m_active.fetch_add(1, std::memory_order_relaxed);
+                    if (!hasTask)
+                        return;
+                }
+            }
+            return;
+       }
 
-		bool pop_local_queue_task(unsigned int i, function_wrapper& task)
-		{
-			return queue_traits::try_pop(*m_localQs[i], task);
-		}
+        bool poll(std::uint32_t tIndex, fun_wrapper& task)
+        {
+            return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
+        }
 
-		bool pop_task_from_pool_queue(function_wrapper& task)
-		{
-			return queue_traits::try_pop(m_poolQ, task);
-		}
+        bool pop_local_queue_task(std::uint32_t i, fun_wrapper& task)
+        {
+            return queue_traits::try_pop(*m_localQs[i], task);
+        }
 
-		bool try_steal(function_wrapper& task)
-		{
-			for (unsigned int i = 0; i < m_localQs.size(); ++i)
-			{
-				if (queue_traits::try_steal(*m_localQs[i], task))
-					return true;
-			}
+        bool pop_task_from_pool_queue(fun_wrapper& task)
+        {
+            return queue_traits::try_steal(m_poolQ, task);
+        }
 
-			return false;
-		}
+        bool try_steal(fun_wrapper& task)
+        {
+            for (std::uint32_t i = 0; i < m_localQs.size(); ++i)
+            {
+                if (queue_traits::try_steal(*m_localQs[i], task))
+                    return true;
+            }
 
-	public:
+            return false;
+        }
 
-		template <typename T>
-		using future = typename thread_traits::template future_type<T>;
+        bool try_steal1(fun_wrapper& task)
+        {
+            auto victim = get_rnd() % m_localQs.size();
+            if (queue_traits::try_steal(*m_localQs[victim], task))
+                return true;
 
-		work_stealing_thread_pool(unsigned int nthreads = boost::thread::hardware_concurrency())
-			: m_threads(nthreads)
-			, m_done(false)
-			, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
-			, m_localQs(nthreads)
-		{
-			init();
-		}
+            return false;
+        }
 
-		work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, unsigned int nthreads = boost::thread::hardware_concurrency())
-			: m_threads(nthreads)
-			, m_done(false)
-			, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
-			, m_localQs(nthreads)
-			, m_onThreadStart(onThreadStart)
-			, m_onThreadStop(onThreadStop)
-		{
-			init();
-		}
+        void set_done(bool v)
+        {
+            m_done.store(v, std::memory_order_relaxed);
+            for (auto& b : m_stop)
+                b->store(v);
+        }
 
-		~work_stealing_thread_pool()
-		{
-			m_done.store(true, std::memory_order_relaxed);
-			if (m_suspendPolling.load(std::memory_order_relaxed))
-				resume_polling();
-			else if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
-			{
-				while (m_active.load(std::memory_order_relaxed) != number_threads())
-					m_pollingCnd.notify_all();
-			}
-			boost::for_each(m_threads, [](thread_type& t)
-			{
-				if (t.joinable())
-					t.join();
-			});
-		}
+    public:
 
-		template <typename Action>
-		future<decltype(std::declval<Action>()())> send(Action&& x)
-		{
-			return send_impl(std::forward<Action>(x));
-		}
+        template <typename T>
+        using future = typename thread_traits::template future_type<T>;
 
-		template <typename Action>
-		future<decltype(std::declval<Action>()())> send(std::uint32_t threadIndex, Action&& x)
-		{
-			GEOMETRIX_ASSERT(threadIndex < number_threads());
-			return send_impl(threadIndex, std::forward<Action>(x));
-		}
+        work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
+            : m_threads(nthreads)
+            //, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
+            , m_poolQ(64*1024)
+            , m_localQs(nthreads)
+            , m_allocator()
+        {
+            init();
+        }
 
-		std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+        work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
+            : m_threads(nthreads)
+            //, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
+            , m_poolQ(64*1024)
+            , m_localQs(nthreads)
+            , m_onThreadStart(onThreadStart)
+            , m_onThreadStop(onThreadStop)
+            , m_allocator()
+        {
+            init();
+        }
 
-		//! Suspend polling. This method will put the threads to sleep on a condition until polling is resumed.
-		//! The precondition to calling this method is that all futures for submitted tasks have had their wait/get method called.
-		//! This blocks until all pool threads block on the condition.
-		void suspend_polling()
-		{
-			GEOMETRIX_ASSERT(m_nTasksOutstanding.load(std::memory_order_relaxed) == 0);
-			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
-			auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
-			m_suspendPolling.store(true, std::memory_order_relaxed);
-			lk.unlock();
-			while (m_active.load(std::memory_order_relaxed) != 0); 
-		}
+        ~work_stealing_thread_pool()
+        {
+            set_done(true);
 
-		//! This restarts the threadpool. It blocks until all pool threads are no longer blocking on the condition.
-		void resume_polling()
-		{	
-			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == true);
-			{
-				auto lk = std::unique_lock<mutex_type>{ m_suspendMtx };
-				m_suspendPolling.store(false, std::memory_order_relaxed);
-			}
-			while (m_active.load(std::memory_order_relaxed) != number_threads()) 
-				m_suspendCdn.notify_all();
-		}
+            //while (number_threads())//! This hangs if the pool is a global as the threads seem to exit without running their scope exit in that case.
+            {
+                auto lk = unique_lock<mutex_type>{ m_pollingMtx };
+                m_pollingCnd.notify_all();
+            }
 
-		void set_polling_mode(polling_mode m)
-		{
-			auto lk = std::unique_lock<mutex_type>{ m_pollingMtx };
-			m_pollingMode.store(m, std::memory_order_relaxed);
-		}
+            boost::for_each(m_threads, [](thread_type& t)
+            {
+                if (t.joinable())
+                    t.join();
+            });
+        }
 
-	private:
+        template <typename Action>
+        future<decltype(std::declval<Action>()())> send(Action&& x)
+        {
+            return send_impl(get_local_index(), std::forward<Action>(x));
+        }
 
-		void init()
-		{
-			try
-			{
-				for (unsigned int i = 0; i < m_threads.size(); ++i)
-					m_localQs[i] = queue_ptr(new queue_type());
+        template <typename Action>
+        future<decltype(std::declval<Action>()())> send(std::uint32_t threadIndex, Action&& x)
+        {
+            GEOMETRIX_ASSERT(threadIndex < number_threads());
+            return send_impl(threadIndex+1, std::forward<Action>(x));
+        }
 
-				for (unsigned int i = 0; i < m_threads.size(); ++i)
-					m_threads[i] = thread_type([i, this]() { worker_thread(i); });
-			}
-			catch (...)
-			{
-				m_done = true;
-				throw;
-			}
-		}
+        template <typename Action>
+        void send_no_future(Action&& x)
+        {
+            return send_no_future_impl(get_local_index(), std::forward<Action>(x));
+        }
 
-		template <typename Action>
-		future<decltype(std::declval<Action>()())> send_impl(Action&& m)
-		{
-			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
-			GEOMETRIX_ASSERT(m_done.load(std::memory_order_relaxed) == false);
-			using result_type = decltype(m());
-			packaged_task<result_type> task([m = std::forward<Action>(m), this]()->result_type{ STK_SCOPE_EXIT(m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed); ); return m(); });
-			auto result = task.get_future();
+        template <typename Action>
+        void send_no_future(std::uint32_t threadIndex, Action&& x)
+        {
+            GEOMETRIX_ASSERT(threadIndex < number_threads());
+            return send_no_future_impl(threadIndex + 1, std::forward<Action>(x));
+        }
 
-			auto localIndex = *m_workQIndex;
-			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
-			if (localIndex != static_cast<std::uint32_t>(-1))
-				queue_traits::push(*m_localQs[localIndex], function_wrapper(std::move(task)));
-			else
-				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
-			
-			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
-				m_pollingCnd.notify_one();
+        template <typename Range, typename TaskFn>
+        void parallel_for(Range&& range, TaskFn&& task)
+        {
+            auto nthreads = number_threads();
+            auto npartitions = nthreads * nthreads;
+            using iterator_t = typename boost::range_iterator<Range>::type;
+            std::vector<future<void>> fs;
+            fs.reserve(npartitions);
+            partition_work(range, npartitions,
+                [&fs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
+                {
+                    std::uint32_t threadID = get_rnd() % nthreads;
+                    fs.emplace_back(send(threadID, [&task, from, to]() -> void
+                    {
+                        for (auto i = from; i != to; ++i)
+                        {
+                            task(*i);
+                        }
+                    }));
+                }
+            );
 
-			return std::move(result);
-		}
-		
-		template <typename Action>
-		future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
-		{
-			GEOMETRIX_ASSERT(m_suspendPolling.load(std::memory_order_relaxed) == false);
-			GEOMETRIX_ASSERT(m_done.load(std::memory_order_relaxed) == false);
-			using result_type = decltype(m());
-			packaged_task<result_type> task([m = std::forward<Action>(m), this]()->result_type{ STK_SCOPE_EXIT(m_nTasksOutstanding.fetch_sub(1, std::memory_order_relaxed); ); return m(); });
-			auto result = task.get_future();
+            fun_wrapper tsk;
+            for(auto it = fs.begin() ; it != fs.end();)
+            {
+                if (!thread_traits::is_ready(*it))
+                {
+                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                        tsk();
+                }
+                else
+                    ++it;
+            }
+        }
 
-			m_nTasksOutstanding.fetch_add(1, std::memory_order_relaxed);
-			if (threadIndex != static_cast<std::uint32_t>(-1))
-				queue_traits::push(*m_localQs[threadIndex], function_wrapper(std::move(task)));
-			else
-				queue_traits::push(m_poolQ, function_wrapper(std::move(task)));
-			
-			if (m_pollingMode.load(std::memory_order_relaxed) == polling_mode::wait)
-				m_pollingCnd.notify_one();
+        template <typename TaskFn>
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
+        {
+            auto nthreads = number_threads();
+            auto npartitions = nthreads * nthreads;
+            std::vector<future<void>> fs;
+            fs.reserve(npartitions);
+            partition_work(count, npartitions,
+                [nthreads, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                {
+                    std::uint32_t threadID = get_rnd() % nthreads;
+                    fs.emplace_back(send(threadID % nthreads, [&task, from, to]() -> void
+                    {
+                        for (auto i = from; i != to; ++i)
+                        {
+                            task(i);
+                        }
+                    }));
+                }
+            );
 
-			return std::move(result);
-		}
+            fun_wrapper tsk;
+            for(auto it = fs.begin() ; it != fs.end();)
+            {
+                if (!thread_traits::is_ready(*it))
+                {
+                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                        tsk();
+                }
+                else
+                    ++it;
+            }
+        }
 
-		std::vector<thread_type>       m_threads;
-		std::atomic<bool>              m_done;
-		thread_specific<std::uint32_t> m_workQIndex;
-		queue_type					   m_poolQ;
-		std::vector<queue_ptr>	       m_localQs;
-		std::function<void()>          m_onThreadStart;
-		std::function<void()>          m_onThreadStop;
-		std::atomic<std::uint32_t>     m_active{ 0 };
-		std::atomic<std::uint32_t>     m_nTasksOutstanding{ 0 };
-		std::atomic<std::uint32_t>     m_nThreads{ 0 };
-		std::atomic<bool>              m_suspendPolling{ false };
-		mutex_type                     m_suspendMtx;
-		std::condition_variable_any    m_suspendCdn;
-		std::atomic<polling_mode>      m_pollingMode{ polling_mode::fast };
-		mutex_type                     m_pollingMtx;
-		std::condition_variable_any    m_pollingCnd;
-	};
+        std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+
+        template <typename Pred>
+        void wait_for(Pred&& pred)
+        {
+            fun_wrapper task;
+            while (!pred())
+            {
+                if (pop_task_from_pool_queue(task) || try_steal(task))
+                {
+                    task();
+                }
+            }
+        }
+
+    private:
+
+        std::uint32_t& get_local_index()
+        {
+            static thread_local std::uint32_t workQIndex;
+            return workQIndex;
+        }
+
+        void init()
+        {
+            try
+            {
+                for (std::uint32_t i = 0; i < m_threads.size(); ++i)
+                {
+                    m_localQs[i] = queue_ptr(new queue_type(32*1024));
+                    m_stop.emplace_back(new std::atomic<bool>{ false });
+                }
+
+                for (std::uint32_t i = 0; i < m_threads.size(); ++i)
+                    m_threads[i] = thread_type([i, this]() { worker_thread(i); });
+
+                while (number_threads() != m_threads.size())
+                    thread_traits::yield();
+            }
+            catch (...)
+            {
+                set_done(true);
+                throw;
+            }
+        }
+
+        template <typename Action>
+        future<decltype(std::declval<Action>()())> send_impl(std::uint32_t threadIndex, Action&& m)
+        {
+            using result_type = decltype(m());
+            packaged_task<result_type> task(std::forward<Action>(m));
+            auto result = task.get_future();
+
+            fun_wrapper p(m_allocator, std::move(task));
+            if (threadIndex)// != static_cast<std::uint32_t>(-1))
+            {
+                while (!queue_traits::try_push(*m_localQs[threadIndex-1], std::move(p)))
+                    thread_traits::yield();
+            }
+            else
+            {
+                while (!queue_traits::try_push(m_poolQ, std::move(p)))
+                    thread_traits::yield();
+            }
+
+            {
+                auto lk = unique_lock<mutex_type>{ m_pollingMtx };
+                m_pollingCnd.notify_one();
+            }
+            return std::move(result);
+        }
+
+        template <typename Action>
+        void send_no_future_impl(std::uint32_t localIndex, Action&& m)
+        {
+            fun_wrapper p(m_allocator, std::forward<Action>(m));
+            if (localIndex) //!= static_cast<std::uint32_t>(-1))
+            {
+                while (!queue_traits::try_push(*m_localQs[localIndex-1], std::move(p)))
+                    thread_traits::yield();
+            }
+            else
+            {
+                while (!queue_traits::try_push(m_poolQ, std::move(p)))
+                    thread_traits::yield();
+            }
+
+            auto lk = unique_lock<mutex_type>{ m_pollingMtx };
+            m_pollingCnd.notify_one();
+        }
+
+        std::vector<thread_type>       m_threads;
+        std::vector<unique_atomic_bool>m_stop;
+        std::atomic<bool>              m_done{ false };
+        //thread_specific<std::uint32_t> m_workQIndex;
+        queue_type                     m_poolQ;
+        std::vector<queue_ptr>         m_localQs;
+        std::function<void()>          m_onThreadStart;
+        std::function<void()>          m_onThreadStop;
+        std::atomic<std::uint32_t>     m_active{ 0 };
+        std::atomic<std::uint32_t>     m_nThreads{ 0 };
+        mutex_type                     m_pollingMtx;
+        condition_variable_type        m_pollingCnd;
+        alloc_type                     m_allocator;
+    };
 
 }}//! namespace stk::thread;
 

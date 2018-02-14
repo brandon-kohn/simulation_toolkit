@@ -149,7 +149,8 @@ private:
         packaged_task<result_type()> task(std::forward<Action>(m));
         auto result = task.get_future();
 
-        queue_traits::push(m_tasks, function_wrapper(std::move(task)));
+		while (!queue_traits::try_push(m_tasks, function_wrapper(std::move(task))))
+			boost::this_fiber::yield();
 
         return std::move(result);
     } 

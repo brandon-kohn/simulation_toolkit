@@ -39,6 +39,7 @@ if(Boost_FOUND)
         concurrent_skip_list_tests
         hash_grid_tests
         fiber_timing_tests
+        thread_pool_tests
         rpmalloc_tests
         )
 
