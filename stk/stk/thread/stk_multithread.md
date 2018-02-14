@@ -503,9 +503,17 @@ namespace stk { namespace thread {
         template <typename Range, typename TaskFn>
         void parallel_for(Range&& range, TaskFn&& task);
 
+        //! Maps a task whose signature is `R(Range::value_type)` into each item in `range` and submits the tasks into the threadpool at a granularity specified by npartitions. Returns void.
+        template <typename Range, typename TaskFn>
+        void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions);
+
         //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool. Returns void.
         template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task);
+
+        //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool at a granularity specified by npartitions. Returns void.
+        template <typename TaskFn>
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions);
 
         //! Returns the number of threads. This can be used with `%` to specify the indices of thread queues for task submission.
         std::size_t number_threads() const;
