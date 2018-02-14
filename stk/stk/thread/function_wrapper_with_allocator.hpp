@@ -42,7 +42,6 @@ namespace stk { namespace thread {
             }
 
             f_type m_f;
-            char cachepad[64];
         };
 
         struct deleter
@@ -78,12 +77,10 @@ namespace stk { namespace thread {
 
         function_wrapper_with_allocator() = default;
 
-        function_wrapper_with_allocator(const function_wrapper_with_allocator&) = delete;
-        function_wrapper_with_allocator& operator=(const function_wrapper_with_allocator&) = delete;
-
-        template <typename F, typename std::enable_if<fixed_function<void()>::storage_size < sizeof(typename std::decay<F>::type), int>::type = 0>
+		template <typename F, typename std::enable_if<fixed_function<void()>::storage_size < sizeof(typename std::decay<F>::type), int>::type = 0>
         function_wrapper_with_allocator(alloc_t& alloc, F&& f)
             : m_pImpl( make_impl(std::forward<F>(f), alloc) )
+			, m_fixed_function([this]() { GEOMETRIX_ASSERT(m_pImpl); m_pImpl->call(); })
         {}
 
         template <typename F, typename std::enable_if<sizeof(typename std::decay<F>::type) <= fixed_function<void()>::storage_size, int>::type = 0>
@@ -103,12 +100,12 @@ namespace stk { namespace thread {
 			return *this;
         }
 
-        void operator()()
+        function_wrapper_with_allocator(const function_wrapper_with_allocator&) = delete;
+        function_wrapper_with_allocator& operator=(const function_wrapper_with_allocator&) = delete;
+
+        BOOST_FORCEINLINE void operator()()
         {
-            if(!m_pImpl)
-                m_fixed_function(); 
-            else
-                m_pImpl->call();
+            m_fixed_function(); 
 		}
 
 		~function_wrapper_with_allocator()
@@ -116,7 +113,7 @@ namespace stk { namespace thread {
 
         bool empty() const
         {
-            return !m_pImpl || m_fixed_function.empty();
+            return !m_pImpl && m_fixed_function.empty();
         }
 
     private:
@@ -126,4 +123,3 @@ namespace stk { namespace thread {
     };
 
 }}//! namespace stk::thread;
-

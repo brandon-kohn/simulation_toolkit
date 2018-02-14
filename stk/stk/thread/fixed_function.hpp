@@ -27,6 +27,7 @@ SOFTWARE.
 #include <cstring>
 #include <stdexcept>
 #include <utility>
+#include <boost/config.hpp>
 
 namespace stk
 {
@@ -128,7 +129,7 @@ namespace stk
          * @brief operator () Execute stored functional object.
          * @throws std::runtime_error if no functional object is stored.
          */
-        R operator()(ARGS... args)
+        BOOST_FORCEINLINE R operator()(ARGS... args)
         {
             if(!m_method_ptr) 
                 throw std::runtime_error("call of empty functor");

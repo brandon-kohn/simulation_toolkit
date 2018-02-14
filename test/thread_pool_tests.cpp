@@ -121,7 +121,7 @@ TEST(timing, test_partition_work_fewer_items_than_partitions)
 	EXPECT_EQ(njobs, count);
 }
 
-size_t nTimingRuns = 20;
+size_t nTimingRuns = 200;
 const int njobs = 1024 * 1024;
 TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
