@@ -132,8 +132,8 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
 	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
 
 	std::atomic<int> consumed{0};
-	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 
+	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		consumed.store(0, std::memory_order_relaxed);

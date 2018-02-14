@@ -80,7 +80,11 @@ namespace stk { namespace thread {
 		template <typename F, typename std::enable_if<fixed_function<void()>::storage_size < sizeof(typename std::decay<F>::type), int>::type = 0>
         function_wrapper_with_allocator(alloc_t& alloc, F&& f)
             : m_pImpl( make_impl(std::forward<F>(f), alloc) )
-			, m_fixed_function([this]() { GEOMETRIX_ASSERT(m_pImpl); m_pImpl->call(); })
+			, m_fixed_function([p = m_pImpl.get()]() 
+		      { 
+			      GEOMETRIX_ASSERT(p); 
+				  p->call();
+		      })
         {}
 
         template <typename F, typename std::enable_if<sizeof(typename std::decay<F>::type) <= fixed_function<void()>::storage_size, int>::type = 0>
