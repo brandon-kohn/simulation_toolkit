@@ -13,7 +13,7 @@ The stk now has the following facilities to support concurrent programming:
 
 #### Concurrent Skiplist
 
-A skiplist is an associative data structure which achieves amortized `O(N*log(N))` lookup times. Thus it is suitable for use in the contexts where a `std::set` or `std::map` might be used. The stk contains both a lock based and a lock-free implementation of skiplists which are described in [The Art of Multiprocessor Programming](https://www.amazon.com/Art-Multiprocessor-Programming-Revised-Reprint/dp/0123973376/ref=dp_ob_title_bk).
+A skiplist is an associative data structure which achieves amortized `O(log(N))` lookup times. Thus it is suitable for use in the contexts where a `std::set` or `std::map` might be used. The stk contains both a lock based and a lock-free implementation of skiplists which are described in [The Art of Multiprocessor Programming](https://www.amazon.com/Art-Multiprocessor-Programming-Revised-Reprint/dp/0123973376/ref=dp_ob_title_bk).
 
 Include:
 ```C++
