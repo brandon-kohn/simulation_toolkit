@@ -22,6 +22,7 @@
 #include <stk/utility/jemallocator.hpp>
 #endif
 #include <boost/noncopyable.hpp>
+#include <boost/fiber/detail/cpu_relax.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <algorithm>
 #include <memory>
@@ -111,7 +112,8 @@ namespace stk { namespace thread {
                     while (backoff--)
                     {
                         //thread_traits::yield();//! yield works better for larger payloads.
-						thread_traits::sleep_for(std::chrono::microseconds(0));
+						//thread_traits::sleep_for(std::chrono::microseconds(0));
+						cpu_relax();
                     }
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                         hasTask = poll(tIndex, task);
