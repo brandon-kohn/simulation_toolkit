@@ -110,7 +110,8 @@ namespace stk { namespace thread {
                     auto backoff = spincount * 10;
                     while (backoff--)
                     {
-                        thread_traits::yield();//! yield works better for larger payloads.
+                        //thread_traits::yield();//! yield works better for larger payloads.
+						thread_traits::sleep_for(std::chrono::microseconds(0));
                     }
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                         hasTask = poll(tIndex, task);
