@@ -110,7 +110,6 @@ namespace stk { namespace thread {
                     auto backoff = spincount * 10;
 					while (backoff--)
 					{
-						//    thread_traits::yield();
 						thread_traits::sleep_for(std::chrono::microseconds(1));
 					}
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
