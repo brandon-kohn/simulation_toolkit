@@ -69,7 +69,7 @@ namespace stk { namespace thread {
 
         void worker_thread(std::uint32_t tIndex)
         {
-			//bind_to_processor(tIndex);
+            //bind_to_processor(tIndex);
             if (m_onThreadStart)
                 m_onThreadStart();
 
@@ -90,7 +90,13 @@ namespace stk { namespace thread {
             {
                 if (hasTask)
                 {
-                    task();
+                    try
+                    {
+                        task();
+                    }
+                    catch(...)
+                    {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
+
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
@@ -103,7 +109,10 @@ namespace stk { namespace thread {
                 {
                     auto backoff = spincount * 10;
 					while (backoff--)
-						thread_traits::yield();
+					{
+						//    thread_traits::yield();
+						thread_traits::sleep_for(std::chrono::microseconds(1));
+					}
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                         hasTask = poll(tIndex, task);
                     else
@@ -236,16 +245,16 @@ namespace stk { namespace thread {
             return send_no_future_impl(threadIndex + 1, std::forward<Task>(x));
         }
 
-		template <typename Range, typename TaskFn>
+        template <typename Range, typename TaskFn>
         void parallel_for(Range&& range, TaskFn&& task) noexcept
         {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
-			using value_t = typename boost::range_value<Range>::type;
+            using value_t = typename boost::range_value<Range>::type;
             parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
         }
 
-		template <typename TaskFn>
+        template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task) noexcept
         {
             auto nthreads = number_threads();
@@ -253,25 +262,25 @@ namespace stk { namespace thread {
             parallel_apply_impl(count, std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, noexcept(task(0))>());
         }
 
-		template <typename Range, typename TaskFn>
+        template <typename Range, typename TaskFn>
         void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions) noexcept
         {
-			using value_t = typename boost::range_value<Range>::type;
+            using value_t = typename boost::range_value<Range>::type;
             parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
         }
 
-		template <typename TaskFn>
+        template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions) noexcept
         {
             parallel_apply_impl(count, std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, noexcept(task(0))>());
         }
 
-		std::size_t number_threads() const noexcept { return m_nThreads.load(std::memory_order_relaxed); }
+        std::size_t number_threads() const noexcept { return m_nThreads.load(std::memory_order_relaxed); }
 
         template <typename Pred>
         void wait_for(Pred&& pred) noexcept
         {
-			static_assert(noexcept(pred()), "Pred must be noexcept.");
+            static_assert(noexcept(pred()), "Pred must be noexcept.");
             fun_wrapper task;
             while (!pred())
             {
@@ -282,8 +291,8 @@ namespace stk { namespace thread {
             }
         }
 
-		void wait_or_work(std::vector<future<void>>&fs) noexcept 
-		{
+        void wait_or_work(std::vector<future<void>>&fs) noexcept
+        {
             fun_wrapper tsk;
             for(auto it = fs.begin() ; it != fs.end();)
             {
@@ -295,7 +304,7 @@ namespace stk { namespace thread {
                 else
                     ++it;
             }
-		}
+        }
 
     private:
 
@@ -328,7 +337,7 @@ namespace stk { namespace thread {
             }
         }
 
-		template <typename Range, typename TaskFn>
+        template <typename Range, typename TaskFn>
         void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::false_type) noexcept
         {
             using iterator_t = typename boost::range_iterator<Range>::type;
@@ -348,7 +357,7 @@ namespace stk { namespace thread {
                 }
             );
 
-			wait_or_work(fs);
+            wait_or_work(fs);
         }
 
         template <typename TaskFn>
@@ -370,25 +379,25 @@ namespace stk { namespace thread {
                 }
             );
 
-			wait_or_work(fs);
+            wait_or_work(fs);
         }
 
-		template <typename Range, typename TaskFn>
-        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept 
-        { 
-			using value_t = typename boost::range_value<Range>::type;
-			static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
+        template <typename Range, typename TaskFn>
+        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
+        {
+            using value_t = typename boost::range_value<Range>::type;
+            static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
             using iterator_t = typename boost::range_iterator<Range>::type;
-			std::atomic<std::uint32_t> consumed{ 0 };
-			std::uint32_t njobs = 0;
+            std::atomic<std::uint32_t> consumed{ 0 };
+            std::uint32_t njobs = 0;
             partition_work(range, npartitions,
                 [&consumed, &njobs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
                 {
-				    ++njobs;
+                    ++njobs;
                     std::uint32_t threadID = get_rnd() % nthreads;
-					send_no_future(threadID, [&consumed, &task, from, to]() noexcept -> void
+                    send_no_future(threadID, [&consumed, &task, from, to]() noexcept -> void
                     {
-			            STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+                        STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
                         for (auto i = from; i != to; ++i)
                         {
                             task(*i);
@@ -397,23 +406,23 @@ namespace stk { namespace thread {
                 }
             );
 
-			wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+            wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
         }
 
         template <typename TaskFn>
         void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
         {
-			static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
-			std::atomic<std::uint32_t> consumed{ 0 };
-			std::uint32_t njobs = 0;
+            static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
+            std::atomic<std::uint32_t> consumed{ 0 };
+            std::uint32_t njobs = 0;
             partition_work(count, npartitions,
                 [nthreads, &consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
-				    ++njobs;
+                    ++njobs;
                     std::uint32_t threadID = get_rnd() % nthreads;
                     send_no_future(threadID % nthreads, [&consumed, &task, from, to]() noexcept -> void
                     {
-			            STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+                        STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
                         for (auto i = from; i != to; ++i)
                         {
                             task(i);
@@ -422,10 +431,10 @@ namespace stk { namespace thread {
                 }
             );
 
-			wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+            wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
         }
 
-		template <typename Task>
+        template <typename Task>
         future<decltype(std::declval<Task>()())> send_impl(std::uint32_t threadIndex, Task&& m) noexcept
         {
             using result_type = decltype(m());
@@ -454,7 +463,7 @@ namespace stk { namespace thread {
         template <typename Task>
         void send_no_future_impl(std::uint32_t localIndex, Task&& m) noexcept
         {
-			static_assert(noexcept(m()), "call to send_no_future must have noexcept task");
+            static_assert(noexcept(m()), "call to send_no_future must have noexcept task");
             fun_wrapper p(m_allocator, std::forward<Task>(m));
             if (localIndex) //!= static_cast<std::uint32_t>(-1))
             {

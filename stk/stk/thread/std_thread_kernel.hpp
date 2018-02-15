@@ -43,6 +43,10 @@ struct std_thread_traits
     static void join(std::thread& t){ t.join();}
     static void interruption_point() {  }
     static void yield() { std::this_thread::yield(); }
+
+    template <typename Duration>
+    static void sleep_for(Duration&& d) { std::this_thread::sleep_for(d); }
+
     template <typename T>
     static bool is_ready(future_type<T>& f)
     {

@@ -133,36 +133,6 @@ TEST(timing, test_partition_work_fewer_items_than_partitions)
 
 size_t nTimingRuns = 200;
 const int njobs = 64 * 1024;
-/*
-#include "ctpl.h"
-TEST(timing, ctpl_64k_empty_jobs_enumerated)
-{
-	using namespace ::testing;
-	using namespace stk;
-	using namespace stk::thread;
-	using pool_t = ctpl::thread_pool;
-	pool_t pool(nOSThreads);
-	std::vector<std::future<void>> fs;
-	std::atomic<int> consumed{0};
-	auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
-	std::stringstream name;
-	name << nOSThreads << " ctpl::threadpool 64k empty";
-
-	for (int i = 0; i < nTimingRuns; ++i)
-	{
-		consumed.store(0, std::memory_order_relaxed);
-		{
-			GEOMETRIX_MEASURE_SCOPE_TIME(name.str().c_str());
-			for (auto q = 0; q < njobs; ++q)
-				fs.emplace_back(pool.push(task));
-		    for (auto& f : fs)
-		        f.wait();
-		}
-
-		EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
-	}
-}
-*/
 
 TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_enumerated)
 {

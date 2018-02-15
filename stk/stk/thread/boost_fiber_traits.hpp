@@ -39,6 +39,9 @@ struct boost_fiber_traits
     
     static void yield() { boost::this_fiber::yield(); }
 
+    template <typename Duration>
+    static void sleep_for(Duration&& d) { boost::this_fiber::sleep_for(d); }
+
 	template <typename T>
     static bool is_ready(const future_type<T>& f)
     {
