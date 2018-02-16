@@ -265,6 +265,30 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
 	}
 }
 
+#include <stk/thread/vyukov_mpmc_queue.hpp>
+TEST_F(timing_fixture200, work_stealing_threads_vyukov_concurrentQ_64k_empty_jobs_with_parallel_for)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	using pool_t = work_stealing_thread_pool<vyukov_mpmc_queue_traits>;
+	pool_t pool(nOSThreads);
+	scalable_task_counter consumed(nOSThreads + 1);
+
+	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); };
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		consumed.reset();
+		{
+			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool vyukov_64k empty with parallel_for");
+			pool.parallel_for(boost::irange(0, njobs), task);
+		}
+		EXPECT_EQ(njobs, consumed.count());
+	}
+}
+
+
 using timing_fixture1 = timing_fixture<1>;
 TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_100us_jobs_with_parallel_apply)
 {

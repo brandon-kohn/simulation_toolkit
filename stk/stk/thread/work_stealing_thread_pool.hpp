@@ -22,6 +22,8 @@
 #include <stk/thread/bind/bind_processor.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
+#elif defined(STK_USE_RPMALLOC)
+#include <stk/utility/rpmalloc_allocator.hpp>
 #endif
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
@@ -46,6 +48,8 @@ namespace stk { namespace thread {
         using mutex_type = typename thread_traits::mutex_type;
 #ifdef STK_USE_JEMALLOC
         using alloc_type = stk::jemallocator<char>;
+#elif defined(STK_USE_RPMALLOC)
+        using alloc_type = stk::rpmalloc_allocator<char>;
 #else
         using alloc_type = std::allocator<char>;
 #endif
