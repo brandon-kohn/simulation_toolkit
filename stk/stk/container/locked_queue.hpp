@@ -196,12 +196,36 @@ namespace stk {
 	{
 		template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
 		using queue_type = locked_queue<T, Alloc, Mutex>;
+		using queue_info = void*;
+
+		template <typename T, typename Alloc, typename Mutex>
+		static queue_info get_queue_info(queue_type<T, Alloc, Mutex>&q)
+		{
+			return nullptr;
+		}
+
+		template <typename T, typename Alloc, typename Mutex, typename Value>
+		static bool try_push(queue_type<T, Alloc, Mutex>& q, queue_info, Value&& value)
+		{
+			return q.try_push(std::forward<Value>(value));
+		}
+
+		template <typename T, typename Alloc, typename Mutex>
+		static bool try_pop(queue_type<T, Alloc, Mutex>& q, queue_info, T& value)
+		{
+			return q.try_pop(value);
+		}
+
+		template <typename T, typename Alloc, typename Mutex>
+		static bool try_steal(queue_type<T, Alloc, Mutex>& q, queue_info, T& value)
+		{
+			return q.try_steal(value);
+		}
 
 		template <typename T, typename Alloc, typename Mutex, typename Value>
 		static bool try_push(locked_queue<T, Alloc, Mutex>& q, Value&& value)
 		{
-			q.push_or_wait(std::forward<Value>(value));
-			return true;
+			return q.try_push(std::forward<Value>(value));
 		}
 
 		template <typename T, typename Alloc, typename Mutex>
@@ -216,8 +240,6 @@ namespace stk {
 			return q.try_steal(value);
 		}
 	};
-
-
 }//! namespace stk;
 
 #endif //! STK_LOCKED_QUEUE_HPP

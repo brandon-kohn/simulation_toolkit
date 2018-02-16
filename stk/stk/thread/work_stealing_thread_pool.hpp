@@ -11,8 +11,10 @@
 #pragma once
 
 #include <stk/thread/function_wrapper_with_allocator.hpp>
+#include <stk/thread/function_wrapper.hpp>
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
+#include <stk/thread/task_counter.hpp>
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
@@ -48,7 +50,9 @@ namespace stk { namespace thread {
         using alloc_type = std::allocator<char>;
 #endif
         using fun_wrapper = function_wrapper_with_allocator<alloc_type>;
+//        using fun_wrapper = function_wrapper;
         using queue_type = typename queue_traits::template queue_type<fun_wrapper, std::allocator<fun_wrapper>, mutex_type>;
+		using queue_info = typename queue_traits::queue_info;
         using queue_ptr = std::unique_ptr<queue_type>;
         using unique_atomic_bool = std::unique_ptr<std::atomic<bool>>;
 
@@ -69,7 +73,7 @@ namespace stk { namespace thread {
 
         void worker_thread(std::uint32_t tIndex)
         {
-            //bind_to_processor(tIndex);
+            bind_to_processor(tIndex+1);
             if (m_onThreadStart)
                 m_onThreadStart();
 
@@ -78,15 +82,21 @@ namespace stk { namespace thread {
             STK_SCOPE_EXIT(
                 m_active.fetch_sub(1, std::memory_order_relaxed);
                 m_nThreads.fetch_sub(1, std::memory_order_relaxed);
+			    m_spinning[tIndex]->store(false, std::memory_order_relaxed);
                 if (m_onThreadStop)
                     m_onThreadStop();
             );
 
-            get_local_index() = tIndex+1;
+            get_thread_id() = tIndex+1;
             fun_wrapper task;
             std::uint32_t spincount = 0;
-			std::uint32_t lastIndexHit = tIndex;
-            bool hasTask = poll(tIndex, lastIndexHit, task);
+			std::uint32_t lastStolenIndex = tIndex;
+			std::vector<queue_info> qInfo;
+			qInfo.push_back(queue_traits::get_queue_info(m_poolQ));
+			for (auto& q : m_localQs)
+				qInfo.push_back(queue_traits::get_queue_info(*q));
+
+            bool hasTask = poll(qInfo, tIndex, lastStolenIndex, task);
             while (true)
             {
                 if (hasTask)
@@ -101,7 +111,7 @@ namespace stk { namespace thread {
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
-                        hasTask = poll(tIndex, lastIndexHit, task);
+                        hasTask = poll(qInfo, tIndex, lastStolenIndex, task);
                     }
                     else
                         return;
@@ -114,7 +124,7 @@ namespace stk { namespace thread {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
-                        hasTask = poll(tIndex, lastIndexHit, task);
+                        hasTask = poll(qInfo, tIndex, lastStolenIndex, task);
                     else
                         return;
                 }
@@ -123,7 +133,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [tIndex, &lastIndexHit, &hasTask, &task, this]() {return (hasTask = poll(tIndex, lastIndexHit, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [&qInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(qInfo, tIndex, lastStolenIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -133,17 +143,38 @@ namespace stk { namespace thread {
             return;
        }
 
-        bool poll(std::uint32_t tIndex, std::uint32_t& lastIndexHit, fun_wrapper& task)
+        bool poll(std::vector<queue_info>& qInfo, std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
         {
-            return pop_local_queue_task(tIndex, lastIndexHit, task) || pop_task_from_pool_queue(task) || try_steal(lastIndexHit, task);
+            auto r = pop_local_queue_task(qInfo, tIndex, task) || pop_task_from_pool_queue(qInfo[0], task) || try_steal(qInfo, lastStolenIndex, task);
+			m_spinning[tIndex]->store(!r, std::memory_order_relaxed);
+			return r;
         }
 
-        bool pop_local_queue_task(std::uint32_t i, std::uint32_t& lastIndexHit, fun_wrapper& task)
+        bool pop_local_queue_task(std::vector<queue_info>& qInfo, std::uint32_t i, fun_wrapper& task)
         {
-            auto r = queue_traits::try_pop(*m_localQs[i], task);
-			if (r)
-				lastIndexHit = i;
+            auto r = queue_traits::try_pop(*m_localQs[i], qInfo[i+1], task);
 			return r;
+        }
+		
+		bool pop_task_from_pool_queue(queue_info& qInfo, fun_wrapper& task)
+        {
+            return queue_traits::try_steal(m_poolQ, qInfo, task);
+        }
+
+        bool try_steal(std::vector<queue_info>& qInfo, std::uint32_t lastStolenIndex, fun_wrapper& task)
+        {
+			auto qSize = m_localQs.size();
+			std::uint32_t count = 0;
+            for (std::uint32_t i = lastStolenIndex; count < qSize; i = (i+1)%qSize, ++count)
+            {
+				if (queue_traits::try_steal(*m_localQs[i], qInfo[i+1], task))
+				{
+					lastStolenIndex = i;
+					return true;
+				}
+            }
+
+            return false;
         }
 
         bool pop_task_from_pool_queue(fun_wrapper& task)
@@ -151,15 +182,15 @@ namespace stk { namespace thread {
             return queue_traits::try_steal(m_poolQ, task);
         }
 
-        bool try_steal(std::uint32_t lastIndexHit, fun_wrapper& task)
+        bool try_steal(std::uint32_t lastStolenIndex, fun_wrapper& task)
         {
 			auto qSize = m_localQs.size();
 			std::uint32_t count = 0;
-            for (std::uint32_t i = lastIndexHit; count < qSize; i = (i+1)%qSize, ++count)
+            for (std::uint32_t i = lastStolenIndex; count < qSize; i = (i+1)%qSize, ++count)
             {
 				if (queue_traits::try_steal(*m_localQs[i], task))
 				{
-					lastIndexHit = i;
+					lastStolenIndex = i;
 					return true;
 				}
             }
@@ -171,7 +202,7 @@ namespace stk { namespace thread {
         {
             m_done.store(v, std::memory_order_relaxed);
             for (auto& b : m_stop)
-                b->store(v);
+                b->store(v, std::memory_order_relaxed);
         }
 
     public:
@@ -181,22 +212,18 @@ namespace stk { namespace thread {
 
         work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
             : m_threads(nthreads)
-            //, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
             , m_poolQ(1024)
             , m_localQs(nthreads)
-            , m_allocator()
         {
             init();
         }
 
         work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
             : m_threads(nthreads)
-            //, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
             , m_poolQ(1024)
             , m_localQs(nthreads)
             , m_onThreadStart(onThreadStart)
             , m_onThreadStop(onThreadStop)
-            , m_allocator()
         {
             init();
         }
@@ -221,27 +248,29 @@ namespace stk { namespace thread {
         template <typename Task>
         future<decltype(std::declval<Task>()())> send(Task&& x) noexcept
         {
-            return send_impl(get_local_index(), std::forward<Task>(x));
+            return send_impl(get_thread_id(), std::forward<Task>(x));
         }
 
+		//! Send a task to the specified thread index. Thread indices are in the range of [1, nthreads]. 0 is the pool queue.
         template <typename Task>
-        future<decltype(std::declval<Task>()())> send(std::uint32_t threadIndex, Task&& x) noexcept
+        future<decltype(std::declval<Task>()())> send(std::uint32_t threadQueueIndex, Task&& x) noexcept
         {
-            GEOMETRIX_ASSERT(threadIndex < number_threads());
-            return send_impl(threadIndex+1, std::forward<Task>(x));
+            GEOMETRIX_ASSERT(threadQueueIndex < number_threads()+1);
+            return send_impl(threadQueueIndex, std::forward<Task>(x));
         }
 
         template <typename Task>
         void send_no_future(Task&& x) noexcept
         {
-            return send_no_future_impl(get_local_index(), std::forward<Task>(x));
+            return send_no_future_impl(get_thread_id(), std::forward<Task>(x));
         }
 
+		//! Send a task to the specified thread index. Thread indices are in the range of [1, nthreads]. 0 is the pool queue.
         template <typename Task>
-        void send_no_future(std::uint32_t threadIndex, Task&& x) noexcept
+        void send_no_future(std::uint32_t threadQueueIndex, Task&& x) noexcept
         {
-            GEOMETRIX_ASSERT(threadIndex < number_threads());
-            return send_no_future_impl(threadIndex + 1, std::forward<Task>(x));
+            GEOMETRIX_ASSERT(threadQueueIndex < number_threads()+1);
+            return send_no_future_impl(threadQueueIndex, std::forward<Task>(x));
         }
 
         template <typename Range, typename TaskFn>
@@ -281,10 +310,10 @@ namespace stk { namespace thread {
         {
             static_assert(noexcept(pred()), "Pred must be noexcept.");
             fun_wrapper task;
-			std::uint32_t lastIndexHit = 0;
+			std::uint32_t lastStolenIndex = 0;
             while (!pred())
             {
-                if (pop_task_from_pool_queue(task) || try_steal(lastIndexHit, task))
+                if (pop_task_from_pool_queue(task) || try_steal(lastStolenIndex, task))
                 {
                     task();
                 }
@@ -294,12 +323,12 @@ namespace stk { namespace thread {
         void wait_or_work(std::vector<future<void>>&fs) noexcept
         {
             fun_wrapper tsk;
-			std::uint32_t lastIndexHit = 0;
+			std::uint32_t lastStolenIndex = 0;
             for(auto it = fs.begin() ; it != fs.end();)
             {
                 if (!thread_traits::is_ready(*it))
                 {
-                    if (pop_task_from_pool_queue(tsk) || try_steal(lastIndexHit, tsk))
+                    if (pop_task_from_pool_queue(tsk) || try_steal(lastStolenIndex, tsk))
                         tsk();
                 }
                 else
@@ -307,22 +336,34 @@ namespace stk { namespace thread {
             }
         }
 
-    private:
+		//! Return the index of the first thread found spinning. The result is the index + 1. If 0 is returned, then none are spinning.
+		std::uint32_t get_spinning_index() const
+		{
+			for (std::uint32_t i = 0; i < m_spinning.size(); ++i)
+				if (m_spinning[i]->load(std::memory_order_relaxed))
+					return i + 1;
+			return 0;
+		}
 
-        std::uint32_t& get_local_index() noexcept
+		//! If the thread is in the pool the id will be 1..N. Subtract 1 to get the local queue index. If the thread is not in the pool return 0. Usually 0 should be the main thread.
+        static std::uint32_t& get_thread_id() noexcept
         {
-            static thread_local std::uint32_t workQIndex;
-            return workQIndex;
+            static thread_local std::uint32_t id = 0;
+            return id;
         }
 
-        void init()
+    private:
+
+		void init()
         {
             try
             {
+				bind_to_processor(0);
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
                 {
                     m_localQs[i] = queue_ptr(new queue_type(1024));
                     m_stop.emplace_back(new std::atomic<bool>{ false });
+                    m_spinning.emplace_back(new std::atomic<bool>{ false });
                 }
 
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
@@ -345,9 +386,9 @@ namespace stk { namespace thread {
             std::vector<future<void>> fs;
             fs.reserve(npartitions);
             partition_work(range, npartitions,
-                [&fs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
+                [&fs, &task, this](iterator_t from, iterator_t to) -> void
                 {
-                    std::uint32_t threadID = get_rnd() % nthreads;
+                    std::uint32_t threadID = get_spinning_index();
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
@@ -367,10 +408,10 @@ namespace stk { namespace thread {
             std::vector<future<void>> fs;
             fs.reserve(npartitions);
             partition_work(count, npartitions,
-                [nthreads, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                [&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
-                    std::uint32_t threadID = get_rnd() % nthreads;
-                    fs.emplace_back(send(threadID % nthreads, [&task, from, to]() -> void
+                    std::uint32_t threadID = get_spinning_index();
+                    fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
                         {
@@ -389,16 +430,17 @@ namespace stk { namespace thread {
             using value_t = typename boost::range_value<Range>::type;
             static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
             using iterator_t = typename boost::range_iterator<Range>::type;
-            std::atomic<std::uint32_t> consumed{ 0 };
+            //std::atomic<std::uint32_t> consumed{ 0 };
+			task_counter consumed;
             std::uint32_t njobs = 0;
             partition_work(range, npartitions,
-                [&consumed, &njobs, nthreads, &task, this](iterator_t from, iterator_t to) -> void
+                [&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
                 {
                     ++njobs;
-                    std::uint32_t threadID = get_rnd() % nthreads;
-                    send_no_future(threadID, [&consumed, &task, from, to]() noexcept -> void
+                    std::uint32_t threadID = get_spinning_index();
+                    send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
                     {
-                        STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+                        STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
                         for (auto i = from; i != to; ++i)
                         {
                             task(*i);
@@ -407,23 +449,24 @@ namespace stk { namespace thread {
                 }
             );
 
-            wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+            wait_for([&consumed, njobs]() noexcept { return consumed.count() == njobs; });
         }
 
         template <typename TaskFn>
         void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
         {
             static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
-            std::atomic<std::uint32_t> consumed{ 0 };
+            //std::atomic<std::uint32_t> consumed{ 0 };
+			task_counter consumed;
             std::uint32_t njobs = 0;
             partition_work(count, npartitions,
-                [nthreads, &consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                [&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
                     ++njobs;
-                    std::uint32_t threadID = get_rnd() % nthreads;
-                    send_no_future(threadID % nthreads, [&consumed, &task, from, to]() noexcept -> void
+                    std::uint32_t threadID = get_spinning_index();
+                    send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
                     {
-                        STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+                        STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
                         for (auto i = from; i != to; ++i)
                         {
                             task(i);
@@ -432,20 +475,20 @@ namespace stk { namespace thread {
                 }
             );
 
-            wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+            wait_for([&consumed, njobs]() noexcept { return consumed.count() == njobs; });
         }
 
         template <typename Task>
-        future<decltype(std::declval<Task>()())> send_impl(std::uint32_t threadIndex, Task&& m) noexcept
+        future<decltype(std::declval<Task>()())> send_impl(std::uint32_t threadQueueIndex, Task&& m) noexcept
         {
             using result_type = decltype(m());
             packaged_task<result_type> task(std::forward<Task>(m));
             auto result = task.get_future();
 
-            fun_wrapper p(m_allocator, std::move(task));
-            if (threadIndex)// != static_cast<std::uint32_t>(-1))
+            fun_wrapper p(std::move(task));
+            if (threadQueueIndex)
             {
-				if (!queue_traits::try_push(*m_localQs[threadIndex - 1], std::move(p)))
+				if (!queue_traits::try_push(*m_localQs[threadQueueIndex - 1], std::move(p)))
 				{
 					p();
                     return std::move(result);
@@ -464,17 +507,18 @@ namespace stk { namespace thread {
                 auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                 m_pollingCnd.notify_one();
             }
+
             return std::move(result);
         }
 
         template <typename Task>
-        void send_no_future_impl(std::uint32_t localIndex, Task&& m) noexcept
+        void send_no_future_impl(std::uint32_t threadQueueIndex, Task&& m) noexcept
         {
             static_assert(noexcept(m()), "call to send_no_future must have noexcept task");
-            fun_wrapper p(m_allocator, std::forward<Task>(m));
-            if (localIndex) //!= static_cast<std::uint32_t>(-1))
+            fun_wrapper p(std::forward<Task>(m));
+            if (threadQueueIndex)
             {
-				if (!queue_traits::try_push(*m_localQs[localIndex - 1], std::move(p)))
+				if (!queue_traits::try_push(*m_localQs[threadQueueIndex - 1], std::move(p)))
 				{
 					p();
 					return;
@@ -495,8 +539,8 @@ namespace stk { namespace thread {
 
         std::vector<thread_type>       m_threads;
         std::vector<unique_atomic_bool>m_stop;
+        std::vector<unique_atomic_bool>m_spinning;
         std::atomic<bool>              m_done{ false };
-        //thread_specific<std::uint32_t> m_workQIndex;
         queue_type                     m_poolQ;
         std::vector<queue_ptr>         m_localQs;
         std::function<void()>          m_onThreadStart;
@@ -505,7 +549,6 @@ namespace stk { namespace thread {
         std::atomic<std::uint32_t>     m_nThreads{ 0 };
         mutex_type                     m_pollingMtx;
         condition_variable_type        m_pollingCnd;
-        alloc_type                     m_allocator;
     };
 
 }}//! namespace stk::thread;

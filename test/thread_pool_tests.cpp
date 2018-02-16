@@ -20,7 +20,7 @@
 #include <geometrix/test/gmessage.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/boost_thread_kernel.hpp>
-
+#include <stk/thread/task_counter.hpp>
 #include <boost/range/irange.hpp>
 #include <chrono>
 
@@ -185,27 +185,26 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
     using namespace stk::thread;
     using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
     //std::vector<pool_t::template future<void>> fs;
-    std::atomic<int> consumed{0};
+    //std::atomic<int> consumed{0};
+	task_counter consumed;
     auto qjobs = njobs;
-    auto task = [&consumed]() noexcept {consumed.fetch_add(1, std::memory_order_relaxed); };
+    auto task = [&consumed]() noexcept {consumed.increment(pool_t::get_thread_id());};
     static_assert(noexcept(task()), "works.");
     std::stringstream name;
     name << GetParam() << " work-stealing threadpool moody_64k empty";
 
     for (int i = 0; i < nTimingRuns; ++i)
     {
-        consumed.store(0, std::memory_order_relaxed);
+        consumed.reset();
         {
             GEOMETRIX_MEASURE_SCOPE_TIME(name.str().c_str());
             for (auto q = 0; q < qjobs; ++q)
             {
-                //fs.emplace_back(pool.send(q % GetParam(), task));
-                pool.send_no_future(q%GetParam(), task);
+                pool.send_no_future(pool.get_spinning_index(), task);
             }
-            //pool.wait_or_work(fs);
-            pool.wait_for([&consumed, qjobs]() noexcept { return consumed.load(std::memory_order_relaxed) == qjobs; });
+            pool.wait_for([&consumed, qjobs]() noexcept { return consumed.count() == qjobs; });
         }
-        EXPECT_EQ(qjobs, consumed.load(std::memory_order_relaxed));
+        EXPECT_EQ(qjobs, consumed.count());
     }
 }
 INSTANTIATE_TEST_CASE_P(work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_enumerated, work_stealing_thread_pool_fixture, ::testing::Range(35, 36));

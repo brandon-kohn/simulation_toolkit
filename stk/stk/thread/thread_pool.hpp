@@ -4,6 +4,7 @@
 #pragma once
 
 #include <stk/thread/function_wrapper_with_allocator.hpp>
+#include <stk/thread/function_wrapper.hpp>
 #include <stk/container/locked_queue.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
@@ -36,6 +37,7 @@ namespace stk { namespace thread {
 		using alloc_type = std::allocator<char>;
 #endif
 		using fun_wrapper = function_wrapper_with_allocator<alloc_type>;
+		//using fun_wrapper = function_wrapper;
 		using queue_type = typename queue_traits::template queue_type<fun_wrapper, std::allocator<fun_wrapper>, mutex_type>;
         using unique_atomic_bool = std::unique_ptr<std::atomic<bool>>;
         template <typename T>
@@ -165,7 +167,7 @@ namespace stk { namespace thread {
         template <typename Action>
         void send_no_future(Action&& m) noexcept
         {
-            fun_wrapper p(m_allocator, std::forward<Action>(m));
+            fun_wrapper p(std::forward<Action>(m));
 			if (!queue_traits::try_push(m_tasks, std::move(p)))
 			{
 				p();
@@ -245,7 +247,7 @@ namespace stk { namespace thread {
             using result_type = decltype(m());
             packaged_task<result_type> task(std::forward<Action>(m));
             auto result = task.get_future();
-            fun_wrapper p(m_allocator, std::move(task));
+            fun_wrapper p(std::move(task));
 			if (!queue_traits::try_push(m_tasks, std::move(p)))
 			{
 				p();
@@ -360,7 +362,6 @@ namespace stk { namespace thread {
         std::function<void()>           m_onThreadStop;
         mutex_type                      m_mutex;
         condition_variable_type         m_cnd;
-		alloc_type                      m_allocator;
     };
 
 }}//! namespace stk::thread;
