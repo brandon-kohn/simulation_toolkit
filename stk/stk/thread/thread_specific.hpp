@@ -122,12 +122,12 @@ public:
 
     T* operator ->()
     {
-        return get_or_add_item().get();
+        return get_or_add_item();
     }
 
     T const* operator ->() const
     {
-        return get_or_add_item().get();
+        return get_or_add_item();
     }
 
     bool has_value_on_calling_thread() const
