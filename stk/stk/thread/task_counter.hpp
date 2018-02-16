@@ -15,40 +15,33 @@
 
 namespace stk { namespace thread {
 
-	class task_counter
-	{
-		using unique_atomic_uint32 = std::unique_ptr<std::atomic<std::uint32_t>>;
-	public:
+    class task_counter
+    {
+    public:
 
-		task_counter(std::uint32_t nthreads = std::thread::hardware_concurrency())
-		{
-			while (nthreads--)
-				m_counts.emplace_back(new std::atomic<std::uint32_t>(0));
-		}
+        task_counter(std::uint32_t = 0)
+            : m_counter(0)
+        {}
 
-		//! 0 is the main thread. [1..nthreads] are the pool threads.
-		void increment(std::uint32_t tidx)
-		{
-			GEOMETRIX_ASSERT(tidx < m_counts.size());
-			m_counts[tidx]->fetch_add(1, std::memory_order_relaxed);
-		}
+        //! 0 is the main thread. [1..nthreads] are the pool threads.
+        void increment(std::uint32_t)
+        {
+            m_counter.fetch_add(1, std::memory_order_relaxed);
+        }
 
-		std::size_t count() const
-		{
-			std::size_t sum = 0;
-			for (auto& pc : m_counts)
-				sum += pc->load(std::memory_order_relaxed);
-			return sum;
-		}
+        std::size_t count() const
+        {
+            return m_counter.load(std::memory_order_relaxed);
+        }
 
-		void reset() 
-		{
-			for (auto& pc : m_counts)
-				pc->store(0, std::memory_order_relaxed);
-		}
+        void reset()
+        {
+            m_counter.store(0, std::memory_order_relaxed);
+        }
 
-	private:
-		std::vector<unique_atomic_uint32> m_counts;
-	};
+    private:
+
+        std::atomic<std::uint32_t> m_counter;
+    };
 
 }}//! namespace stk::thread;
