@@ -168,7 +168,6 @@ namespace stk { namespace thread {
 
             void operator()(impl_base* p)
             {
-				GEOMETRIX_ASSERT(m_alloc);
                 p->~impl_base();
                 alloc_t().deallocate(reinterpret_cast<char*>(p), 1);
             }
