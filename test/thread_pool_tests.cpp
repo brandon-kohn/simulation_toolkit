@@ -186,7 +186,7 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
     using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
     //std::vector<pool_t::template future<void>> fs;
     //std::atomic<int> consumed{0};
-	task_counter consumed;
+	task_counter consumed(GetParam()+1);
     auto qjobs = njobs;
     auto task = [&consumed]() noexcept {consumed.increment(pool_t::get_thread_id());};
     static_assert(noexcept(task()), "works.");
