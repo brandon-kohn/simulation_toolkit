@@ -14,7 +14,7 @@
 #include <stk/thread/function_wrapper.hpp>
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
-#include <stk/thread/task_counter.hpp>
+#include <stk/thread/scalable_task_counter.hpp>
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
@@ -73,7 +73,7 @@ namespace stk { namespace thread {
 
         void worker_thread(std::uint32_t tIndex)
         {
-            bind_to_processor(tIndex+1);
+            bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
             if (m_onThreadStart)
                 m_onThreadStart();
 
@@ -430,8 +430,7 @@ namespace stk { namespace thread {
             using value_t = typename boost::range_value<Range>::type;
             static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
             using iterator_t = typename boost::range_iterator<Range>::type;
-            //std::atomic<std::uint32_t> consumed{ 0 };
-			task_counter consumed;
+			scalable_task_counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(range, npartitions,
                 [&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
@@ -456,8 +455,7 @@ namespace stk { namespace thread {
         void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
         {
             static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
-            //std::atomic<std::uint32_t> consumed{ 0 };
-			task_counter consumed;
+			scalable_task_counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(count, npartitions,
                 [&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void

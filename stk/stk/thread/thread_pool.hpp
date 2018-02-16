@@ -12,6 +12,7 @@
 #include <stk/utility/scope_exit.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/thread/partition_work.hpp>
+#include <stk/thread/scalable_task_counter.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 
@@ -184,7 +185,7 @@ namespace stk { namespace thread {
 			auto nthreads = number_threads();
 			auto npartitions = nthreads * (nthreads-1);
 			using value_t = typename boost::range_value<Range>::type;
-			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
+			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
 		}
 
 		template <typename TaskFn>
@@ -192,20 +193,27 @@ namespace stk { namespace thread {
 		{
 			auto nthreads = number_threads();
 			auto npartitions = nthreads * (nthreads-1);
-			parallel_apply_impl(count, std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(0))>());
+			parallel_apply_impl(count, std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, noexcept(task(0))>());
 		}
 
 		template <typename Range, typename TaskFn>
 		void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions) noexcept
 		{
 			using value_t = typename boost::range_value<Range>::type;
-			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
+			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
 		}
 
 		template <typename TaskFn>
 		void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions) noexcept
 		{
-			parallel_apply_impl(count, std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(0))>());
+			parallel_apply_impl(count, std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, noexcept(task(0))>());
+		}
+
+		//! If the thread is in the pool the id will be 1..N. If the thread is not in the pool return 0. Usually 0 should be the main thread.
+		static std::uint32_t& get_thread_id() noexcept
+		{
+			static thread_local std::uint32_t id = 0;
+			return id;
 		}
 
     private:
@@ -260,7 +268,7 @@ namespace stk { namespace thread {
         }
 
 		template <typename Range, typename TaskFn>
-		void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t npartitions, std::false_type) noexcept
+		void parallel_for_impl(Range&& range, TaskFn&& task, std::uint32_t, std::size_t npartitions, std::false_type) noexcept
 		{
 			using iterator_t = typename boost::range_iterator<Range>::type;
 			std::vector<future<void>> fs;
@@ -282,7 +290,7 @@ namespace stk { namespace thread {
 		}
 
 		template <typename TaskFn>
-		void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions, std::false_type) noexcept
+		void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::uint32_t, std::size_t npartitions, std::false_type) noexcept
 		{
 			std::vector<future<void>> fs;
 			fs.reserve(npartitions);
@@ -303,20 +311,20 @@ namespace stk { namespace thread {
 		}
 
 		template <typename Range, typename TaskFn>
-		void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t npartitions, std::true_type) noexcept
+		void parallel_for_impl(Range&& range, TaskFn&& task, std::uint32_t nthreads, std::size_t npartitions, std::true_type) noexcept
 		{
 			using value_t = typename boost::range_value<Range>::type;
 			static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
 			using iterator_t = typename boost::range_iterator<Range>::type;
-			std::atomic<std::uint32_t> consumed{ 0 };
+			scalable_task_counter consumed(nthreads+1);
 			std::uint32_t njobs = 0;
 			partition_work(range, npartitions,
 				[&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
 				{
 					++njobs;
-					send_no_future([&consumed, &task, from, to]() noexcept -> void
+					send_no_future([&consumed, &task, from, to, this]() noexcept -> void
 					{
-						STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+						STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
 						for (auto i = from; i != to; ++i)
 						{
 							task(*i);
@@ -325,22 +333,22 @@ namespace stk { namespace thread {
 				}
 			);
 
-			wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+			wait_for([&consumed, njobs]() noexcept { return consumed.count() == njobs; });
 		}
 
 		template <typename TaskFn>
-		void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions, std::true_type) noexcept
+		void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::uint32_t nthreads, std::size_t npartitions, std::true_type) noexcept
 		{
 			static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
-			std::atomic<std::uint32_t> consumed{ 0 };
+			scalable_task_counter consumed(nthreads+1);
 			std::uint32_t njobs = 0;
 			partition_work(count, npartitions,
 				[&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
 				{
 					++njobs;
-					send_no_future([&consumed, &task, from, to]() noexcept -> void
+					send_no_future([&consumed, &task, from, to, this]() noexcept -> void
 					{
-						STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+						STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
 						for (auto i = from; i != to; ++i)
 						{
 							task(i);
@@ -349,7 +357,7 @@ namespace stk { namespace thread {
 				}
 			);
 
-			wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+			wait_for([&consumed, njobs]() noexcept { return consumed.count() == njobs; });
 		}
 
         std::atomic<bool>               m_done{ false };
