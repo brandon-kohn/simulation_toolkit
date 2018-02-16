@@ -3712,21 +3712,21 @@ struct moodycamel_concurrent_queue_traits
 	}
 
 	template <typename T, typename Value>
-	static bool try_push(queue_type<T>& q, queue_info qInfo, Value&& value)
+	static bool try_push(queue_type<T>& q, queue_info queueInfo, Value&& value)
 	{
-		return q.enqueue(qInfo->ptoken, std::forward<Value>(value));
+		return q.enqueue(queueInfo->ptoken, std::forward<Value>(value));
 	}
 
 	template <typename T>
-	static bool try_pop(queue_type<T>& q, queue_info qInfo, T& value)
+	static bool try_pop(queue_type<T>& q, queue_info queueInfo, T& value)
 	{
-		return q.try_dequeue(qInfo->ctoken, value);
+		return q.try_dequeue(queueInfo->ctoken, value);
 	}
 
 	template <typename T>
-	static bool try_steal(queue_type<T>& q, queue_info qInfo, T& value)
+	static bool try_steal(queue_type<T>& q, queue_info queueInfo, T& value)
 	{
-		return q.try_dequeue(qInfo->ctoken, value);
+		return q.try_dequeue(queueInfo->ctoken, value);
 	}
 
 	template <typename T, typename Value>

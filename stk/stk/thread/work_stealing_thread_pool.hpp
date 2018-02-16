@@ -91,12 +91,12 @@ namespace stk { namespace thread {
             fun_wrapper task;
             std::uint32_t spincount = 0;
 			std::uint32_t lastStolenIndex = tIndex;
-			std::vector<queue_info> qInfo;
-			qInfo.push_back(queue_traits::get_queue_info(m_poolQ));
+			std::vector<queue_info> queueInfo;
+			queueInfo.push_back(queue_traits::get_queue_info(m_poolQ));
 			for (auto& q : m_localQs)
-				qInfo.push_back(queue_traits::get_queue_info(*q));
+				queueInfo.push_back(queue_traits::get_queue_info(*q));
 
-            bool hasTask = poll(qInfo, tIndex, lastStolenIndex, task);
+            bool hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
             while (true)
             {
                 if (hasTask)
@@ -111,7 +111,7 @@ namespace stk { namespace thread {
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
-                        hasTask = poll(qInfo, tIndex, lastStolenIndex, task);
+                        hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
                     }
                     else
                         return;
@@ -124,7 +124,7 @@ namespace stk { namespace thread {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
-                        hasTask = poll(qInfo, tIndex, lastStolenIndex, task);
+                        hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
                     else
                         return;
                 }
@@ -133,7 +133,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [&qInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(qInfo, tIndex, lastStolenIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [&queueInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(queueInfo, tIndex, lastStolenIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -143,31 +143,31 @@ namespace stk { namespace thread {
             return;
        }
 
-        bool poll(std::vector<queue_info>& qInfo, std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
+        bool poll(std::vector<queue_info>& queueInfo, std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
         {
-            auto r = pop_local_queue_task(qInfo, tIndex, task) || pop_task_from_pool_queue(qInfo[0], task) || try_steal(qInfo, lastStolenIndex, task);
+            auto r = pop_local_queue_task(queueInfo, tIndex, task) || pop_task_from_pool_queue(queueInfo[0], task) || try_steal(queueInfo, lastStolenIndex, task);
 			m_spinning[tIndex]->store(!r, std::memory_order_relaxed);
 			return r;
         }
 
-        bool pop_local_queue_task(std::vector<queue_info>& qInfo, std::uint32_t i, fun_wrapper& task)
+        bool pop_local_queue_task(std::vector<queue_info>& queueInfo, std::uint32_t i, fun_wrapper& task)
         {
-            auto r = queue_traits::try_pop(*m_localQs[i], qInfo[i+1], task);
+            auto r = queue_traits::try_pop(*m_localQs[i], queueInfo[i+1], task);
 			return r;
         }
 		
-		bool pop_task_from_pool_queue(queue_info& qInfo, fun_wrapper& task)
+		bool pop_task_from_pool_queue(queue_info& queueInfo, fun_wrapper& task)
         {
-            return queue_traits::try_steal(m_poolQ, qInfo, task);
+            return queue_traits::try_steal(m_poolQ, queueInfo, task);
         }
 
-        bool try_steal(std::vector<queue_info>& qInfo, std::uint32_t lastStolenIndex, fun_wrapper& task)
+        bool try_steal(std::vector<queue_info>& queueInfo, std::uint32_t lastStolenIndex, fun_wrapper& task)
         {
 			auto qSize = m_localQs.size();
 			std::uint32_t count = 0;
             for (std::uint32_t i = lastStolenIndex; count < qSize; i = (i+1)%qSize, ++count)
             {
-				if (queue_traits::try_steal(*m_localQs[i], qInfo[i+1], task))
+				if (queue_traits::try_steal(*m_localQs[i], queueInfo[i+1], task))
 				{
 					lastStolenIndex = i;
 					return true;
