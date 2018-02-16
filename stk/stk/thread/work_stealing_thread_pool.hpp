@@ -85,7 +85,8 @@ namespace stk { namespace thread {
             get_local_index() = tIndex+1;
             fun_wrapper task;
             std::uint32_t spincount = 0;
-            bool hasTask = poll(tIndex, task);
+			std::uint32_t lastIndexHit = tIndex;
+            bool hasTask = poll(tIndex, lastIndexHit, task);
             while (true)
             {
                 if (hasTask)
@@ -100,7 +101,7 @@ namespace stk { namespace thread {
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
-                        hasTask = poll(tIndex, task);
+                        hasTask = poll(tIndex, lastIndexHit, task);
                     }
                     else
                         return;
@@ -113,7 +114,7 @@ namespace stk { namespace thread {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
                     if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
-                        hasTask = poll(tIndex, task);
+                        hasTask = poll(tIndex, lastIndexHit, task);
                     else
                         return;
                 }
@@ -122,7 +123,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [tIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [tIndex, &lastIndexHit, &hasTask, &task, this]() {return (hasTask = poll(tIndex, lastIndexHit, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -132,14 +133,17 @@ namespace stk { namespace thread {
             return;
        }
 
-        bool poll(std::uint32_t tIndex, fun_wrapper& task)
+        bool poll(std::uint32_t tIndex, std::uint32_t& lastIndexHit, fun_wrapper& task)
         {
-            return pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(task);
+            return pop_local_queue_task(tIndex, lastIndexHit, task) || pop_task_from_pool_queue(task) || try_steal(lastIndexHit, task);
         }
 
-        bool pop_local_queue_task(std::uint32_t i, fun_wrapper& task)
+        bool pop_local_queue_task(std::uint32_t i, std::uint32_t& lastIndexHit, fun_wrapper& task)
         {
-            return queue_traits::try_pop(*m_localQs[i], task);
+            auto r = queue_traits::try_pop(*m_localQs[i], task);
+			if (r)
+				lastIndexHit = i;
+			return r;
         }
 
         bool pop_task_from_pool_queue(fun_wrapper& task)
@@ -147,22 +151,18 @@ namespace stk { namespace thread {
             return queue_traits::try_steal(m_poolQ, task);
         }
 
-        bool try_steal(fun_wrapper& task)
+        bool try_steal(std::uint32_t lastIndexHit, fun_wrapper& task)
         {
-            for (std::uint32_t i = 0; i < m_localQs.size(); ++i)
+			auto qSize = m_localQs.size();
+			std::uint32_t count = 0;
+            for (std::uint32_t i = lastIndexHit; count < qSize; i = (i+1)%qSize, ++count)
             {
-                if (queue_traits::try_steal(*m_localQs[i], task))
-                    return true;
+				if (queue_traits::try_steal(*m_localQs[i], task))
+				{
+					lastIndexHit = i;
+					return true;
+				}
             }
-
-            return false;
-        }
-
-        bool try_steal1(fun_wrapper& task)
-        {
-            auto victim = get_rnd() % m_localQs.size();
-            if (queue_traits::try_steal(*m_localQs[victim], task))
-                return true;
 
             return false;
         }
@@ -182,7 +182,7 @@ namespace stk { namespace thread {
         work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
             : m_threads(nthreads)
             //, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
-            , m_poolQ(64*1024)
+            , m_poolQ(1024)
             , m_localQs(nthreads)
             , m_allocator()
         {
@@ -192,7 +192,7 @@ namespace stk { namespace thread {
         work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
             : m_threads(nthreads)
             //, m_workQIndex([](){ return static_cast<std::uint32_t>(-1); })
-            , m_poolQ(64*1024)
+            , m_poolQ(1024)
             , m_localQs(nthreads)
             , m_onThreadStart(onThreadStart)
             , m_onThreadStop(onThreadStop)
@@ -281,9 +281,10 @@ namespace stk { namespace thread {
         {
             static_assert(noexcept(pred()), "Pred must be noexcept.");
             fun_wrapper task;
+			std::uint32_t lastIndexHit = 0;
             while (!pred())
             {
-                if (pop_task_from_pool_queue(task) || try_steal(task))
+                if (pop_task_from_pool_queue(task) || try_steal(lastIndexHit, task))
                 {
                     task();
                 }
@@ -293,11 +294,12 @@ namespace stk { namespace thread {
         void wait_or_work(std::vector<future<void>>&fs) noexcept
         {
             fun_wrapper tsk;
+			std::uint32_t lastIndexHit = 0;
             for(auto it = fs.begin() ; it != fs.end();)
             {
                 if (!thread_traits::is_ready(*it))
                 {
-                    if (pop_task_from_pool_queue(tsk) || try_steal(tsk))
+                    if (pop_task_from_pool_queue(tsk) || try_steal(lastIndexHit, tsk))
                         tsk();
                 }
                 else
@@ -319,7 +321,7 @@ namespace stk { namespace thread {
             {
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
                 {
-                    m_localQs[i] = queue_ptr(new queue_type(32*1024));
+                    m_localQs[i] = queue_ptr(new queue_type(1024));
                     m_stop.emplace_back(new std::atomic<bool>{ false });
                 }
 
@@ -443,14 +445,20 @@ namespace stk { namespace thread {
             fun_wrapper p(m_allocator, std::move(task));
             if (threadIndex)// != static_cast<std::uint32_t>(-1))
             {
-                while (!queue_traits::try_push(*m_localQs[threadIndex-1], std::move(p)))
-                    thread_traits::yield();
+				if (!queue_traits::try_push(*m_localQs[threadIndex - 1], std::move(p)))
+				{
+					p();
+                    return std::move(result);
+				}
             }
-            else
-            {
-                while (!queue_traits::try_push(m_poolQ, std::move(p)))
-                    thread_traits::yield();
-            }
+			else
+			{
+				if (!queue_traits::try_push(m_poolQ, std::move(p)))
+				{
+					p();
+					return std::move(result);
+				}
+			}
 
             {
                 auto lk = unique_lock<mutex_type>{ m_pollingMtx };
@@ -466,13 +474,19 @@ namespace stk { namespace thread {
             fun_wrapper p(m_allocator, std::forward<Task>(m));
             if (localIndex) //!= static_cast<std::uint32_t>(-1))
             {
-                while (!queue_traits::try_push(*m_localQs[localIndex-1], std::move(p)))
-                    thread_traits::yield();
+				if (!queue_traits::try_push(*m_localQs[localIndex - 1], std::move(p)))
+				{
+					p();
+					return;
+				}
             }
             else
             {
-                while (!queue_traits::try_push(m_poolQ, std::move(p)))
-                    thread_traits::yield();
+				if (!queue_traits::try_push(m_poolQ, std::move(p)))
+				{
+					p();
+					return;
+				}
             }
 
             auto lk = unique_lock<mutex_type>{ m_pollingMtx };

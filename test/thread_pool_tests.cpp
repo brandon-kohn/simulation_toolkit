@@ -135,6 +135,49 @@ TEST(timing, test_partition_work_fewer_items_than_partitions)
 size_t nTimingRuns = 200;
 const int njobs = 64 * 1024;
 
+TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
+{
+    using namespace ::testing;
+    using namespace stk;
+    using namespace stk::thread;
+
+    thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
+    std::atomic<int> consumed{0};
+    auto task = [&consumed](int) noexcept {consumed.fetch_add(1, std::memory_order_relaxed); };
+
+    for (int i = 0; i < nTimingRuns; ++i)
+    {
+        consumed.store(0, std::memory_order_relaxed);
+        {
+            GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_apply");
+            pool.parallel_apply(njobs, task);
+        }
+        EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
+    }
+}
+
+TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
+{
+    using namespace ::testing;
+    using namespace stk;
+    using namespace stk::thread;
+
+    thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
+
+    std::atomic<int> consumed{0};
+    auto task = [&consumed](int) noexcept {consumed.fetch_add(1, std::memory_order_relaxed); };
+
+    for (int i = 0; i < nTimingRuns; ++i)
+    {
+        consumed.store(0, std::memory_order_relaxed);
+        {
+            GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_for");
+            pool.parallel_for(boost::irange(0,njobs), task);
+        }
+        EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
+    }
+}
+
 TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_enumerated)
 {
     using namespace ::testing;
@@ -204,49 +247,6 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_pa
         {
             GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k empty with parallel_for");
             pool.parallel_for(boost::irange(0, njobs), task);
-        }
-        EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
-    }
-}
-
-TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-
-    thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
-    std::atomic<int> consumed{0};
-    auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
-
-    for (int i = 0; i < nTimingRuns; ++i)
-    {
-        consumed.store(0, std::memory_order_relaxed);
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_apply");
-            pool.parallel_apply(njobs, task);
-        }
-        EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
-    }
-}
-
-TEST(timing, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
-{
-    using namespace ::testing;
-    using namespace stk;
-    using namespace stk::thread;
-
-    thread_pool<moodycamel_concurrent_queue_traits> pool(nOSThreads);
-
-    std::atomic<int> consumed{0};
-    auto task = [&consumed](int) {consumed.fetch_add(1, std::memory_order_relaxed); };
-
-    for (int i = 0; i < nTimingRuns; ++i)
-    {
-        consumed.store(0, std::memory_order_relaxed);
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_for");
-            pool.parallel_for(boost::irange(0,njobs), task);
         }
         EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
     }

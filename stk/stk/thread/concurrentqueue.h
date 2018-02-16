@@ -3628,26 +3628,57 @@ inline void swap(typename ConcurrentQueue<T, Traits>::ImplicitProducerKVP& a, ty
 }
 
 }
+ 
+#include <stk/thread/thread_specific.hpp>
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(moodycamel::ConsumerToken);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(moodycamel::ProducerToken);
+
+template <typename T>
+struct concurrent_queue_wrapper
+{
+    concurrent_queue_wrapper(std::size_t nSize = 6 * moodycamel::ConcurrentQueueDefaultTraits::BLOCK_SIZE)
+        : m_q(nSize)
+		, m_consumers([this]() { return moodycamel::ConsumerToken(m_q); })
+		, m_producers([this]() { return moodycamel::ProducerToken(m_q); })
+    {}
+
+	template <typename Value>
+	bool enqueue(Value&& value)
+	{
+		moodycamel::ProducerToken& token = *m_producers;
+		return m_q.enqueue(token, std::forward<Value>(value));
+	}
+
+	bool try_dequeue(T& value)
+	{
+		moodycamel::ConsumerToken& token = *m_consumers;
+		return m_q.try_dequeue(token, value);
+	}
+
+    moodycamel::ConcurrentQueue<T> m_q;
+	stk::thread::thread_specific<moodycamel::ConsumerToken> m_consumers;
+	stk::thread::thread_specific<moodycamel::ProducerToken> m_producers;
+};
 
 struct moodycamel_concurrent_queue_traits
 {
 	template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
-	using queue_type = moodycamel::ConcurrentQueue<T>;
+	using queue_type = concurrent_queue_wrapper<T>;//moodycamel::ConcurrentQueue<T>;
 
-	template <typename T, typename Traits, typename Value>
-	static bool try_push(moodycamel::ConcurrentQueue<T, Traits>& q, Value&& value)
+	template <typename T, typename Value>
+	static bool try_push(queue_type<T>& q, Value&& value)
 	{
 		return q.enqueue(std::forward<Value>(value));
 	}
 
-	template <typename T, typename Traits>
-	static bool try_pop(moodycamel::ConcurrentQueue<T, Traits>& q, T& value)
+	template <typename T>
+	static bool try_pop(queue_type<T>& q, T& value)
 	{
 		return q.try_dequeue(value);
 	}
 
-	template <typename T, typename Traits>
-	static bool try_steal(moodycamel::ConcurrentQueue<T, Traits>& q, T& value)
+	template <typename T>
+	static bool try_steal(queue_type<T>& q, T& value)
 	{
 		return q.try_dequeue(value);
 	}

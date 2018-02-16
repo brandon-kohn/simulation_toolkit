@@ -3,8 +3,11 @@
 #define STK_THREAD_WAITABLETHREADPOOL_HPP
 #pragma once
 
-#include <stk/thread/function_wrapper.hpp>
+#include <stk/thread/function_wrapper_with_allocator.hpp>
 #include <stk/container/locked_queue.hpp>
+#ifdef STK_USE_JEMALLOC
+#include <stk/utility/jemallocator.hpp>
+#endif
 #include <stk/utility/scope_exit.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/thread/partition_work.hpp>
@@ -27,7 +30,13 @@ namespace stk { namespace thread {
         using condition_variable_type = typename Traits::condition_variable_type;
 
         using mutex_type = typename thread_traits::mutex_type;
-        using queue_type = typename queue_traits::template queue_type<function_wrapper, std::allocator<function_wrapper>, mutex_type>;
+#ifdef STK_USE_JEMALLOC
+		using alloc_type = stk::jemallocator<char>;
+#else
+		using alloc_type = std::allocator<char>;
+#endif
+		using fun_wrapper = function_wrapper_with_allocator<alloc_type>;
+		using queue_type = typename queue_traits::template queue_type<fun_wrapper, std::allocator<fun_wrapper>, mutex_type>;
         using unique_atomic_bool = std::unique_ptr<std::atomic<bool>>;
         template <typename T>
         using unique_lock = typename Traits::template unique_lock<T>;
@@ -45,7 +54,7 @@ namespace stk { namespace thread {
                     m_onThreadStop();
             );
 
-            function_wrapper task;
+            fun_wrapper task;
             std::uint32_t spincount = 0;
             bool hasTasks = queue_traits::try_pop(m_tasks, task);
             while (true)
@@ -121,12 +130,13 @@ namespace stk { namespace thread {
             return send_impl(std::forward<Action>(x));
         }
 
-        std::size_t number_threads() const { return m_nThreads.load(std::memory_order_relaxed); }
+        std::size_t number_threads() const noexcept { return m_nThreads.load(std::memory_order_relaxed); }
 
         template <typename Pred>
-        void wait_for(Pred&& pred)
+        void wait_for(Pred&& pred) noexcept
         {
-            function_wrapper task;
+            static_assert(noexcept(pred()), "Pred must be noexcept.");
+            fun_wrapper task;
             while (!pred())
             {
                 if (queue_traits::try_pop(m_tasks, task))
@@ -136,80 +146,65 @@ namespace stk { namespace thread {
             }
         }
 
+		void wait_or_work(std::vector<future<void>>&fs) noexcept
+		{
+			fun_wrapper tsk;
+			std::uint32_t lastIndexHit = 0;
+			for (auto it = fs.begin(); it != fs.end();)
+			{
+				if (!thread_traits::is_ready(*it))
+				{
+					if (queue_traits::try_pop(m_tasks, tsk))
+						tsk();
+				}
+				else
+					++it;
+			}
+		}
+
         template <typename Action>
-        void send_no_future(Action&& m)
+        void send_no_future(Action&& m) noexcept
         {
-            function_wrapper p(std::forward<Action>(m));
-            while (!queue_traits::try_push(m_tasks, std::move(p)))
-                thread_traits::yield();
+            fun_wrapper p(m_allocator, std::forward<Action>(m));
+			if (!queue_traits::try_push(m_tasks, std::move(p)))
+			{
+				p();
+				return;
+			}
+
             unique_lock<mutex_type> lk{ m_mutex };
             m_cnd.notify_one();
         }
 
-        template <typename Range, typename TaskFn>
-        void parallel_for(Range&& range, TaskFn&& task)
-        {
-            auto npartitions = number_threads();
-            using iterator_t = typename boost::range_iterator<Range>::type;
-			std::vector<future<void>> fs;
-			fs.reserve(npartitions);
-            partition_work(range, npartitions,
-                [&fs, &task, this](iterator_t from, iterator_t to) -> void
-				{
-					fs.emplace_back(send([&task, from, to]() -> void
-					{
-						for (auto i = from; i != to; ++i)
-						{
-							task(*i);
-						}
-					}));
-				}
-            );
-
-			function_wrapper tsk;
-			for (auto it = fs.begin(); it != fs.end();)
-			{
-				if (!thread_traits::is_ready(*it))
-				{
-					if (queue_traits::try_pop(m_tasks, tsk))
-						tsk();
-				}
-				else
-					++it;
-			}
-        }
+		template <typename Range, typename TaskFn>
+		void parallel_for(Range&& range, TaskFn&& task) noexcept
+		{
+			auto nthreads = number_threads();
+			auto npartitions = nthreads * (nthreads-1);
+			using value_t = typename boost::range_value<Range>::type;
+			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
+		}
 
 		template <typename TaskFn>
-        void parallel_apply(std::ptrdiff_t count, TaskFn&& task)
-        {
-            auto npartitions = number_threads();
-			std::vector<future<void>> fs;
-			fs.reserve(npartitions);
-            partition_work(count, npartitions,
-                [&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
-				{
-					fs.emplace_back(send([&task, from, to]() -> void
-					{
-						for (auto i = from; i != to; ++i)
-						{
-							task(i);
-						}
-					}));
-				}
-            );
+		void parallel_apply(std::ptrdiff_t count, TaskFn&& task) noexcept
+		{
+			auto nthreads = number_threads();
+			auto npartitions = nthreads * (nthreads-1);
+			parallel_apply_impl(count, std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(0))>());
+		}
 
-			function_wrapper tsk;
-			for (auto it = fs.begin(); it != fs.end();)
-			{
-				if (!thread_traits::is_ready(*it))
-				{
-					if (queue_traits::try_pop(m_tasks, tsk))
-						tsk();
-				}
-				else
-					++it;
-			}
-        }
+		template <typename Range, typename TaskFn>
+		void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions) noexcept
+		{
+			using value_t = typename boost::range_value<Range>::type;
+			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
+		}
+
+		template <typename TaskFn>
+		void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions) noexcept
+		{
+			parallel_apply_impl(count, std::forward<TaskFn>(task), npartitions, std::integral_constant<bool, noexcept(task(0))>());
+		}
 
     private:
 
@@ -250,13 +245,110 @@ namespace stk { namespace thread {
             using result_type = decltype(m());
             packaged_task<result_type> task(std::forward<Action>(m));
             auto result = task.get_future();
-            function_wrapper p(std::move(task));
-            while (!queue_traits::try_push(m_tasks, std::move(p)))
-                thread_traits::yield();
+            fun_wrapper p(m_allocator, std::move(task));
+			if (!queue_traits::try_push(m_tasks, std::move(p)))
+			{
+				p();
+				return std::move(result);
+			}
+
             unique_lock<mutex_type> lk{ m_mutex };
             m_cnd.notify_one();
             return std::move(result);
         }
+
+		template <typename Range, typename TaskFn>
+		void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t npartitions, std::false_type) noexcept
+		{
+			using iterator_t = typename boost::range_iterator<Range>::type;
+			std::vector<future<void>> fs;
+			fs.reserve(npartitions);
+			partition_work(range, npartitions,
+				[&fs, &task, this](iterator_t from, iterator_t to) -> void
+			{
+				fs.emplace_back(send([&task, from, to]() -> void
+				{
+					for (auto i = from; i != to; ++i)
+					{
+						task(*i);
+					}
+				}));
+			}
+			);
+
+			wait_or_work(fs);
+		}
+
+		template <typename TaskFn>
+		void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions, std::false_type) noexcept
+		{
+			std::vector<future<void>> fs;
+			fs.reserve(npartitions);
+			partition_work(count, npartitions,
+				[&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+				{
+					fs.emplace_back(send([&task, from, to]() -> void
+					{
+						for (auto i = from; i != to; ++i)
+						{
+							task(i);
+						}
+					}));
+				}
+			);
+
+			wait_or_work(fs);
+		}
+
+		template <typename Range, typename TaskFn>
+		void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t npartitions, std::true_type) noexcept
+		{
+			using value_t = typename boost::range_value<Range>::type;
+			static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
+			using iterator_t = typename boost::range_iterator<Range>::type;
+			std::atomic<std::uint32_t> consumed{ 0 };
+			std::uint32_t njobs = 0;
+			partition_work(range, npartitions,
+				[&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
+				{
+					++njobs;
+					send_no_future([&consumed, &task, from, to]() noexcept -> void
+					{
+						STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+						for (auto i = from; i != to; ++i)
+						{
+							task(*i);
+						}
+					});
+				}
+			);
+
+			wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+		}
+
+		template <typename TaskFn>
+		void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions, std::true_type) noexcept
+		{
+			static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
+			std::atomic<std::uint32_t> consumed{ 0 };
+			std::uint32_t njobs = 0;
+			partition_work(count, npartitions,
+				[&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+				{
+					++njobs;
+					send_no_future([&consumed, &task, from, to]() noexcept -> void
+					{
+						STK_SCOPE_EXIT(consumed.fetch_add(1, std::memory_order_relaxed));
+						for (auto i = from; i != to; ++i)
+						{
+							task(i);
+						}
+					});
+				}
+			);
+
+			wait_for([&consumed, njobs]() noexcept { return consumed.load(std::memory_order_relaxed) == njobs; });
+		}
 
         std::atomic<bool>               m_done{ false };
         std::atomic<std::uint32_t>      m_nThreads{ 0 };
@@ -268,6 +360,7 @@ namespace stk { namespace thread {
         std::function<void()>           m_onThreadStop;
         mutex_type                      m_mutex;
         condition_variable_type         m_cnd;
+		alloc_type                      m_allocator;
     };
 
 }}//! namespace stk::thread;
