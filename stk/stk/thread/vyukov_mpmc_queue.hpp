@@ -18,6 +18,7 @@
 #pragma once
 
 #include <geometrix/utility/assert.hpp>
+#include <stk/utility/none.hpp>
 #include <atomic>
 
 namespace stk { namespace thread {
@@ -145,17 +146,17 @@ namespace stk { namespace thread {
         vyukov_mpmc_bounded_queue(vyukov_mpmc_bounded_queue const&) = delete;
         void operator = (vyukov_mpmc_bounded_queue const&) = delete;
     };
-
+   
     struct vyukov_mpmc_queue_traits
 	{
 		template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
 		using queue_type = vyukov_mpmc_bounded_queue<T>;
-		using queue_info = void*;
+		using queue_info = none_type; 
 
 		template <typename T>
 		static queue_info get_queue_info(queue_type<T>&q)
 		{
-			return nullptr;
+			return none;
 		}
 
 		template <typename T, typename Value>

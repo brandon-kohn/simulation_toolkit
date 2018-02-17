@@ -14,6 +14,7 @@
 #include <mutex>
 #include <limits>
 #include <deque>
+#include <stk/utility/none.hpp>
 
 namespace stk {
 
@@ -196,12 +197,12 @@ namespace stk {
 	{
 		template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
 		using queue_type = locked_queue<T, Alloc, Mutex>;
-		using queue_info = void*;
+		using queue_info = none_type;
 
 		template <typename T, typename Alloc, typename Mutex>
 		static queue_info get_queue_info(queue_type<T, Alloc, Mutex>&q)
 		{
-			return nullptr;
+			return none;
 		}
 
 		template <typename T, typename Alloc, typename Mutex, typename Value>

@@ -290,7 +290,7 @@ TEST_F(timing_fixture200, work_stealing_threads_vyukov_concurrentQ_64k_empty_job
 
 
 using timing_fixture1 = timing_fixture<1>;
-TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_100us_jobs_with_parallel_apply)
+TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_jobs_with_parallel_apply)
 {
     using namespace ::testing;
     using namespace stk;
@@ -299,19 +299,19 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_100us_j
 	pool_t pool(nOSThreads);
 	scalable_task_counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(100)); };
+	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
     for (int i = 0; i < nTimingRuns; ++i)
     {
         consumed.reset();
         {
-            GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k 100us with parallel_apply");
+            GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k 1000us with parallel_apply");
             pool.parallel_apply(njobs, task);
         }
         EXPECT_EQ(njobs, consumed.count());
     }
 }
 
-TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_100us_jobs_with_parallel_for)
+TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_jobs_with_parallel_for)
 {
 	using namespace ::testing;
 	using namespace stk;
@@ -321,14 +321,44 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_100us_j
 	pool_t pool(nOSThreads);
 	scalable_task_counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(100)); };
+	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
 		{
-			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k 100us with parallel_for");
+			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k 1000us with parallel_for");
 			pool.parallel_for(boost::irange(0, njobs), task);
 		}
 		EXPECT_EQ(njobs, consumed.count());
 	}
+}
+
+TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_no_tokens_64k_1000us_jobs_with_parallel_for)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens>;
+	pool_t pool(nOSThreads);
+	scalable_task_counter consumed(nOSThreads + 1);
+
+	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+	for (int i = 0; i < nTimingRuns; ++i)
+	{
+		consumed.reset();
+		{
+			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_no_tokens_64k 1000us with parallel_for");
+			pool.parallel_for(boost::irange(0, njobs), task);
+		}
+		EXPECT_EQ(njobs, consumed.count());
+	}
+}
+
+TEST(cache_line_padding_suite, test_simple_padding)
+{
+	EXPECT_EQ(STK_CACHE_LINE_SIZE, sizeof(stk::thread::padded<int>));
+	EXPECT_EQ(STK_CACHE_LINE_SIZE, sizeof(stk::thread::padded<double>));
+	EXPECT_EQ(STK_CACHE_LINE_SIZE, sizeof(stk::thread::padded<bool>));
+	EXPECT_EQ(STK_CACHE_LINE_SIZE, sizeof(stk::thread::padded<std::atomic<bool>>));
 }

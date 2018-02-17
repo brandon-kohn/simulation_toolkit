@@ -3747,17 +3747,17 @@ struct moodycamel_concurrent_queue_traits
 		return q.try_dequeue(value);
 	}
 };
-
+#include <stk/utility/none.hpp>
 struct moodycamel_concurrent_queue_traits_no_tokens
 {
 	template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
 	using queue_type = moodycamel::ConcurrentQueue<T>;
-	using queue_info = void*;
+	using queue_info = stk::none_type;
 
 	template <typename T>
 	static queue_info get_queue_info(queue_type<T>&q)
 	{
-		return nullptr;
+		return stk::none;
 	}
 
 	template <typename T, typename Value>
