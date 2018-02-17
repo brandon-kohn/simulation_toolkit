@@ -467,7 +467,7 @@ namespace stk { namespace thread {
                 }*/
 
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
-                    m_threads[i] = thread_type([i, this]() { worker_thread(i, stk::is_none<queue_info>::type() ); });
+                    m_threads[i] = thread_type([i, this]() { worker_thread(i, typename stk::is_none<queue_info>::type() ); });
 
                 while (number_threads() != m_threads.size())
                     thread_traits::yield();
