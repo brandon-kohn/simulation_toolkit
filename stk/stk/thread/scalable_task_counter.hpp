@@ -18,38 +18,42 @@ namespace stk { namespace thread {
 
 	class scalable_task_counter
 	{
-		using unique_atomic_uint32 = padded<std::unique_ptr<std::atomic<std::uint32_t>>>;
+		struct alignas(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::uint64_t>
+		{
+			padded_atomic_counter()
+				: std::atomic<std::uint64_t>{0}
+			{}
+		};
+
 	public:
 
 		scalable_task_counter(std::uint32_t nthreads = std::thread::hardware_concurrency())
-		{
-			while (nthreads--)
-				m_counts.emplace_back(new std::atomic<std::uint32_t>(0));
-		}
+			: m_counts(nthreads)
+		{}
 
 		//! 0 is the main thread. [1..nthreads] are the pool threads.
 		void increment(std::uint32_t tidx)
 		{
 			GEOMETRIX_ASSERT(tidx < m_counts.size());
-			(*m_counts[tidx])->fetch_add(1, std::memory_order_relaxed);
+			m_counts[tidx].fetch_add(1, std::memory_order_relaxed);
 		}
 
 		std::size_t count() const
 		{
 			std::size_t sum = 0;
 			for (auto& pc : m_counts)
-				sum += (*pc)->load(std::memory_order_relaxed);
+				sum += pc.load(std::memory_order_relaxed);
 			return sum;
 		}
-
+		
 		void reset() 
 		{
 			for (auto& pc : m_counts)
-				(*pc)->store(0, std::memory_order_relaxed);
+				pc.store(0, std::memory_order_relaxed);
 		}
 
 	private:
-		alignas(STK_CACHE_LINE_SIZE) std::vector<unique_atomic_uint32> m_counts;
+		alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_counter> m_counts;
 	};
 
 }}//! namespace stk::thread;

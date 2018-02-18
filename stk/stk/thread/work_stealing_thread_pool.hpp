@@ -15,6 +15,7 @@
 #include <stk/thread/barrier.hpp>
 #include <stk/thread/thread_specific.hpp>
 #include <stk/thread/scalable_task_counter.hpp>
+#include <stk/thread/task_counter.hpp>
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
@@ -55,26 +56,30 @@ namespace stk { namespace thread {
 #else
         using alloc_type = std::allocator<char>;
 #endif
+ 
+		struct alignas(STK_CACHE_LINE_SIZE) padded_atomic_bool : std::atomic<bool>
+		{
+			padded_atomic_bool()
+				: std::atomic<bool>(false)
+			{}
+		};
+
         using fun_wrapper = function_wrapper_with_allocator<alloc_type>;
         using queue_type = typename queue_traits::template queue_type<fun_wrapper, std::allocator<fun_wrapper>, mutex_type>;
 		using queue_info = typename queue_traits::queue_info;
-        struct padded_queue : padded<queue_type>
+ 
+		template <typename Q>
+        struct alignas(STK_CACHE_LINE_SIZE) padded_queue : Q 
 		{
 			padded_queue()
-				: padded<queue_type>(1024)
+				: Q{1024}
 			{}
 		};
 
-		struct padded_atomic_bool : padded<std::atomic<bool>>
-		{
-			padded_atomic_bool()
-				: padded<std::atomic<bool>>(false)
-			{}
-		};
-
-        template <typename T>
+		template <typename T>
         using unique_lock = typename Traits::template unique_lock<T>;
-
+		using counter = task_counter;
+		
         static stk::detail::random_xor_shift_generator create_generator()
         {
             std::random_device rd;
@@ -99,7 +104,7 @@ namespace stk { namespace thread {
             STK_SCOPE_EXIT(
                 m_active.fetch_sub(1, std::memory_order_relaxed);
                 m_nThreads.fetch_sub(1, std::memory_order_relaxed);
-			    m_spinning[tIndex]->store(false, std::memory_order_relaxed);
+			    m_spinning[tIndex].store(false, std::memory_order_relaxed);
                 if (m_onThreadStop)
                     m_onThreadStop();
             );
@@ -111,7 +116,7 @@ namespace stk { namespace thread {
 			std::vector<queue_info> queueInfo;
 			queueInfo.push_back(queue_traits::get_queue_info(m_poolQ));
 			for (auto& q : m_localQs)
-				queueInfo.emplace_back(queue_traits::get_queue_info(*q));
+				queueInfo.emplace_back(queue_traits::get_queue_info(q));
 
             bool hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
             while (true)
@@ -125,7 +130,7 @@ namespace stk { namespace thread {
                     catch(...)
                     {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
 
-                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
                         hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
@@ -140,7 +145,7 @@ namespace stk { namespace thread {
                     {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
-                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
                         hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
                     else
                         return;
@@ -150,7 +155,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [&queueInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(queueInfo, tIndex, lastStolenIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [&queueInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(queueInfo, tIndex, lastStolenIndex, task)) || m_stop[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -172,7 +177,7 @@ namespace stk { namespace thread {
             STK_SCOPE_EXIT(
                 m_active.fetch_sub(1, std::memory_order_relaxed);
                 m_nThreads.fetch_sub(1, std::memory_order_relaxed);
-			    m_spinning[tIndex]->store(false, std::memory_order_relaxed);
+			    m_spinning[tIndex].store(false, std::memory_order_relaxed);
                 if (m_onThreadStop)
                     m_onThreadStop();
             );
@@ -193,7 +198,7 @@ namespace stk { namespace thread {
                     catch(...)
                     {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
 
-                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
                         hasTask = poll(tIndex, lastStolenIndex, task);
@@ -208,7 +213,7 @@ namespace stk { namespace thread {
                     {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
-                    if (BOOST_LIKELY(!m_stop[tIndex]->load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
                         hasTask = poll(tIndex, lastStolenIndex, task);
                     else
                         return;
@@ -218,7 +223,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, lastStolenIndex, task)) || m_stop[tIndex]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, lastStolenIndex, task)) || m_stop[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -231,13 +236,13 @@ namespace stk { namespace thread {
         bool poll(std::vector<queue_info>& queueInfo, std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
         {
             auto r = pop_local_queue_task(queueInfo, tIndex, task) || pop_task_from_pool_queue(queueInfo[0], task) || try_steal(queueInfo, lastStolenIndex, task);
-			m_spinning[tIndex]->store(!r, std::memory_order_relaxed);
+			m_spinning[tIndex].store(!r, std::memory_order_relaxed);
 			return r;
         }
 
         bool pop_local_queue_task(std::vector<queue_info>& queueInfo, std::uint32_t i, fun_wrapper& task)
         {
-            auto r = queue_traits::try_pop(*m_localQs[i], queueInfo[i+1], task);
+            auto r = queue_traits::try_pop(m_localQs[i], queueInfo[i+1], task);
 			return r;
         }
 		
@@ -252,7 +257,7 @@ namespace stk { namespace thread {
 			std::uint32_t count = 0;
             for (std::uint32_t i = lastStolenIndex; count < qSize; i = (i+1)%qSize, ++count)
             {
-				if (queue_traits::try_steal(*m_localQs[i], queueInfo[i+1], task))
+				if (queue_traits::try_steal(m_localQs[i], queueInfo[i+1], task))
 				{
 					lastStolenIndex = i;
 					return true;
@@ -265,13 +270,13 @@ namespace stk { namespace thread {
         bool poll(std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
         {
             auto r = pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(lastStolenIndex, task);
-			m_spinning[tIndex]->store(!r, std::memory_order_relaxed);
+			m_spinning[tIndex].store(!r, std::memory_order_relaxed);
 			return r;
 		}
 
         bool pop_local_queue_task(std::uint32_t i, fun_wrapper& task)
         {
-            auto r = queue_traits::try_pop(*m_localQs[i], task);
+            auto r = queue_traits::try_pop(m_localQs[i], task);
 			return r;
         }
 	
@@ -286,7 +291,7 @@ namespace stk { namespace thread {
 			std::uint32_t count = 0;
             for (std::uint32_t i = lastStolenIndex; count < qSize; i = (i+1)%qSize, ++count)
             {
-				if (queue_traits::try_steal(*m_localQs[i], task))
+				if (queue_traits::try_steal(m_localQs[i], task))
 				{
 					lastStolenIndex = i;
 					return true;
@@ -300,7 +305,7 @@ namespace stk { namespace thread {
         {
             m_done.store(v, std::memory_order_relaxed);
             for (auto& b : m_stop)
-                b->store(v, std::memory_order_relaxed);
+                b.store(v, std::memory_order_relaxed);
         }
 
     public:
@@ -416,9 +421,7 @@ namespace stk { namespace thread {
             while (!pred())
             {
                 if (pop_task_from_pool_queue(task) || try_steal(lastStolenIndex, task))
-                {
                     task();
-                }
             }
         }
 
@@ -442,7 +445,7 @@ namespace stk { namespace thread {
 		std::uint32_t get_spinning_index() const
 		{
 			for (std::uint32_t i = 0; i < m_spinning.size(); ++i)
-				if (m_spinning[i]->load(std::memory_order_relaxed))
+				if (m_spinning[i].load(std::memory_order_relaxed))
 					return i + 1;
 			return 0;
 		}
@@ -462,13 +465,7 @@ namespace stk { namespace thread {
             {
 				if(bindToProcs)
 				    bind_to_processor(0);
-                /*for (std::uint32_t i = 0; i < m_threads.size(); ++i)
-                {
-                    m_localQs[i] = queue_ptr(new queue_type(1024));
-                    m_stop.emplace_back(new std::atomic<bool>{ false });
-                    m_spinning.emplace_back(new std::atomic<bool>{ false });
-                }*/
-
+                
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
                     m_threads[i] = thread_type([i, bindToProcs, this]() { worker_thread(i, bindToProcs, typename stk::is_none<queue_info>::type() ); });
 
@@ -533,7 +530,7 @@ namespace stk { namespace thread {
             using value_t = typename boost::range_value<Range>::type;
             static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
             using iterator_t = typename boost::range_iterator<Range>::type;
-			scalable_task_counter consumed(nthreads+1);
+			counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(range, npartitions,
                 [&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
@@ -558,7 +555,7 @@ namespace stk { namespace thread {
         void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
         {
             static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
-			scalable_task_counter consumed(nthreads+1);
+			task_counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(count, npartitions,
                 [&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
@@ -589,7 +586,7 @@ namespace stk { namespace thread {
             fun_wrapper p(std::move(task));
             if (threadQueueIndex)
             {
-				if (!queue_traits::try_push(*m_localQs[threadQueueIndex - 1], std::move(p)))
+				if (!queue_traits::try_push(m_localQs[threadQueueIndex - 1], std::move(p)))
 				{
 					p();
                     return std::move(result);
@@ -619,7 +616,7 @@ namespace stk { namespace thread {
             fun_wrapper p(std::forward<Task>(m));
             if (threadQueueIndex)
             {
-				if (!queue_traits::try_push(*m_localQs[threadQueueIndex - 1], std::move(p)))
+				if (!queue_traits::try_push(m_localQs[threadQueueIndex - 1], std::move(p)))
 				{
 					p();
 					return;
@@ -638,19 +635,21 @@ namespace stk { namespace thread {
             m_pollingCnd.notify_one();
         }
 
-        std::vector<thread_type>                                     m_threads;
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool> m_stop;
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool> m_spinning;
-        alignas(STK_CACHE_LINE_SIZE) std::atomic<bool>               m_done{ false };
-        alignas(STK_CACHE_LINE_SIZE) queue_type                      m_poolQ;
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_queue>       m_localQs;
+        std::vector<thread_type>                                           m_threads;
 
-        std::function<void()>          m_onThreadStart;
-        std::function<void()>          m_onThreadStop;
-        std::atomic<std::uint32_t>     m_active{ 0 };
-        std::atomic<std::uint32_t>     m_nThreads{ 0 };
-        mutex_type                     m_pollingMtx;
-        condition_variable_type        m_pollingCnd;
+        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_stop;
+        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_spinning;
+        alignas(STK_CACHE_LINE_SIZE) std::atomic<bool>                     m_done{ false };
+        alignas(STK_CACHE_LINE_SIZE) queue_type                            m_poolQ;
+        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_queue<queue_type>> m_localQs;
+
+        std::function<void()>                                              m_onThreadStart;
+        std::function<void()>                                              m_onThreadStop;
+        std::atomic<std::uint32_t>                                         m_active{ 0 };
+        std::atomic<std::uint32_t>                                         m_nThreads{ 0 };
+
+        mutex_type                                                         m_pollingMtx;
+        condition_variable_type                                            m_pollingCnd;
     };
 
 }}//! namespace stk::thread;

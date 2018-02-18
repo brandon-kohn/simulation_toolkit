@@ -9,6 +9,7 @@
 #pragma once
 
 #include <geometrix/utility/assert.hpp>
+#include <stk/thread/cache_line_padding.hpp>
 #include <atomic>
 #include <cstdint>
 #include <thread>
@@ -19,12 +20,12 @@ namespace stk { namespace thread {
     {
     public:
 
-        task_counter(std::uint32_t = 0)
+        task_counter(std::uint64_t /*nthreads*/ = 0)
             : m_counter(0)
         {}
 
         //! 0 is the main thread. [1..nthreads] are the pool threads.
-        void increment(std::uint32_t)
+        void increment(std::uint64_t)
         {
             m_counter.fetch_add(1, std::memory_order_relaxed);
         }
@@ -40,8 +41,7 @@ namespace stk { namespace thread {
         }
 
     private:
-
-        std::atomic<std::uint32_t> m_counter;
+		alignas(STK_CACHE_LINE_SIZE)std::atomic<std::uint64_t> m_counter;
     };
 
 }}//! namespace stk::thread;
