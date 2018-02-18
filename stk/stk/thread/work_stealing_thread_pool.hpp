@@ -87,9 +87,10 @@ namespace stk { namespace thread {
             return rnd();
         }
 
-		void worker_thread(std::uint32_t tIndex, std::true_type)//! Q has queue_info
+		void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::true_type)//! Q has queue_info
         {
-            bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
+			if(bindToProcs)
+				bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
             if (m_onThreadStart)
                 m_onThreadStart();
 
@@ -159,9 +160,10 @@ namespace stk { namespace thread {
             return;
         }
 
-        void worker_thread(std::uint32_t tIndex, std::false_type) //! Q has void queue_info.
+        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::false_type) //! Q has void queue_info.
         {
-            bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
+			if(bindToProcs)
+                bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
             if (m_onThreadStart)
                 m_onThreadStart();
 
@@ -306,17 +308,17 @@ namespace stk { namespace thread {
         template <typename T>
         using future = typename thread_traits::template future_type<T>;
 
-        work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
+        work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1, bool bindToProcs = false)
             : m_threads(nthreads)
 			, m_stop(nthreads)
 			, m_spinning(nthreads)
             , m_poolQ(1024)
             , m_localQs(nthreads)
         {
-            init();
+            init(bindToProcs);
         }
 
-        work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1)
+        work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1, bool bindToProcs = false)
             : m_threads(nthreads)
 			, m_stop(nthreads)
 			, m_spinning(nthreads)
@@ -325,7 +327,7 @@ namespace stk { namespace thread {
             , m_onThreadStart(onThreadStart)
             , m_onThreadStop(onThreadStop)
         {
-            init();
+            init(bindToProcs);
         }
 
         ~work_stealing_thread_pool()
@@ -454,11 +456,12 @@ namespace stk { namespace thread {
 
     private:
 
-		void init()
+		void init(bool bindToProcs)
         {
             try
             {
-				bind_to_processor(0);
+				if(bindToProcs)
+				    bind_to_processor(0);
                 /*for (std::uint32_t i = 0; i < m_threads.size(); ++i)
                 {
                     m_localQs[i] = queue_ptr(new queue_type(1024));
@@ -467,7 +470,7 @@ namespace stk { namespace thread {
                 }*/
 
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
-                    m_threads[i] = thread_type([i, this]() { worker_thread(i, typename stk::is_none<queue_info>::type() ); });
+                    m_threads[i] = thread_type([i, bindToProcs, this]() { worker_thread(i, bindToProcs, typename stk::is_none<queue_info>::type() ); });
 
                 while (number_threads() != m_threads.size())
                     thread_traits::yield();
