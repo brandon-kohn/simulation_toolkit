@@ -336,7 +336,7 @@ TEST(timing, compare_thread_specific_and_boost_tss)
     using namespace stk;
     using namespace stk::thread;
     work_stealing_thread_pool<moodycamel_concurrent_queue_traits, boost_thread_traits> pool;
-    std::size_t nRuns = 1000000;
+    std::size_t nRuns = 100000;
     {
         GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific");
         thread_specific<int> sut{ []() { return 10; } };
