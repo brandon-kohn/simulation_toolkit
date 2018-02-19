@@ -450,6 +450,14 @@ namespace stk { namespace thread {
 			return 0;
 		}
 
+		std::uint32_t get_rnd_queue_index() const
+		{
+			static thread_local std::size_t id = 0;
+			auto idx = (++id % (m_threads.size() - 1)) + 1;
+			GEOMETRIX_ASSERT(idx > 0 && idx < m_threads.size());
+			return idx;
+		}
+
 		//! If the thread is in the pool the id will be 1..N. Subtract 1 to get the local queue index. If the thread is not in the pool return 0. Usually 0 should be the main thread.
         static std::uint32_t& get_thread_id() noexcept
         {
@@ -488,7 +496,8 @@ namespace stk { namespace thread {
             partition_work(range, npartitions,
                 [&fs, &task, this](iterator_t from, iterator_t to) -> void
                 {
-                    std::uint32_t threadID = get_spinning_index();
+				    //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
+				    std::uint32_t threadID = get_spinning_index();
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
@@ -510,7 +519,8 @@ namespace stk { namespace thread {
             partition_work(count, npartitions,
                 [&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
-                    std::uint32_t threadID = get_spinning_index();
+				    //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
+				    std::uint32_t threadID = get_spinning_index();
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
@@ -536,7 +546,8 @@ namespace stk { namespace thread {
                 [&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
                 {
                     ++njobs;
-                    std::uint32_t threadID = get_spinning_index();
+					//std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
+					std::uint32_t threadID = get_spinning_index();
                     send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
                     {
                         STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
@@ -561,7 +572,8 @@ namespace stk { namespace thread {
                 [&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
                     ++njobs;
-                    std::uint32_t threadID = get_spinning_index();
+					//std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
+					std::uint32_t threadID = get_spinning_index();
                     send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
                     {
                         STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
