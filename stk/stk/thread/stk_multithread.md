@@ -501,22 +501,22 @@ namespace stk { namespace thread {
         template <typename Task>
         void send_no_future(std::uint32_t threadIndex, Task&& x);
 
-        //! Maps a task whose signature is `R(Range::value_type)` into each item in `range` and submits the tasks into the threadpool. Returns void.
+        //! Maps a task whose signature is `R(Range::value_type)` into each item in `range` and submits the tasks into the threadpool. The calling thread blocks until each tasks completes. Returns void.
         //! NOTE: Optimization available if Task is noexcept.
         template <typename Range, typename TaskFn>
         void parallel_for(Range&& range, TaskFn&& task);
 
-        //! Maps a task whose signature is `R(Range::value_type)` into each item in `range` and submits the tasks into the threadpool at a granularity specified by npartitions. Returns void.
+        //! Maps a task whose signature is `R(Range::value_type)` into each item in `range` and submits the tasks into the threadpool at a granularity specified by npartitions. The calling thread blocks until each tasks completes. Returns void.
         //! NOTE: Optimization available if Task is noexcept.
         template <typename Range, typename TaskFn>
         void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions);
 
-        //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool. Returns void.
+        //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool. The calling thread blocks until each tasks completes. Returns void.
         //! NOTE: Optimization available if Task is noexcept.
         template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task);
 
-        //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool at a granularity specified by npartitions. Returns void.
+        //! Maps a task whose signature is `R(std::size_t i)` into calls which range over the interval from [0, count) and submits the tasks into the threadpool at a granularity specified by npartitions. The calling thread blocks until each tasks completes. Returns void.
         //! NOTE: Optimization available if Task is noexcept.
         template <typename TaskFn>
         void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions);
