@@ -60,7 +60,7 @@ struct timing_fixture : ::testing::Test
 
 	static const std::size_t nTimingRuns = Runs;
 };
-
+using counter = stk::thread::scalable_task_counter;
 using timing_fixture200 = timing_fixture<200>;
 TEST_F(timing_fixture200, test_partition_work)
 {
@@ -146,7 +146,7 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
     EXPECT_EQ(njobs, count);
 }
 
-const int njobs = 64 * 1024;
+const int njobs = 1024 * 1024;
 
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
@@ -213,7 +213,8 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
             GEOMETRIX_MEASURE_SCOPE_TIME(name.str().c_str());
             for (auto q = 0; q < qjobs; ++q)
             {
-                pool.send_no_future(pool.get_spinning_index(), task);
+				std::uint32_t threadID = q % (GetParam() - 1) + 1;
+                pool.send_no_future(threadID, task);
             }
             pool.wait_for([&consumed, qjobs]() noexcept { return consumed.count() == qjobs; });
         }
@@ -229,7 +230,7 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
     using namespace stk::thread;
 	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
 	pool_t pool(nOSThreads);
-	scalable_task_counter consumed(nOSThreads + 1);
+	counter consumed(nOSThreads + 1);
 
     auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); };
     for (int i = 0; i < nTimingRuns; ++i)
@@ -251,7 +252,7 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
 
 	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
 	pool_t pool(nOSThreads);
-	scalable_task_counter consumed(nOSThreads + 1);
+	counter consumed(nOSThreads + 1);
 
 	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); };
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -274,7 +275,7 @@ TEST_F(timing_fixture200, work_stealing_threads_vyukov_concurrentQ_64k_empty_job
 
 	using pool_t = work_stealing_thread_pool<vyukov_mpmc_queue_traits>;
 	pool_t pool(nOSThreads);
-	scalable_task_counter consumed(nOSThreads + 1);
+	counter consumed(nOSThreads + 1);
 
 	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); };
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -297,7 +298,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_
     using namespace stk::thread;
 	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
 	pool_t pool(nOSThreads);
-	scalable_task_counter consumed(nOSThreads + 1);
+	counter consumed(nOSThreads + 1);
 
 	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
     for (int i = 0; i < nTimingRuns; ++i)
@@ -319,7 +320,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_
 
 	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
 	pool_t pool(nOSThreads);
-	scalable_task_counter consumed(nOSThreads + 1);
+	counter consumed(nOSThreads + 1);
 
 	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
 	for (int i = 0; i < nTimingRuns; ++i)
@@ -341,7 +342,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_no_tokens_6
 
 	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens>;
 	pool_t pool(nOSThreads);
-	scalable_task_counter consumed(nOSThreads + 1);
+	counter consumed(nOSThreads + 1);
 
 	auto task = [&consumed](int) noexcept {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
 	for (int i = 0; i < nTimingRuns; ++i)

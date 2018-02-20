@@ -104,7 +104,7 @@ namespace stk { namespace thread {
             STK_SCOPE_EXIT(
                 m_active.fetch_sub(1, std::memory_order_relaxed);
                 m_nThreads.fetch_sub(1, std::memory_order_relaxed);
-			    m_spinning[tIndex].store(false, std::memory_order_relaxed);
+			    //m_spinning[tIndex].store(false, std::memory_order_relaxed);
                 if (m_onThreadStop)
                     m_onThreadStop();
             );
@@ -177,7 +177,7 @@ namespace stk { namespace thread {
             STK_SCOPE_EXIT(
                 m_active.fetch_sub(1, std::memory_order_relaxed);
                 m_nThreads.fetch_sub(1, std::memory_order_relaxed);
-			    m_spinning[tIndex].store(false, std::memory_order_relaxed);
+			    //m_spinning[tIndex].store(false, std::memory_order_relaxed);
                 if (m_onThreadStop)
                     m_onThreadStop();
             );
@@ -236,7 +236,7 @@ namespace stk { namespace thread {
         bool poll(std::vector<queue_info>& queueInfo, std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
         {
             auto r = pop_local_queue_task(queueInfo, tIndex, task) || pop_task_from_pool_queue(queueInfo[0], task) || try_steal(queueInfo, lastStolenIndex, task);
-			m_spinning[tIndex].store(!r, std::memory_order_relaxed);
+			//m_spinning[tIndex].store(!r, std::memory_order_relaxed);
 			return r;
         }
 
@@ -270,7 +270,7 @@ namespace stk { namespace thread {
         bool poll(std::uint32_t tIndex, std::uint32_t& lastStolenIndex, fun_wrapper& task)
         {
             auto r = pop_local_queue_task(tIndex, task) || pop_task_from_pool_queue(task) || try_steal(lastStolenIndex, task);
-			m_spinning[tIndex].store(!r, std::memory_order_relaxed);
+			//m_spinning[tIndex].store(!r, std::memory_order_relaxed);
 			return r;
 		}
 
@@ -316,7 +316,7 @@ namespace stk { namespace thread {
         work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1, bool bindToProcs = false)
             : m_threads(nthreads)
 			, m_stop(nthreads)
-			, m_spinning(nthreads)
+			//, m_spinning(nthreads)
             , m_poolQ(1024)
             , m_localQs(nthreads)
         {
@@ -326,7 +326,7 @@ namespace stk { namespace thread {
         work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1, bool bindToProcs = false)
             : m_threads(nthreads)
 			, m_stop(nthreads)
-			, m_spinning(nthreads)
+			//, m_spinning(nthreads)
             , m_poolQ(1024)
             , m_localQs(nthreads)
             , m_onThreadStart(onThreadStart)
@@ -442,13 +442,13 @@ namespace stk { namespace thread {
         }
 
 		//! Return the index of the first thread found spinning. The result is the index + 1. If 0 is returned, then none are spinning.
-		std::uint32_t get_spinning_index() const
-		{
-			for (std::uint32_t i = 0; i < m_spinning.size(); ++i)
-				if (m_spinning[i].load(std::memory_order_relaxed))
-					return i + 1;
-			return 0;
-		}
+// 		std::uint32_t get_spinning_index() const
+// 		{
+// 			for (std::uint32_t i = 0; i < m_spinning.size(); ++i)
+// 				if (m_spinning[i].load(std::memory_order_relaxed))
+// 					return i + 1;
+// 			return 0;
+// 		}
 
 		std::uint32_t get_rnd_queue_index() const
 		{
@@ -493,11 +493,13 @@ namespace stk { namespace thread {
             using iterator_t = typename boost::range_iterator<Range>::type;
             std::vector<future<void>> fs;
             fs.reserve(npartitions);
+			std::size_t njobs = 0;
             partition_work(range, npartitions,
-                [&fs, &task, this](iterator_t from, iterator_t to) -> void
+                [nthreads, &njobs, &fs, &task, this](iterator_t from, iterator_t to) -> void
                 {
 				    //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
-				    std::uint32_t threadID = get_spinning_index();
+				    //std::uint32_t threadID = get_spinning_index();
+				    std::uint32_t threadID = ++njobs % (nthreads - 1) + 1;
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
@@ -516,11 +518,13 @@ namespace stk { namespace thread {
         {
             std::vector<future<void>> fs;
             fs.reserve(npartitions);
+			std::size_t njobs = 0;
             partition_work(count, npartitions,
-                [&fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                [nthreads, &njobs, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
 				    //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
-				    std::uint32_t threadID = get_spinning_index();
+				    //std::uint32_t threadID = get_spinning_index();
+				    std::uint32_t threadID = ++njobs % (nthreads - 1) + 1;
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i)
@@ -543,11 +547,12 @@ namespace stk { namespace thread {
 			counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(range, npartitions,
-                [&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
+                [nthreads, &consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
                 {
                     ++njobs;
 					//std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
-					std::uint32_t threadID = get_spinning_index();
+					//std::uint32_t threadID = get_spinning_index();
+				    std::uint32_t threadID = njobs % (nthreads - 1) + 1;
                     send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
                     {
                         STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
@@ -569,11 +574,12 @@ namespace stk { namespace thread {
 			task_counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(count, npartitions,
-                [&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
+                [nthreads, &consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
                     ++njobs;
 					//std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
-					std::uint32_t threadID = get_spinning_index();
+					//std::uint32_t threadID = get_spinning_index();
+				    std::uint32_t threadID = njobs % (nthreads - 1) + 1;
                     send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
                     {
                         STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
@@ -650,7 +656,7 @@ namespace stk { namespace thread {
         std::vector<thread_type>                                           m_threads;
 
         alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_stop;
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_spinning;
+        //alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_spinning;
         alignas(STK_CACHE_LINE_SIZE) std::atomic<bool>                     m_done{ false };
         alignas(STK_CACHE_LINE_SIZE) queue_type                            m_poolQ;
         alignas(STK_CACHE_LINE_SIZE) std::vector<padded_queue<queue_type>> m_localQs;
