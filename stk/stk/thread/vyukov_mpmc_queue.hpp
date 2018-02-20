@@ -14,7 +14,7 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *  The views and conclusions contained in the software and documentation are those of the authors and should not be interpreted
  *  as representing official policies, either expressed or implied, of Dmitry Vyukov.
- */ 
+ */
 #pragma once
 
 #include <geometrix/utility/assert.hpp>
@@ -31,7 +31,7 @@ namespace stk { namespace thread {
             : buffer_(new cell_t [buffer_size])
             , buffer_mask_(buffer_size - 1)
         {
-			//! buffer_size needs to be a power of 2.
+            //! buffer_size needs to be a power of 2.
             GEOMETRIX_ASSERT((buffer_size >= 2) && ((buffer_size & (buffer_size - 1)) == 0));
             for (size_t i = 0; i != buffer_size; i += 1)
                 buffer_[i].sequence_.store(i, std::memory_order_relaxed);
@@ -124,7 +124,7 @@ namespace stk { namespace thread {
         }
 
     private:
-        
+
         struct cell_t
         {
             std::atomic<size_t>     sequence_;
@@ -146,53 +146,53 @@ namespace stk { namespace thread {
         vyukov_mpmc_bounded_queue(vyukov_mpmc_bounded_queue const&) = delete;
         void operator = (vyukov_mpmc_bounded_queue const&) = delete;
     };
-   
+
     struct vyukov_mpmc_queue_traits
-	{
-		template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
-		using queue_type = vyukov_mpmc_bounded_queue<T>;
-		using queue_info = none_type; 
+    {
+        template <typename T, typename Alloc = std::allocator<T>, typename Mutex = std::mutex>
+        using queue_type = vyukov_mpmc_bounded_queue<T>;
+        using queue_info = none_type;
 
-		template <typename T>
-		static queue_info get_queue_info(queue_type<T>&q)
-		{
-			return none;
-		}
+        template <typename T>
+        static queue_info get_queue_info(queue_type<T>&q)
+        {
+            return none;
+        }
 
-		template <typename T, typename Value>
-		static bool try_push(queue_type<T>& q, queue_info, Value&& value)
-		{
-			return q.try_push(std::forward<Value>(value));
-		}
+        template <typename T, typename Value>
+        static bool try_push(queue_type<T>& q, queue_info, Value&& value)
+        {
+            return q.try_push(std::forward<Value>(value));
+        }
 
-		template <typename T>
-		static bool try_pop(queue_type<T>& q, queue_info, T& value)
-		{
-			return q.try_pop(value);
-		}
+        template <typename T>
+        static bool try_pop(queue_type<T>& q, queue_info, T& value)
+        {
+            return q.try_pop(value);
+        }
 
-		template <typename T>
-		static bool try_steal(queue_type<T>& q, queue_info, T& value)
-		{
-			return q.try_pop(value);
-		}
+        template <typename T>
+        static bool try_steal(queue_type<T>& q, queue_info, T& value)
+        {
+            return q.try_pop(value);
+        }
 
-		template <typename T, typename Value>
-		static bool try_push(queue_type<T>& q, Value&& value)
-		{
-			return q.try_push(std::forward<Value>(value));
-		}
+        template <typename T, typename Value>
+        static bool try_push(queue_type<T>& q, Value&& value)
+        {
+            return q.try_push(std::forward<Value>(value));
+        }
 
-		template <typename T>
-		static bool try_pop(queue_type<T>& q, T& value)
-		{
-			return q.try_pop(value);
-		}
+        template <typename T>
+        static bool try_pop(queue_type<T>& q, T& value)
+        {
+            return q.try_pop(value);
+        }
 
-		template <typename T>
-		static bool try_steal(queue_type<T>& q, T& value)
-		{
-			return q.try_pop(value);
-		}
-	};
+        template <typename T>
+        static bool try_steal(queue_type<T>& q, T& value)
+        {
+            return q.try_pop(value);
+        }
+    };
 }}//! namespace stk::thread;
