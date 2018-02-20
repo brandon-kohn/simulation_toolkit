@@ -146,7 +146,7 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
     EXPECT_EQ(njobs, count);
 }
 
-const int njobs = 1024 * 1024;
+const int njobs = 64 * 1024;
 
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
@@ -197,9 +197,7 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
     using namespace stk;
     using namespace stk::thread;
     using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
-    //std::vector<pool_t::template future<void>> fs;
-    //std::atomic<int> consumed{0};
-	task_counter consumed(GetParam()+1);
+	counter consumed(GetParam()+1);
     auto qjobs = njobs;
     auto task = [&consumed]() noexcept {consumed.increment(pool_t::get_thread_id());};
     static_assert(noexcept(task()), "works.");
@@ -216,7 +214,8 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
 				std::uint32_t threadID = q % (GetParam() - 1) + 1;
                 pool.send_no_future(threadID, task);
             }
-            pool.wait_for([&consumed, qjobs]() noexcept { return consumed.count() == qjobs; });
+			pool.wait_for_all_tasks();
+            //pool.wait_for([&consumed, qjobs]() noexcept { return consumed.count() == qjobs; });
         }
         EXPECT_EQ(qjobs, consumed.count());
     }

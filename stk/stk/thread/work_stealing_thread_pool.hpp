@@ -109,7 +109,8 @@ namespace stk { namespace thread {
                     m_onThreadStop();
             );
 
-            get_thread_id() = tIndex+1;
+			auto tid = tIndex + 1;
+            get_thread_id() = tid;
             fun_wrapper task;
             std::uint32_t spincount = 0;
 			std::uint32_t lastStolenIndex = tIndex;
@@ -126,6 +127,7 @@ namespace stk { namespace thread {
                     try
                     {
                         task();
+						m_nTasksOutstanding.decrement(tid);
                     }
                     catch(...)
                     {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
@@ -182,7 +184,8 @@ namespace stk { namespace thread {
                     m_onThreadStop();
             );
 
-            get_thread_id() = tIndex+1;
+			auto tid = tIndex + 1;
+            get_thread_id() = tid;
             fun_wrapper task;
             std::uint32_t spincount = 0;
 			std::uint32_t lastStolenIndex = tIndex;
@@ -194,6 +197,7 @@ namespace stk { namespace thread {
                     try
                     {
                         task();
+						m_nTasksOutstanding.decrement(tid);
                     }
                     catch(...)
                     {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
@@ -319,6 +323,7 @@ namespace stk { namespace thread {
 			//, m_spinning(nthreads)
             , m_poolQ(1024)
             , m_localQs(nthreads)
+			, m_nTasksOutstanding(nthreads+1)
         {
             init(bindToProcs);
         }
@@ -331,6 +336,7 @@ namespace stk { namespace thread {
             , m_localQs(nthreads)
             , m_onThreadStart(onThreadStart)
             , m_onThreadStop(onThreadStop)
+			, m_nTasksOutstanding(nthreads+1)
         {
             init(bindToProcs);
         }
@@ -412,29 +418,43 @@ namespace stk { namespace thread {
 
         std::size_t number_threads() const noexcept { return m_nThreads.load(std::memory_order_relaxed); }
 
+		void wait_for_all_tasks() noexcept
+		{
+			auto pred = [this]() noexcept { return !has_outstanding_tasks(); };
+			wait_for(pred);
+		}
+
         template <typename Pred>
         void wait_for(Pred&& pred) noexcept
         {
             static_assert(noexcept(pred()), "Pred must be noexcept.");
+			auto tid = get_thread_id();
             fun_wrapper task;
 			std::uint32_t lastStolenIndex = 0;
             while (!pred())
             {
-                if (pop_task_from_pool_queue(task) || try_steal(lastStolenIndex, task))
-                    task();
+				if (pop_task_from_pool_queue(task) || try_steal(lastStolenIndex, task))
+				{
+					task();
+					m_nTasksOutstanding.decrement(tid);
+				}
             }
         }
 
         void wait_or_work(std::vector<future<void>>&fs) noexcept
         {
-            fun_wrapper tsk;
+			auto tid = get_thread_id();
+			fun_wrapper tsk;
 			std::uint32_t lastStolenIndex = 0;
             for(auto it = fs.begin() ; it != fs.end();)
             {
                 if (!thread_traits::is_ready(*it))
                 {
-                    if (pop_task_from_pool_queue(tsk) || try_steal(lastStolenIndex, tsk))
-                        tsk();
+					if (pop_task_from_pool_queue(tsk) || try_steal(lastStolenIndex, tsk))
+					{
+						tsk();
+						m_nTasksOutstanding.decrement(tid);
+					}
                 }
                 else
                     ++it;
@@ -464,6 +484,8 @@ namespace stk { namespace thread {
             static thread_local std::uint32_t id = 0;
             return id;
         }
+
+		bool has_outstanding_tasks() const { return m_nTasksOutstanding.count() != 0; }
 
     private:
 
@@ -598,6 +620,8 @@ namespace stk { namespace thread {
         future<decltype(std::declval<Task>()())> send_impl(std::uint32_t threadQueueIndex, Task&& m) noexcept
         {
             using result_type = decltype(m());
+			auto tid = get_thread_id();
+			m_nTasksOutstanding.increment(tid);
             packaged_task<result_type> task(std::forward<Task>(m));
             auto result = task.get_future();
 
@@ -607,6 +631,7 @@ namespace stk { namespace thread {
 				if (!queue_traits::try_push(m_localQs[threadQueueIndex - 1], std::move(p)))
 				{
 					p();
+					m_nTasksOutstanding.decrement(tid);
                     return std::move(result);
 				}
             }
@@ -615,6 +640,7 @@ namespace stk { namespace thread {
 				if (!queue_traits::try_push(m_poolQ, std::move(p)))
 				{
 					p();
+					m_nTasksOutstanding.decrement(tid);
 					return std::move(result);
 				}
 			}
@@ -631,12 +657,15 @@ namespace stk { namespace thread {
         void send_no_future_impl(std::uint32_t threadQueueIndex, Task&& m) noexcept
         {
             static_assert(noexcept(m()), "call to send_no_future must have noexcept task");
+			auto tid = get_thread_id();
+			m_nTasksOutstanding.increment(tid);
             fun_wrapper p(std::forward<Task>(m));
             if (threadQueueIndex)
             {
 				if (!queue_traits::try_push(m_localQs[threadQueueIndex - 1], std::move(p)))
 				{
 					p();
+					m_nTasksOutstanding.decrement(tid);
 					return;
 				}
             }
@@ -645,6 +674,7 @@ namespace stk { namespace thread {
 				if (!queue_traits::try_push(m_poolQ, std::move(p)))
 				{
 					p();
+					m_nTasksOutstanding.decrement(tid);
 					return;
 				}
             }
@@ -660,12 +690,12 @@ namespace stk { namespace thread {
         alignas(STK_CACHE_LINE_SIZE) std::atomic<bool>                     m_done{ false };
         alignas(STK_CACHE_LINE_SIZE) queue_type                            m_poolQ;
         alignas(STK_CACHE_LINE_SIZE) std::vector<padded_queue<queue_type>> m_localQs;
+        alignas(STK_CACHE_LINE_SIZE) std::atomic<std::uint32_t>            m_active{ 0 };
+        alignas(STK_CACHE_LINE_SIZE) std::atomic<std::uint32_t>            m_nThreads{ 0 };
+        alignas(STK_CACHE_LINE_SIZE) scalable_task_counter                 m_nTasksOutstanding;
 
         std::function<void()>                                              m_onThreadStart;
         std::function<void()>                                              m_onThreadStop;
-        std::atomic<std::uint32_t>                                         m_active{ 0 };
-        std::atomic<std::uint32_t>                                         m_nThreads{ 0 };
-
         mutex_type                                                         m_pollingMtx;
         condition_variable_type                                            m_pollingCnd;
     };

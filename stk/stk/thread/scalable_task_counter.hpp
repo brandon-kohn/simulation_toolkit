@@ -18,10 +18,10 @@ namespace stk { namespace thread {
 
 	class scalable_task_counter
 	{
-		struct alignas(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::uint64_t>
+		struct alignas(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::int64_t>
 		{
 			padded_atomic_counter()
-				: std::atomic<std::uint64_t>{0}
+				: std::atomic<std::int64_t>{0}
 			{}
 		};
 
@@ -38,11 +38,19 @@ namespace stk { namespace thread {
 			m_counts[tidx].fetch_add(1, std::memory_order_relaxed);
 		}
 
-		std::size_t count() const
+		void decrement(std::uint64_t tidx)
 		{
-			std::size_t sum = 0;
+			GEOMETRIX_ASSERT(tidx < m_counts.size());
+			GEOMETRIX_ASSERT(count() > 0);
+			m_counts[tidx].fetch_sub(1, std::memory_order_relaxed);
+		}
+
+		std::int64_t count() const
+		{
+			std::int64_t sum = 0;
 			for (auto& pc : m_counts)
 				sum += pc.load(std::memory_order_relaxed);
+			GEOMETRIX_ASSERT(sum >= 0);
 			return sum;
 		}
 		

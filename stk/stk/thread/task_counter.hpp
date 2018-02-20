@@ -30,6 +30,12 @@ namespace stk { namespace thread {
             m_counter.fetch_add(1, std::memory_order_relaxed);
         }
 
+		void decrement(std::uint64_t)
+        {
+			GEOMETRIX_ASSERT(m_counter != 0);//Should have previously been incremented.
+            m_counter.fetch_sub(1, std::memory_order_relaxed);
+        }
+
         std::size_t count() const
         {
             return m_counter.load(std::memory_order_relaxed);
