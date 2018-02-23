@@ -441,6 +441,10 @@ namespace stk { namespace detail {
 			: concurrent_vector(generator_arg, std::distance(first, last), [&first, last]() { return *(first++); }, al)
 		{}
 
+		concurrent_vector(std::initializer_list<T> init, const alloc_type& al = alloc_type())
+		    : concurrent_vector(init.begin(), init.end(), al)
+		{}
+
 		//! The destructor is not thread safe.
         ~concurrent_vector() noexcept
         {

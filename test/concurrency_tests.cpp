@@ -422,6 +422,15 @@ TEST(lock_free_concurrent_vector, construct_iterators)
 	EXPECT_THAT(v, ElementsAre(2, 3, 4, 5, 6, 7, 8, 9, 10, 11));
 }
 
+TEST(lock_free_concurrent_vector, construct_initializer_list)
+{
+	using ::testing::ElementsAre;
+	using namespace stk;
+	concurrent_vector<int> v = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+	EXPECT_EQ(10, v.size());
+	EXPECT_THAT(v, ElementsAre(2, 3, 4, 5, 6, 7, 8, 9, 10, 11));
+}
+
 TEST(lock_free_concurrent_vector, push_back)
 {
 	using namespace stk;
