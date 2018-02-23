@@ -148,14 +148,14 @@ public:
     std::tuple<T*, stamp_type> load(std::memory_order order = std::memory_order_seq_cst) const noexcept
     {
         auto pPtr = m_ptr.load(order);
-        return std::tuple(extract_ptr(pPtr), extract_stamp(pPtr));
+        return std::make_tuple(extract_ptr(pPtr), extract_stamp(pPtr));
     }
 
     std::tuple<T*, stamp_type> exchange(T* desiredPtr, stamp_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept
     {
         auto pPtr = combine(desiredPtr, desiredStamp);
         auto pResult = m_ptr.exchange(pPtr, order);
-        return std::tuple(extract_ptr(pResult), extract_stamp(pResult));
+        return std::make_tuple(extract_ptr(pResult), extract_stamp(pResult));
     }
 
     bool compare_exchange_weak(T*& expectedPtr, stamp_type& expectedStamp, T* desiredPtr, stamp_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept

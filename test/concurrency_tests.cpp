@@ -331,7 +331,7 @@ TEST(thread_specific_tests, thread_specific_int_two_instances)
 
 #include <geometrix/utility/scope_timer.ipp>
 #include <boost/thread/tss.hpp>
-TEST(timing, compare_thread_specific_and_boost_tss)
+TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
 {
     using namespace stk;
     using namespace stk::thread;
@@ -382,4 +382,118 @@ TEST(check_test, sizeof_mutexes)
     GMESSAGE() << "sizeof(boost::mutex) = " << sizeof(boost::mutex) << std::endl;
     GMESSAGE() << "sizeof(boost::fibers::mutex) = " << sizeof(boost::fibers::mutex) << std::endl;
     GMESSAGE() << "sizeof(stk::thread::tiny_atomic_spin_lock<>) = " << sizeof(stk::thread::tiny_atomic_spin_lock<>) << std::endl;
+}
+
+#include <stk/container/concurrent_vector.hpp>
+TEST(lock_free_concurrent_vector, construct)
+{
+	using namespace stk;
+	concurrent_vector<int> v;
+	EXPECT_EQ(0, v.size());
+	EXPECT_EQ(2, v.capacity());
+}
+
+TEST(lock_free_concurrent_vector, construct_reserve)
+{
+	using namespace stk;
+	concurrent_vector<int> v(reserve_arg, 10);
+	EXPECT_EQ(0, v.size());
+	EXPECT_LE(10, v.capacity());//! cumulative geometrix = 2 + 4 + 8
+}
+
+TEST(lock_free_concurrent_vector, construct_generate)
+{
+	using ::testing::ElementsAre;
+	using namespace stk;
+	int count = 2;
+	auto generator = [&count]() { return count++; };
+	concurrent_vector<int> v(generator_arg, 10, generator);
+	EXPECT_EQ(10, v.size());
+	EXPECT_THAT(v, ElementsAre(2, 3, 4, 5, 6, 7, 8, 9, 10, 11));
+}
+
+TEST(lock_free_concurrent_vector, construct_iterators)
+{
+	using ::testing::ElementsAre;
+	using namespace stk;
+	std::vector<int> vec = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+	concurrent_vector<int> v(vec.begin(), vec.end());
+	EXPECT_EQ(10, v.size());
+	EXPECT_THAT(v, ElementsAre(2, 3, 4, 5, 6, 7, 8, 9, 10, 11));
+}
+
+TEST(lock_free_concurrent_vector, push_back)
+{
+	using namespace stk;
+	concurrent_vector<int> v;
+	v.push_back(10);
+	EXPECT_EQ(1, v.size());
+}
+
+TEST(lock_free_concurrent_vector, pop_back)
+{
+	using namespace stk;
+	concurrent_vector<int> v;
+	v.push_back(10);
+	int val;
+	auto r = v.pop_back(val);
+	EXPECT_EQ(10, val);
+	EXPECT_EQ(0, v.size());
+}
+
+TEST(lock_free_concurrent_vector, push_back_10)
+{
+	using namespace stk;
+	concurrent_vector<int> v;
+	for(auto i = 1UL; i < 11; ++i)
+		v.push_back(i);
+	EXPECT_EQ(10, v.size());
+	EXPECT_EQ(14, v.capacity());
+	for(auto i = 0UL; i < 10; ++i)
+		EXPECT_EQ(i+1, v[i]);
+
+}
+
+TEST(lock_free_concurrent_vector, pop_back_on_empty)
+{
+	using namespace stk;
+	concurrent_vector<int> v;
+	int val;
+	EXPECT_FALSE(v.pop_back(val));
+}
+
+TEST(lock_free_concurrent_vector, iteration)
+{
+	using ::testing::ElementsAre;
+	using namespace stk;
+	concurrent_vector<int> v;
+	EXPECT_EQ(v.begin(), v.end());
+	EXPECT_EQ(v.cbegin(), v.cend());
+	EXPECT_EQ(v.cbegin(), v.end());
+
+	for(auto i = 1UL; i < 11; ++i)
+		v.push_back(i);
+
+	EXPECT_THAT(v, ElementsAre(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+}
+
+TEST(lock_free_concurrent_vector, iteration_with_pops_to_premature_end)
+{
+	using ::testing::ElementsAre;
+	using namespace stk;
+	concurrent_vector<int> v;
+
+	std::vector<int> r;
+	for (auto i = 1UL; i < 11; ++i)
+	{
+		v.push_back(i);
+	}
+
+	for(auto it = v.begin(); it != v.end(); ++it)
+	{
+		v.pop_back();
+		r.push_back(*it);
+	}
+
+	EXPECT_THAT(r, ElementsAre(1, 2, 3, 4, 5));
 }
