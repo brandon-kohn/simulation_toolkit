@@ -159,12 +159,12 @@ namespace stk { namespace detail {
                     m_refCounter.fetch_sub(1, std::memory_order_relaxed);
                 );
 
-                if (m_hasNodes.load(std::memory_order_relaxed) && m_refCounter.load(std::memory_order_relaxed) < 1)
+                if (m_hasNodes.load(std::memory_order_relaxed) && m_refCounter.load(std::memory_order_relaxed) <= 1)
                 {
                     std::unique_ptr<std::vector<node_ptr>> toDelete;
                     {
                         auto lk = std::unique_lock<mutex_type>{ m_mtx };
-                        if (m_nodes.get() && m_refCounter.load(std::memory_order_relaxed) < 1)
+                        if (m_nodes.get() && m_refCounter.load(std::memory_order_relaxed) <= 1)
                         {
                             toDelete.swap(m_nodes);
                             m_hasNodes.store(false, std::memory_order_relaxed);
