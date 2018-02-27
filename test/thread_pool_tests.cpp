@@ -19,6 +19,7 @@
 #include <geometrix/utility/scope_timer.ipp>
 #include <geometrix/test/gmessage.hpp>
 #include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info.h>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/thread/task_counter.hpp>
 #include <stk/thread/scalable_task_counter.hpp>

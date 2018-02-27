@@ -15,31 +15,12 @@
 //! publisher = { Morgan Kaufmann Publishers Inc. },
 //! address = { San Francisco, CA, USA },
 //}
-
-//! Multiple improvements were included from studying folly's ConcurrentSkipList:
-/*
-* Copyright 2017 Facebook, Inc.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-// @author: Xin Liu <xliux@fb.com>
-//
-
 #ifndef STK_CONTAINER_LOCK_FREE_CONCURRENT_SKIP_LIST_HPP
 #define STK_CONTAINER_LOCK_FREE_CONCURRENT_SKIP_LIST_HPP
 #pragma once
 
 #include <stk/container/concurrent_skip_list.hpp>
+#include <stk/thread/concurrentqueue.h>
 #include <stk/container/atomic_markable_ptr.hpp>
 #include <memory>
 
@@ -67,8 +48,8 @@ namespace stk { namespace detail {
         {
             enum flag : std::uint8_t
             {
-                          Head = 1
-                        , MarkedForRemoval = (1 << 1)
+                Head = 1
+              , MarkedForRemoval = (1 << 1)
             };
 
             using node_levels = atomic_markable_ptr<node>*;
@@ -113,17 +94,14 @@ namespace stk { namespace detail {
         class node_scope_manager
         {
         public:
+
             node_scope_manager(allocator_type al)
                 : m_nodeAllocator(al)
             {}
 
             ~node_scope_manager()
             {
-                //! There should not be any iterators checked out at this point.
-                GEOMETRIX_ASSERT(m_refCounter.load(std::memory_order_relaxed) == 0);
-                if (m_nodes)
-                    for (auto pNode : *m_nodes)
-                        really_destroy_node(pNode);
+                quiesce(); 
             }
 
             template <typename Data>
@@ -135,15 +113,9 @@ namespace stk { namespace detail {
                 return pNode;
             }
 
-            void destroy_node(node_ptr pNode)
+            void register_node_for_deletion(node_ptr pNode)
             {
-                auto lk = std::unique_lock<mutex_type>{ m_mtx };
-                if (m_nodes)
-                    m_nodes->push_back(pNode);
-                else
-                    m_nodes = boost::make_unique<std::vector<node_ptr>>(1, pNode);
-
-                m_hasNodes.store(true, std::memory_order_relaxed);
+                m_nodes.enqueue(pNode);
             }
 
             void add_checkout()
@@ -153,29 +125,22 @@ namespace stk { namespace detail {
 
             void remove_checkout()
             {
-                STK_MEMBER_SCOPE_EXIT
-                (
-                    GEOMETRIX_ASSERT(m_refCounter > 0);
-                    m_refCounter.fetch_sub(1, std::memory_order_relaxed);
-                );
-
-                if (m_hasNodes.load(std::memory_order_relaxed) && m_refCounter.load(std::memory_order_relaxed) <= 1)
-                {
-                    std::unique_ptr<std::vector<node_ptr>> toDelete;
-                    {
-                        auto lk = std::unique_lock<mutex_type>{ m_mtx };
-                        if (m_nodes.get() && m_refCounter.load(std::memory_order_relaxed) <= 1)
-                        {
-                            toDelete.swap(m_nodes);
-                            m_hasNodes.store(false, std::memory_order_relaxed);
-                        }
-                    }
-                    for (auto pNode : *toDelete)
-                        really_destroy_node(pNode);
-                }
+                GEOMETRIX_ASSERT(m_refCounter > 0);
+                m_refCounter.fetch_sub(1, std::memory_order_relaxed);
             }
 
-            void really_destroy_node(node_ptr pNode)
+            void quiesce()
+            {
+                GEOMETRIX_ASSERT(m_refCounter == 0);
+                std::vector<node_ptr> toDelete;
+                {
+                    m_nodes.try_dequeue_bulk(std::back_inserter(toDelete), toDelete.max_size());
+                }
+                for (auto pNode : toDelete)
+                    delete_node(pNode);
+            }
+
+            void delete_node(node_ptr pNode)
             {
                 std::size_t aSize = sizeof(node) + (pNode->get_top_level() + 1) * sizeof(atomic_markable_ptr<node>);
                 pNode->~node();
@@ -187,14 +152,12 @@ namespace stk { namespace detail {
             using node_allocator = typename allocator_type::template rebind<std::uint8_t>::other;   // allocator object for nodes is a byte allocator.
             node_allocator m_nodeAllocator;
             std::atomic<std::uint32_t> m_refCounter{ 0 };
-            std::unique_ptr<std::vector<node_ptr>> m_nodes;
-            std::atomic<bool> m_hasNodes{ false };
-            mutex_type m_mtx;
+            moodycamel::ConcurrentQueue<node_ptr> m_nodes;
         };
 
         lf_skip_list_node_manager(key_compare p, allocator_type al)
             : AssociativeTraits(al)
-                        , m_compare(p)
+            , m_compare(p)
             , m_scopeManager(std::make_shared<node_scope_manager>(al))
         {}
 
@@ -212,14 +175,14 @@ namespace stk { namespace detail {
                 pNew->next(i).store_raw(pHead->next(i).load_raw());
         }
 
-        void destroy_node(node_ptr pNode)
+        void register_node_for_deletion(node_ptr pNode)
         {
-            m_scopeManager->destroy_node(pNode);
+            m_scopeManager->register_node_for_deletion(pNode);
         }
 
-        void really_destroy_node(node_ptr pNode)
+        void delete_node(node_ptr pNode)
         {
-            m_scopeManager->really_destroy_node(pNode);
+            m_scopeManager->delete_node(pNode);
         }
 
         key_compare key_comp() const { return this->m_compare; }
@@ -250,8 +213,8 @@ class lock_free_concurrent_skip_list : public detail::lf_skip_list_node_manager<
     using node_scope_manager = typename base_type::node_scope_manager;
     using base_type::get_scope_manager;
     using base_type::create_node;
-    using base_type::destroy_node;
-    using base_type::really_destroy_node;
+    using base_type::register_node_for_deletion;
+    using base_type::delete_node;
     using base_type::less;
     using base_type::equal;
     using base_type::resolve_key;
@@ -295,35 +258,45 @@ public:
 
         node_iterator(const node_iterator& other)
             : m_pNode(other.m_pNode)
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             , m_pNodeManager(other.m_pNodeManager)
+#endif
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 acquire();
+#endif
         }
 
         node_iterator& operator = (const node_iterator& rhs)
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode && !rhs.m_pNode)
                 release();
             m_pNodeManager = rhs.m_pNodeManager;
             if (!m_pNode && rhs.m_pNode)
                 acquire();
+#endif
             m_pNode = rhs.m_pNode;
             return *this;
         }
 
         node_iterator(node_iterator&& other)
             : m_pNode(other.m_pNode)
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             , m_pNodeManager(std::move(other.m_pNodeManager))
+#endif
         {
             other.m_pNode = nullptr;
         }
 
         node_iterator& operator = (node_iterator&& rhs)
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 release();
             m_pNodeManager = std::move(rhs.m_pNodeManager);
+#endif
             m_pNode = rhs.m_pNode;
             rhs.m_pNode = nullptr;
             return *this;
@@ -331,16 +304,22 @@ public:
 
         explicit node_iterator( const std::shared_ptr<node_scope_manager>& pNodeManager, node_ptr pNode )
             : m_pNode( pNode )
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             , m_pNodeManager(pNodeManager)
+#endif
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 pNodeManager->add_checkout();
+#endif
         }
 
         ~node_iterator()
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 release();
+#endif
         }
 
     private:
@@ -354,6 +333,7 @@ public:
 
         friend class boost::iterator_core_access;
 
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
         void release()
         {
             GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
@@ -369,14 +349,17 @@ public:
             if (pMgr)
                 pMgr->add_checkout();
         }
+#endif
 
         void increment()
         {
             if (m_pNode)
             {
                 m_pNode = m_pNode->next(0).get_ptr();
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
                 if (!m_pNode)
                     release();
+#endif
             }
         }
 
@@ -393,7 +376,9 @@ public:
         }
 
         node_ptr m_pNode{ nullptr };
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
         std::weak_ptr<node_scope_manager> m_pNodeManager;
+#endif
     };
 
     struct const_iterator;
@@ -619,7 +604,7 @@ public:
                     {
                         nodeToRemove->set_marked_for_removal();
                         find(x, preds, succs);
-                        destroy_node(nodeToRemove);
+                        register_node_for_deletion(nodeToRemove);
                         decrement_size();
                         return iterator(get_scope_manager(), succs[bottomLevel]);
                     }
@@ -636,8 +621,6 @@ public:
             return erase(resolve_key(*it));
         return end();
     }
-
-
 
     //! Clear is thread-safe in the strict sense of not invalidating iterators, but the results are
     //! not well defined in the presence of other writers.
@@ -656,6 +639,11 @@ public:
     //! Returns empty state at any given moment. This can be volatile in the presence of writers in other threads.
     bool empty() const { return size() == 0; }
 
+    void quiesce()
+    {
+        get_scope_manager()->quiesce();
+    }
+
 protected:
 
     node_ptr left_most() const
@@ -671,7 +659,7 @@ protected:
         while (pCurr)
         {
             auto pNext = pCurr->next(0).get_ptr();
-            really_destroy_node(pCurr);
+            delete_node(pCurr);
             pCurr = pNext;
         }
     }
@@ -753,7 +741,7 @@ protected:
                 auto expectedStamp = mark_type{ 0 };
                 if( !pred->next(bottomLevel).compare_exchange_strong(expectedPtr, expectedStamp, pNewNode, 0) )
                 {
-                    really_destroy_node(pNewNode);
+                    delete_node(pNewNode);
                     continue;
                 }
 
@@ -817,7 +805,7 @@ protected:
                 auto expectedStamp = mark_type{ 0 };
                 if( !pred->next(bottomLevel).compare_exchange_strong(expectedPtr, expectedStamp, pNewNode, 0) )
                 {
-                    really_destroy_node(pNewNode);
+                    delete_node(pNewNode);
                     continue;
                 }
 
@@ -862,12 +850,12 @@ protected:
             auto expected = pHead;
             if (!m_pHead.compare_exchange_strong(expected, pNew, std::memory_order_release))
             {
-                really_destroy_node(pNew);
+                delete_node(pNew);
                 return;
             }
             pHead->set_marked_for_removal();
         }
-        destroy_node(pHead);
+        register_node_for_deletion(pHead);
     }
 
     std::atomic<node_ptr> m_pHead;

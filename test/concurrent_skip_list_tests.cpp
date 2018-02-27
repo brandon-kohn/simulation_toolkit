@@ -335,6 +335,7 @@ void bash_map(Pool& pool, const char* name)
 			}));
 		}
 		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+		m.quiesce();
 	}
 
 	for (auto i = 0; i < 100000; ++i)
@@ -377,6 +378,7 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 			}));
 		}
 		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+		m.quiesce();
 	}
 
 	for (auto i = 0; i < 100000; ++i)
@@ -388,6 +390,7 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 }
 
 #include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info.h>
 int nTimingRuns = 5;
 TEST(concurrent_skip_list_tests, bash_map_work_stealing)
 {
@@ -453,6 +456,7 @@ void bash_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
 			}));
 		}
 		boost::for_each(fs, [](const future_t& f) { f.wait(); });
+		m.quiesce();
 	}
 
 	for (auto i = 0; i < 100000; ++i)

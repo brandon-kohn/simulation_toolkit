@@ -23,6 +23,7 @@
 #include <geometrix/utility/scope_timer.ipp>
 
 #include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info.h>
 
 #include <thread>
 #include <chrono>
@@ -390,7 +391,7 @@ TEST(lock_free_concurrent_vector, construct)
 	using namespace stk;
 	concurrent_vector<int> v;
 	EXPECT_EQ(0, v.size());
-	EXPECT_EQ(2, v.capacity());
+	EXPECT_GE(2, v.capacity());
 }
 
 TEST(lock_free_concurrent_vector, construct_reserve)
@@ -505,4 +506,83 @@ TEST(lock_free_concurrent_vector, iteration_with_pops_to_premature_end)
 	}
 
 	EXPECT_THAT(r, ElementsAre(1, 2, 3, 4, 5));
+}
+
+TEST(lock_free_concurrent_vector, iterations_up_and_back)
+{
+	using ::testing::ElementsAre;
+	using namespace stk;
+	concurrent_vector<int> v;
+
+	std::vector<int> r;
+	for (auto i = 1UL; i < 11; ++i)
+	{
+		v.push_back(i);
+	}
+
+	auto it = v.begin();
+	for (; it != v.end(); ++it);
+	for (; it != v.begin(); --it);
+
+	EXPECT_EQ(it, v.begin());
+}
+
+#include <stk/thread/work_stealing_thread_pool.hpp>
+#include <stk/thread/concurrentqueue.h>
+TEST(lock_free_concurrent_vector, bash_concurrency_test)
+{
+	using namespace stk;
+	using namespace stk::thread;
+
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+
+	auto nItems = 10000UL;
+
+	concurrent_vector<int> v;
+	for (auto i = 0UL; i < 20; ++i)
+	{
+		pool.parallel_apply(nItems, [&v](int q) {
+			v.push_back(q);
+			v.pop_back();
+			v.push_back(q);
+		});
+		v.quiesce();
+
+		EXPECT_EQ((i+1) * nItems, v.size());
+	}
+		
+	EXPECT_EQ(20 * nItems, v.size());
+}
+
+TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
+{
+	using namespace stk;
+	using namespace stk::thread;
+
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+
+	auto nItems = 10000UL;
+
+	std::mutex mtx;
+	std::vector<int> v;
+	for (auto i = 0UL; i < 20; ++i)
+	{
+		pool.parallel_apply(nItems, [&mtx, &v](int q) {
+			{
+				auto lk = std::unique_lock<std::mutex>{ mtx };
+			    v.push_back(q);
+			}
+			{
+				auto lk = std::unique_lock<std::mutex>{ mtx };
+			    v.pop_back();
+			}
+			{
+				auto lk = std::unique_lock<std::mutex>{ mtx };
+			    v.push_back(q);
+			}
+		});
+		EXPECT_EQ((i+1) * nItems, v.size());
+	}
+		
+	EXPECT_EQ(20 * nItems, v.size());
 }

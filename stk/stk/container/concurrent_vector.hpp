@@ -22,12 +22,12 @@
 #pragma once
 
 #include <stk/container/atomic_stampable_ptr.hpp>
-#include <stk/container/ref_count_node_manager.hpp>
+#include <stk/container/node_deletion_manager.hpp>
 #include <memory>
 
 namespace stk { namespace detail {
 
-        inline constexpr std::uint8_t hibit(std::uint32_t val)
+        inline std::uint8_t hibit(std::uint32_t val)
         {
 			std::uint8_t k = 0;
 			if (val > 0x0000FFFFu) { val >>= 16; k = 16; }
@@ -38,7 +38,7 @@ namespace stk { namespace detail {
 			return k;
         }
 
-        inline constexpr std::uint8_t hibit(std::uint64_t n)
+        inline std::uint8_t hibit(std::uint64_t n)
         {
 			std::uint32_t r = n >> 32;
 			if (r)
@@ -71,7 +71,7 @@ namespace stk { namespace detail {
 			};
 
             using node_allocator = typename allocator_type::template rebind<node>::other;
-			using node_manager = ref_count_node_manager<node, node_allocator>;
+			using node_manager = node_deletion_manager<node, node_allocator>;
 
 			using node_ptr = node*;
 
@@ -138,7 +138,7 @@ namespace stk { namespace detail {
 
         struct descriptor
         {
-			descriptor(size_type s)
+			descriptor(size_type s = 0)
 				: size(s)
 				, state(flags::read)
 			{}
@@ -151,6 +151,42 @@ namespace stk { namespace detail {
 				, state(flags::write_pending)
             {}
 
+			descriptor(const descriptor& rhs)
+				: size(rhs.size)
+				, old_value(rhs.old_value)
+				, new_value(rhs.new_value)
+				, location(rhs.location)
+				, state(rhs.state.load(std::memory_order_relaxed))
+			{}
+
+			descriptor& operator =(const descriptor& rhs)
+			{
+				size = rhs.size;
+				old_value = rhs.old_value;
+				new_value = rhs.new_value;
+				location = rhs.location;
+				state.store(rhs.state.load(std::memory_order_relaxed), std::memory_order_relaxed);
+				return *this;
+			}
+
+			descriptor(descriptor&& rhs)
+				: size(rhs.size)
+				, old_value(rhs.old_value)
+				, new_value(rhs.new_value)
+				, location(rhs.location)
+				, state(rhs.state.load(std::memory_order_relaxed))
+			{}
+
+			descriptor& operator =(descriptor&& rhs)
+			{
+				size = rhs.size;
+				old_value = rhs.old_value;
+				new_value = rhs.new_value;
+				location = rhs.location;
+				state.store(rhs.state.load(std::memory_order_relaxed), std::memory_order_relaxed);
+				return *this;
+			}
+
 			flags get_state() const { return state.load(std::memory_order_relaxed); }
 			void set_state(flags f) { state.store(f, std::memory_order_relaxed); }
 
@@ -162,7 +198,8 @@ namespace stk { namespace detail {
         };
 
         using desc_allocator = typename allocator_type::template rebind<descriptor>::other;
-
+		using desc_manager = stk::node_deletion_manager<descriptor, desc_allocator>;
+		
 		template <typename T>
 		class node_iterator;
 
@@ -175,7 +212,7 @@ namespace stk { namespace detail {
 			<
 			    node_iterator<T>
 			  , T
-			  , boost::forward_traversal_tag
+			  , boost::bidirectional_traversal_tag
 			>
 		{
 		public:
@@ -184,68 +221,84 @@ namespace stk { namespace detail {
 
 			node_iterator()
 				: m_pNode()
+				, m_index((std::numeric_limits<size_type>::max)())
 			{}
 
 			node_iterator(const node_iterator& other)
 				: m_pNode(other.m_pNode)
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				, m_pNodeManager(other.m_pNodeManager)
+#endif
 				, m_pMyVector(other.m_pMyVector)
+				, m_index(other.m_index)
 			{
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				if (m_pNode)
 					acquire();
+#endif
 			}
 
 			node_iterator& operator = (const node_iterator& rhs)
 			{
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				if (m_pNode && !rhs.m_pNode)
 					release();
 				m_pNodeManager = rhs.m_pNodeManager;
 				if (!m_pNode && rhs.m_pNode)
 					acquire();
+#endif
+				m_pMyVector = rhs.m_pMyVector;
 				m_pNode = rhs.m_pNode;
+				m_index = other.m_index;
 				return *this;
 			}
 
 			node_iterator(node_iterator&& other)
 				: m_pNode(other.m_pNode)
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				, m_pNodeManager(std::move(other.m_pNodeManager))
+#endif
 				, m_pMyVector(other.m_pMyVector)
+				, m_index(other.m_index)
 			{
 				other.m_pNode = nullptr;
-				other.m_pMyVector = nullptr;
+				other.m_index = (std::numeric_limits<size_type>::max)();
 			}
 
 			node_iterator& operator = (node_iterator&& rhs)
 			{
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				if (m_pNode)
 					release();
 				m_pNodeManager = std::move(rhs.m_pNodeManager);
+#endif
 				m_pMyVector = rhs.m_pMyVector;
 				m_pNode = rhs.m_pNode;
 				rhs.m_pNode = nullptr;
-				rhs.m_pMyVector = nullptr;
+				rhs.m_index = (std::numeric_limits<size_type>::max)();
 				return *this;
 			}
 
-			explicit node_iterator(concurrent_vector<value_type, alloc_type>* myVector)
-				: m_pNode(nullptr)
-                , m_pMyVector(myVector)
-			{}
-
-			explicit node_iterator(concurrent_vector<value_type, alloc_type>* myVector, const std::shared_ptr<node_manager>& pNodeManager, node_ptr pNode, size_type index)
+			explicit node_iterator(concurrent_vector<value_type, alloc_type>* myVector, node_ptr pNode, size_type index)
 				: m_pNode(pNode)
-				, m_pNodeManager(pNodeManager)
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
+				, m_pNodeManager(myVector->get_scope_manager())
+#endif
                 , m_pMyVector(myVector)
 				, m_index(index)
 			{
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				if (m_pNode)
-					pNodeManager->add_checkout();
+					acquire();
+#endif
 			}
 
 			~node_iterator()
 			{
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 				if (m_pNode)
 					release();
+#endif
 			}
 
 		private:
@@ -259,6 +312,7 @@ namespace stk { namespace detail {
 
 			friend class boost::iterator_core_access;
 
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 			void release()
 			{
 				GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
@@ -274,25 +328,64 @@ namespace stk { namespace detail {
 				if (pMgr)
 					pMgr->add_checkout();
 			}
+#endif
 
 			void increment()
 			{
-				if (m_pMyVector && m_pNode)
+				if (m_pMyVector)
 				{
+					bool hadNode = m_pNode != nullptr;
+
 					//! node deletion is disabled here. So even if the size changes between 
 					//! the time of this acquisition; the node will be valid. Even if the
 					//! size is not.
 					auto p = m_pMyVector->at_impl(++m_index);
-					m_pNode = (m_index < m_pMyVector->size() && p) ? p->load() : nullptr;
+					auto size = m_pMyVector->size();
+					GEOMETRIX_ASSERT(m_index <= size);//! should not increment past the end of the container.
+					m_pNode = (m_index < size && p) ? p->load() : nullptr;
 						
-					if (!m_pNode)
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
+					if (hadNode && !m_pNode)
 						release();
+					else if (!hadNode && m_pNode)
+						acquire();
+#endif
+				}
+			}
+			
+			void decrement()
+			{
+				if (m_pMyVector)
+				{
+					bool hadNode = m_pNode != nullptr;
+					//! node deletion is disabled here. So even if the size changes between 
+					//! the time of this acquisition; the node will be valid. Even if the
+					//! size is not.
+					if (m_index > 0)
+					{
+						auto p = m_pMyVector->at_impl(--m_index);
+						m_pNode = (m_index-- >= 0 && p) ? p->load() : nullptr;
+					}
+					else
+					{
+						GEOMETRIX_ASSERT(false);//! Should not decrement an iterator pointing to the 0th index.
+						m_pNode = nullptr;
+						m_index = (std::numeric_limits<size_type>::max)();
+					}
+
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
+					if (hadNode && !m_pNode)
+						release();
+					else if (!hadNode && m_pNode)
+						acquire();
+#endif
 				}
 			}
 
-			bool equal(node_iterator<T> const& other) const
+			template <typename U>
+			bool equal(node_iterator<U> const& other) const
 			{
-				return m_pNode == other.m_pNode;
+				return (m_index == other.m_index || m_pNode == other.m_pNode) && m_pMyVector == other.m_pMyVector;
 			}
 
 			//! Not thread safe.
@@ -303,10 +396,24 @@ namespace stk { namespace detail {
 			}
 
 			node_ptr m_pNode{ nullptr };
+#ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
 			std::weak_ptr<node_manager> m_pNodeManager;
+#endif
 			concurrent_vector<value_type, alloc_type>* m_pMyVector{ nullptr };
 			size_type m_index;
 		};
+
+		template <typename U, typename Alloc>
+		static U* allocate(Alloc& al, std::size_t n)
+		{
+			return typename std::allocator_traits<Alloc>::template rebind_alloc<U>(al).allocate(n);
+		}
+
+		template <typename U, typename Alloc>
+		static void deallocate(Alloc& al, U* u, std::size_t n)
+		{
+			typename std::allocator_traits<Alloc>::template rebind_alloc<U>(al).deallocate(u, n);
+		}
 
     public:
 	
@@ -323,24 +430,20 @@ namespace stk { namespace detail {
 			iterator(iterator&&) = default;
 			iterator& operator=(iterator&&) = default;
 
-			iterator(concurrent_vector<value_type, alloc_type>* myVector)
-				: node_iterator< value_type >(myVector)
-			{}
-
-			iterator(concurrent_vector<value_type, alloc_type>* myVector, const std::shared_ptr<node_manager>& pMgr, node_ptr pNode, size_type index)
-				: node_iterator< value_type >(myVector, pMgr, pNode, index)
+			iterator(concurrent_vector<value_type, alloc_type>* myVector, node_ptr pNode, size_type index)
+				: node_iterator< value_type >(myVector, pNode, index)
 			{}
 
 			template <typename U>
 			bool operator ==(node_iterator<U> const& other) const
 			{
-				return this->m_pNode == other.m_pNode;
+				return equal(other);
 			}
 
 			template <typename U>
 			bool operator !=(node_iterator<U> const& other) const
 			{
-				return this->m_pNode != other.m_pNode;
+				return !equal(other);// this->m_pNode != other.m_pNode;
 			}
 		};
 
@@ -355,12 +458,8 @@ namespace stk { namespace detail {
 			const_iterator(const_iterator&&) = default;
 			const_iterator& operator=(const_iterator&&) = default;
 
-			const_iterator(const concurrent_vector<value_type, alloc_type>* myVector)
-				: node_iterator<const value_type>(const_cast<concurrent_vector<value_type, alloc_type>*>(myVector))
-			{}
-
-			const_iterator(const concurrent_vector<value_type, alloc_type>* myVector, const std::shared_ptr<node_manager>& pMgr, node_ptr pNode, size_type index)
-				: node_iterator<const value_type>(const_cast<concurrent_vector<value_type, alloc_type>*>(myVector), pMgr, pNode, index)
+			const_iterator(const concurrent_vector<value_type, alloc_type>* myVector, node_ptr pNode, size_type index)
+				: node_iterator<const value_type>(const_cast<concurrent_vector<value_type, alloc_type>*>(myVector), pNode, index)
 			{}
 
 			const_iterator(iterator const& other)
@@ -375,56 +474,59 @@ namespace stk { namespace detail {
 
 			bool operator ==(iterator const& other) const
 			{
-				return this->m_pNode == other.m_pNode;
+				return equal(other);// this->m_pNode == other.m_pNode;
 			}
 
 			bool operator ==(const_iterator const& other) const
 			{
-				return this->m_pNode == other.m_pNode;
+				return equal(other);// this->m_pNode == other.m_pNode;
 			}
 
 			bool operator !=(iterator const& other) const
 			{
-				return this->m_pNode != other.m_pNode;
+				return !equal(other);// this->m_pNode != other.m_pNode;
 			}
 
 			bool operator !=(const_iterator const& other) const
 			{
-				return this->m_pNode != other.m_pNode;
+				return !equal(other);// this->m_pNode != other.m_pNode;
 			}
 		};
 
-		concurrent_vector() noexcept(noexcept(alloc_type()))
+		concurrent_vector()
 			: concurrent_vector(alloc_type())
 		{}
 
-		explicit concurrent_vector(const alloc_type& al)
+		explicit concurrent_vector(const alloc_type& al) 
 			: base_t(al)
-			, m_descriptor(std::allocate_shared<descriptor>(al, 0))
-            , m_array(new bucket_ptr[1](), 1)
+			, m_desc_manager(al)
+			, m_descriptor(m_desc_manager.create_node(0))
+            , m_array(allocate<bucket_ptr>(al, 1), 1)
 			, m_alloc(al)
         {
-			m_array.get_ptr()[0] = new atomic_t[first_bucket_size]();
+			m_array.get_ptr()[0] = allocate<atomic_t>(m_alloc, first_bucket_size);
         }
 
         explicit concurrent_vector(reserve_arg_t, size_type s, const alloc_type& al = alloc_type())
 			: base_t(al)
-			, m_descriptor(std::allocate_shared<descriptor>(al, 0))
-            , m_array(new bucket_ptr[1](), 1)
+			, m_desc_manager(al)
+			, m_descriptor(m_desc_manager.create_node(0))
+            , m_array(allocate<bucket_ptr>(al, 1), 1)
 			, m_alloc(al)
         {
-			m_array.get_ptr()[0] = new atomic_t[first_bucket_size]();
+			m_array.get_ptr()[0] = allocate<atomic_t>(m_alloc, first_bucket_size);
 			reserve(s);
         }
 
 		template <typename Generator>
 		explicit concurrent_vector(generator_arg_t, size_type s, Generator&& gen, const alloc_type& al = alloc_type())
 			: base_t(al)
-			, m_descriptor(std::allocate_shared<descriptor>(al, 0))
-            , m_array(new bucket_ptr[1](), 1)
+			, m_desc_manager(al)
+			, m_descriptor(m_desc_manager.create_node(0))
+            , m_array(allocate<bucket_ptr>(al, 1), 1)
 			, m_alloc(al)
         {
-			m_array.get_ptr()[0] = new atomic_t[first_bucket_size]();
+			m_array.get_ptr()[0] = allocate<atomic_t>(m_alloc, first_bucket_size);
 			generate_impl(s, std::forward<Generator>(gen));
         }
 
@@ -448,13 +550,16 @@ namespace stk { namespace detail {
 		//! The destructor is not thread safe.
         ~concurrent_vector() noexcept
         {
-			bucket_array pArray;
+	    	bucket_array pArray;
 			bucket_size_t aSize;
 			std::tie(pArray, aSize) = m_array.load(std::memory_order_relaxed);
 			for (auto i = 0UL; i < aSize; ++i)
-				delete[] pArray[i];
+			{
+				auto sizeI = get_bucket_size(i);
+				deallocate<atomic_t>(m_alloc, pArray[i], sizeI);
+			}
 
-			delete[] pArray;
+			deallocate<bucket_ptr>(m_alloc, pArray, aSize);
         }
 
 		//! The reference returned is only safe if nodes are not being deleted concurrently.
@@ -503,11 +608,39 @@ namespace stk { namespace detail {
 			throw std::out_of_range("index out of bounds");
         }
 
-		template <typename U>
-        void push_back(U&& u)
+		reference front() 
+		{
+			GEOMETRIX_ASSERT(!empty());
+			return this->operator[](0); 
+		}
+
+		const_reference front() const 
+		{
+			GEOMETRIX_ASSERT(!empty());
+			return this->operator[](0); 
+		}
+
+		reference back()
+		{ 
+			auto pCurr = get_descriptor();
+			GEOMETRIX_ASSERT(pCurr->size > 0);
+			return *at_impl(pCurr->size - 1)->load();
+		}
+
+		const_reference back() const 
+        { 
+			auto pCurr = get_descriptor();
+			GEOMETRIX_ASSERT(pCurr->size > 0);
+			return *at_impl(pCurr->size - 1)->load();
+		}
+
+		template <typename... Args>
+        void emplace_back(Args&&... a)
         {
-			std::shared_ptr<descriptor> newDesc, pCurr;
-			auto pNode = create_node(std::forward<U>(u));
+			descriptor* pCurr;
+			auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
+			std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
+			auto pNode = create_node(std::forward<Args>(a)...);
             do
             {
                 pCurr = get_descriptor();
@@ -518,20 +651,25 @@ namespace stk { namespace detail {
 				std::tie(oldArray, oldSize) = m_array.load(std::memory_order_relaxed);
 			    if(oldSize <= bucket)
                     allocate_bucket(oldArray, oldSize);
-                newDesc = std::allocate_shared<descriptor>(m_alloc, pCurr->size + 1, at_impl(pCurr->size)->load(), pNode, pCurr->size);
+				*newDesc = descriptor(pCurr->size + 1, at_impl(pCurr->size)->load(), pNode, pCurr->size);
             }
-            while(!std::atomic_compare_exchange_weak(&m_descriptor, &pCurr, newDesc));
+            while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
+			m_desc_manager.register_node_to_delete(pCurr);
 			complete_write(*newDesc);
+			newDesc.release();
         }
+
+		template <typename U>
+        void push_back(U&& u)
+        {
+			emplace_back(u);
+		}
 
         bool pop_back(T& value)
         {
-			std::shared_ptr<descriptor> newDesc, pCurr;
-
-			//! Disable deletions while popping.
-			get_scope_manager()->add_checkout();
-			STK_SCOPE_EXIT(get_scope_manager()->remove_checkout());
-			
+			descriptor* pCurr;
+			auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
+			std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
 			node_ptr pNode;
             do
             {
@@ -540,20 +678,24 @@ namespace stk { namespace detail {
 				if (pCurr->size > 0)
 				{
 					pNode = at_impl(pCurr->size - 1)->load();
-					newDesc = std::allocate_shared<descriptor>(m_alloc, pCurr->size - 1);
+					*newDesc = descriptor(pCurr->size - 1);
 				}
 				else
 					return false;
             }
-            while(!std::atomic_compare_exchange_weak(&m_descriptor, &pCurr, newDesc));
+            while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
             value = std::move(pNode->value());
+			m_desc_manager.register_node_to_delete(pCurr);
+			newDesc.release();
 			register_node_for_deletion(pNode);
 			return true;
         }
 
 		void pop_back()
         {
-			std::shared_ptr<descriptor> newDesc, pCurr;
+			descriptor* pCurr;
+			auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
+			std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
 			node_ptr pNode;
             do
             {
@@ -562,13 +704,15 @@ namespace stk { namespace detail {
 				if (pCurr->size > 0)
 				{
 					pNode = at_impl(pCurr->size - 1)->load();
-					newDesc = std::allocate_shared<descriptor>(m_alloc, pCurr->size - 1);
+					*newDesc = descriptor(pCurr->size - 1);
 				}
 				else
 					return;
             }
-            while(!std::atomic_compare_exchange_weak(&m_descriptor, &pCurr, newDesc));
+            while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
 			register_node_for_deletion(pNode);
+			newDesc.release();
+			m_desc_manager.register_node_to_delete(pCurr);
         }
 
 		//! This should not be called by multiple threads. It's likely safe, but will be contentious and do a lot of new/delete ping-ponging.
@@ -607,43 +751,42 @@ namespace stk { namespace detail {
 		iterator begin() 
 		{
 			auto pNode = at_impl(0)->load(std::memory_order_relaxed);
-			return iterator(this, get_scope_manager(), pNode, 0);
+			return iterator(this, pNode, 0);
 		}
 
 		const_iterator begin() const
 		{
 			auto pNode = at_impl(0)->load(std::memory_order_relaxed);
-			return const_iterator(this, get_scope_manager(), pNode, 0);
+			return const_iterator(this, pNode, 0);
 		}
 
         const_iterator cbegin() const
 		{
 			auto pNode = at_impl(0)->load(std::memory_order_relaxed);
-			return const_iterator(this, get_scope_manager(), pNode, 0);
+			return const_iterator(this, pNode, 0);
 		}
 
 		iterator end() 
 		{
-			return iterator(this);
+			return iterator(this, nullptr, size());
 		}
 
 		const_iterator end() const
 		{
-			return const_iterator(this);
+			return const_iterator(this, nullptr, size());
 		}
 
         const_iterator cend() const
 		{
-			return const_iterator(this);
+			return const_iterator(this, nullptr, size());
 		}
 
 		size_type capacity() const
 		{
-			size_type s = first_bucket_size;
-			std::uint32_t exponent = detail::hibit(first_bucket_size);
+			size_type s = 0;
 			auto nBuckets = m_array.get_stamp();
-			for (auto i = 1UL; i < nBuckets; ++i)
-				s += (1 << ++exponent);
+			for (auto i = 0UL; i < nBuckets; ++i)
+				s += get_bucket_size(i);
 			return s;
 		}
 
@@ -653,7 +796,37 @@ namespace stk { namespace detail {
 				pop_back();
 		}
 
+        void quiesce()
+        {
+            get_scope_manager()->quiesce();
+            m_desc_manager.quiesce();
+        }
+
     private:
+
+		//! Returns -1 if the index is the beginning of a new bucket. Return 1 if the index is that last of the bucket. Returns 0 otherwise.
+		int is_at_bucket_boundary(size_type i) const
+		{
+			size_type bucket, idx;
+			std::tie(bucket, idx) = get_bucket_index_and_offset(i);
+			if (idx)
+				return ((idx + 1) != get_bucket_size(bucket)) ? 0 : 1;
+
+			return -1;
+		}
+
+		size_type get_bucket_size(size_type bidx) const
+		{
+			return first_bucket_size << bidx;
+		}
+
+		std::tuple<size_type, size_type> get_bucket_index_and_offset(size_type i) const
+		{
+			size_type pos = i + first_bucket_size;
+			size_type hbit = detail::hibit(pos);
+            size_type idx = pos ^ (1 << hbit);
+			return std::make_tuple(hbit - detail::hibit(first_bucket_size), idx);
+		}
 
         atomic_t* at_impl(size_type i) const
         {
@@ -667,7 +840,8 @@ namespace stk { namespace detail {
         {
             if(desc.get_state() == flags::write_pending)
             {
-                if(at_impl(desc.location)->compare_exchange_strong(desc.old_value, desc.new_value));
+				auto expected = desc.old_value;
+                if(at_impl(desc.location)->compare_exchange_strong(expected, desc.new_value));
 					desc.set_state(flags::write_complete);
             }
         }
@@ -675,25 +849,26 @@ namespace stk { namespace detail {
         void allocate_bucket(bucket_array oldArray, bucket_size_t oldSize)
         {
 			//! Allocate a new array of bucket pointers.
-			auto newArray = new bucket_ptr[oldSize + 1];
+			auto newArray = allocate<bucket_ptr>(m_alloc, oldSize + 1);
 
 			//! Copy the old pointers over.
 			std::copy(oldArray, oldArray + oldSize, newArray);
 
 			//! Create and add the new bucket.
-            auto bucket_size = (first_bucket_size) << (oldSize + 1);
-			auto newBucket = new atomic_t[bucket_size]();//m_alloc.allocate(bucket_size);
-			newArray[oldSize] = newBucket;
+			auto newIndex = oldSize;
+			auto bucket_size = get_bucket_size(newIndex);
+			auto newBucket = allocate<atomic_t>(m_alloc, bucket_size);
+			newArray[newIndex] = newBucket;
 			if (!m_array.compare_exchange_strong(oldArray, oldSize, newArray, oldSize + 1))
 			{
-				delete[] newBucket;//m_alloc.deallocate(mem, bucket_size);
-				delete[] newArray;
+				deallocate<bucket_ptr>(m_alloc, newArray, oldSize + 1);
+				deallocate<atomic_t>(m_alloc, newBucket, bucket_size);
 			}
         }
 
-		std::shared_ptr<descriptor> get_descriptor() const
+		descriptor* get_descriptor() const
 		{
-			return std::atomic_load(&m_descriptor);
+			return m_descriptor.load(std::memory_order_relaxed);
 		}
 
 	    template <typename Generator>	
@@ -722,7 +897,8 @@ namespace stk { namespace detail {
 			pCurr->size = s;
 		}
 
-        mutable std::shared_ptr<descriptor> m_descriptor;
+		mutable desc_manager                m_desc_manager;
+        mutable std::atomic<descriptor*>    m_descriptor;
 		atomic_stampable_ptr<bucket_ptr>    m_array;
 		alloc_type                          m_alloc;
 

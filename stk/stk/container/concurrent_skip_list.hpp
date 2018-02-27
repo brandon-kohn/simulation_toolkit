@@ -222,9 +222,8 @@ namespace stk {
         {
             //! There should not be any iterators checked out at this point.
             GEOMETRIX_ASSERT(m_refCounter.load(std::memory_order_relaxed) == 0);
-            if (m_nodes)
-                for (auto pNode : *m_nodes)
-                    really_destroy_node(pNode);
+            for (auto pNode : m_nodes)
+                delete_node(pNode);
         }
 
         template <typename Data>
@@ -236,47 +235,28 @@ namespace stk {
             return pNode;
         }
 
-        void destroy_node(node_ptr pNode)
+        void register_node_for_deletion(node_ptr pNode)
         {
             auto lk = std::unique_lock<mutex_type>{ m_mtx };
-            if (m_nodes)
-                m_nodes->push_back(pNode);
-            else
-                m_nodes = boost::make_unique<std::vector<node_ptr>>(1, pNode);
-
-            m_hasNodes.store(true, std::memory_order_relaxed);
+            m_nodes.push_back(pNode);
         }
 
-        void add_checkout()
-        {
-            m_refCounter.fetch_add(1, std::memory_order_relaxed);
-        }
+		void add_checkout() { m_refCounter.fetch_add(1, std::memory_order_relaxed); }
+		void remove_checkout() { m_refCounter.fetch_sub(1, std::memory_order_relaxed); }
 
-        void remove_checkout()
+        void quiesce()
         {
-            STK_MEMBER_SCOPE_EXIT
-            (
-                GEOMETRIX_ASSERT(m_refCounter > 0);
-                m_refCounter.fetch_sub(1, std::memory_order_relaxed);
-            );
-
-            if (m_hasNodes.load(std::memory_order_relaxed) && m_refCounter.load(std::memory_order_relaxed) <= 1)
+			GEOMETRIX_ASSERT(m_refCounter == 0);
+            std::vector<node_ptr> toDelete;
             {
-                std::unique_ptr<std::vector<node_ptr>> toDelete;
-                {
-                    auto lk = std::unique_lock<mutex_type>{ m_mtx };
-                    if (m_nodes.get() && m_refCounter.load(std::memory_order_relaxed) <= 1)
-                    {
-                        toDelete.swap(m_nodes);
-                        m_hasNodes.store(false, std::memory_order_relaxed);
-                    }
-                }
-                for (auto pNode : *toDelete)
-                    really_destroy_node(pNode);
+                auto lk = std::unique_lock<mutex_type>{ m_mtx };
+                toDelete.swap(m_nodes);
             }
+            for (auto pNode : toDelete)
+                delete_node(pNode);
         }
 
-        void really_destroy_node(node_ptr pNode)
+        void delete_node(node_ptr pNode)
         {
             std::size_t aSize = sizeof(node) + (pNode->get_top_level() + 1) * sizeof(std::atomic<node_ptr>);
             pNode->~node();
@@ -288,8 +268,7 @@ namespace stk {
         using node_allocator = typename allocator_type::template rebind<std::uint8_t>::other;   // allocator object for nodes is a byte allocator.
         node_allocator m_nodeAllocator;
         std::atomic<std::uint32_t> m_refCounter{ 0 };
-        std::unique_ptr<std::vector<node_ptr>> m_nodes;
-        std::atomic<bool> m_hasNodes{ false };
+        std::vector<node_ptr> m_nodes;
         mutex_type m_mtx;
     };
 
@@ -313,14 +292,14 @@ namespace stk {
             pNew->set_next(i, pHead->next(i));
     }
 
-    void destroy_node( node_ptr pNode )
+    void register_node_for_deletion( node_ptr pNode )
     {
-        m_scopeManager->destroy_node(pNode);
+        m_scopeManager->register_node_for_deletion(pNode);
     }
 
-    void really_destroy_node( node_ptr pNode )
+    void delete_node( node_ptr pNode )
     {
-        m_scopeManager->really_destroy_node(pNode);
+        m_scopeManager->delete_node(pNode);
     }
 
     bool less(node_ptr pNode, const key_type& k) const
@@ -334,12 +313,12 @@ namespace stk {
     }
 
     std::shared_ptr<node_scope_manager> get_scope_manager() const { return m_scopeManager; }
-        key_compare key_comp() const { return m_compare; }
+    key_compare key_comp() const { return m_compare; }
 
     private:
 
         key_compare m_compare; // the comparator predicate for keys
-    std::shared_ptr<node_scope_manager> m_scopeManager;
+        std::shared_ptr<node_scope_manager> m_scopeManager;
     };
 
     class random_xor_shift_generator
@@ -484,8 +463,8 @@ class lazy_concurrent_skip_list : public detail::skip_list_node_manager<Associat
     using node_ptr = typename base_type::node_ptr;
     using mutex_type = typename base_type::mutex_type;
     using base_type::create_node;
-    using base_type::destroy_node;
-    using base_type::really_destroy_node;
+    using base_type::register_node_for_deletion;
+    using base_type::delete_node;
     using base_type::resolve_key;
     using base_type::less;
     using base_type::equal;
@@ -528,35 +507,45 @@ public:
         template <typename U>
         node_iterator(const node_iterator<U>& other)
             : m_pNode(other.m_pNode)
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             , m_pNodeManager(other.m_pNodeManager)
-        {
+#endif
+		{
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 acquire();
+#endif
         }
 
         node_iterator& operator = (const node_iterator& rhs)
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode && !rhs.m_pNode)
                 release();
             m_pNodeManager = rhs.m_pNodeManager;
             if (!m_pNode && rhs.m_pNode)
                 acquire();
+#endif
             m_pNode = rhs.m_pNode;
             return *this;
         }
 
         node_iterator(node_iterator&& other)
             : m_pNode(other.m_pNode)
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             , m_pNodeManager(std::move(other.m_pNodeManager))
+#endif
         {
             other.m_pNode = nullptr;
         }
 
         node_iterator& operator = (node_iterator&& rhs)
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 release();
             m_pNodeManager = std::move(rhs.m_pNodeManager);
+#endif
             m_pNode = rhs.m_pNode;
             rhs.m_pNode = nullptr;
             return *this;
@@ -564,10 +553,14 @@ public:
 
         explicit node_iterator( const std::shared_ptr<node_scope_manager>& pNodeManager, node_ptr pNode )
             : m_pNode( pNode )
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             , m_pNodeManager(pNodeManager)
+#endif
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 pNodeManager->add_checkout();
+#endif
         }
 
         //! Aquire the underlying lock of the node and execute v(*iter).
@@ -581,8 +574,10 @@ public:
 
         ~node_iterator()
         {
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 release();
+#endif
         }
 
     private:
@@ -617,8 +612,10 @@ public:
             if (m_pNode)
             {
                 m_pNode = m_pNode->next(0);
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
                 if (!m_pNode)
                     release();
+#endif
             }
         }
 
@@ -635,7 +632,9 @@ public:
         }
 
         node_ptr m_pNode{ nullptr };
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
         std::weak_ptr<node_scope_manager> m_pNodeManager;
+#endif
     };
 
     struct const_iterator;
@@ -900,7 +899,7 @@ public:
 
                 victimLock.unlock();
 
-                destroy_node( pVictim );
+                register_node_for_deletion( pVictim );
 
                 return nextIT;
             }
@@ -935,6 +934,11 @@ public:
     //! Returns empty state at any given moment. This can be volatile in the presence of writers in other threads.
     bool empty() const { return size() == 0; }
 
+	void quiesce()
+	{
+		get_scope_manager()->quiesce();
+	}
+
 protected:
 
     using lock_type = std::unique_lock<mutex_type>;
@@ -952,7 +956,7 @@ protected:
         while (pCurr)
         {
             auto pNext = pCurr->next(0);
-            really_destroy_node(pCurr);
+            delete_node(pCurr);
             pCurr = pNext;
         }
     }
@@ -1113,12 +1117,12 @@ protected:
             auto expected = pHead;
             if (!m_pHead.compare_exchange_strong(expected, pNew, std::memory_order_release))
             {
-                really_destroy_node(pNew);
+                delete_node(pNew);
                 return;
             }
             pHead->set_marked_for_removal();
         }
-        destroy_node(pHead);
+        register_node_for_deletion(pHead);
     }
 
     std::atomic<node_ptr> m_pHead;

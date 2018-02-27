@@ -26,6 +26,7 @@
 #include <geometrix/utility/scope_timer.ipp>
 
 #include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info.h>
 
 #include <thread>
 #include <chrono>

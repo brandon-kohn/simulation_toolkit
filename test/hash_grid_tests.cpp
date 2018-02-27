@@ -29,6 +29,7 @@
 #include <boost/context/stack_traits.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 #include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info.h>
 #include <stk/container/concurrent_hash_grid.hpp>
 #include <chrono>
 

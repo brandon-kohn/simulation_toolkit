@@ -8,6 +8,7 @@
 //
 #ifndef STK_THREAD_SPIN_LOCK_WAIT_STRATEGIES_HPP
 #define STK_THREAD_SPIN_LOCK_WAIT_STRATEGIES_HPP
+#pragma once
 
 #include <boost/fiber/operations.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
@@ -66,4 +67,3 @@ namespace stk {	namespace thread {
 }}//! namespace stk::thread;
 
 #endif//! STK_THREAD_SPIN_LOCK_WAIT_STRATEGIES_HPP
-

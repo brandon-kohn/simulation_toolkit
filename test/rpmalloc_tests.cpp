@@ -12,6 +12,7 @@
 
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info.h>
 #include <stk/utility/rpmalloc_system.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 

@@ -44,8 +44,7 @@ namespace stk { namespace thread {
 		bool try_lock()
 		{
 			std::uint8_t expected = Free;
-			std::uint8_t desired = Locked;
-			return std::atomic_compare_exchange_strong_explicit(&m_state, &expected, desired, std::memory_order_acquire, std::memory_order_relaxed);
+			return m_state.compare_exchange_strong(expected, Locked, std::memory_order_acquire, std::memory_order_relaxed);
 		}
 		
 		void unlock()

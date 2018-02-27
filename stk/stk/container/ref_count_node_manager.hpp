@@ -42,34 +42,48 @@ namespace stk { namespace detail {
 
         ref_count_node_manager(allocator_type al = allocator_type())
             : m_nodeAllocator(al)
+            , m_nodes(nullptr)
         {}
 
         ~ref_count_node_manager()
         {
             //! There should not be any iterators checked out at this point.
             GEOMETRIX_ASSERT(m_refCounter.load(std::memory_order_relaxed) == 0);
-            if (m_nodes)
-                for (auto pNode : *m_nodes)
+            auto pNodes = m_nodes.load(std::memory_order_relaxed);
+            if (pNodes)
+                for (auto pNode : *pNodes)
                     destroy_node(pNode);
+            delete pNodes;
         }
 
-        template <typename Data>
-        node_ptr create_node(Data&& v)
+        template <typename... Args>
+        node_ptr create_node(Args&&... v)
         {
             auto pNode = m_nodeAllocator.allocate(1);
-            new(pNode) node_type(std::forward<Data>(v));
+            new(pNode) node_type(std::forward<Args>(v)...);
             return pNode;
         }
 
         void register_node_to_delete(node_ptr pNode)
         {
-            auto lk = std::unique_lock<std::mutex>{ m_mtx };
-            if (m_nodes)
-                m_nodes->push_back(pNode);
-            else
-                m_nodes = boost::make_unique<std::vector<node_ptr>>(1, pNode);
+            //! Add a checkout so that there is no chance swapping will happen while this call is in effect.
+            m_refCounter.fetch_add(1, std::memory_order_acquire);
+            STK_MEMBER_SCOPE_EXIT
+            (
+                GEOMETRIX_ASSERT(m_refCounter > 0);
+                m_refCounter.fetch_sub(1, std::memory_order_relaxed);
+            );
 
-            m_hasNodes.store(true, std::memory_order_relaxed);
+            auto lk = std::unique_lock<std::mutex>{ m_mtx };
+            auto pNodes = m_nodes.load(std::memory_order_relaxed);
+            if (pNodes)
+            {
+                pNodes->push_back(pNode);
+            }
+            else
+            {
+                m_nodes.store( new std::vector<node_ptr>(1, pNode) );
+            }
         }
 
         void add_checkout()
@@ -79,31 +93,34 @@ namespace stk { namespace detail {
 
         void remove_checkout()
         {
-            STK_MEMBER_SCOPE_EXIT
-            (
-                GEOMETRIX_ASSERT(m_refCounter > 0);
-                m_refCounter.fetch_sub(1, std::memory_order_relaxed);
-            );
+            GEOMETRIX_ASSERT(m_refCounter > 0);
+            STK_MEMBER_SCOPE_EXIT( m_refCounter.fetch_sub(1, std::memory_order_relaxed); );
 
-            if (m_hasNodes.load(std::memory_order_relaxed) && m_refCounter.load(std::memory_order_relaxed) < 1)
+            //auto lk = std::unique_lock<std::mutex>{ m_mtx };
+            if (BOOST_UNLIKELY(m_refCounter.load(std::memory_order_relaxed) == 1))
             {
                 std::unique_ptr<std::vector<node_ptr>> toDelete;
+                auto pNodes = m_nodes.exchange(nullptr, std::memory_order_acquire);
+                if(pNodes)
                 {
-                    auto lk = std::unique_lock<std::mutex>{ m_mtx };
-                    if (m_nodes.get() && m_refCounter.load(std::memory_order_relaxed) < 1)
+                    toDelete.reset(pNodes);
+                    if (m_refCounter.load(std::memory_order_relaxed) == 1)
                     {
-                        toDelete.swap(m_nodes);
-                        m_hasNodes.store(false, std::memory_order_relaxed);
+                        for (auto pNode : *toDelete)
+                            destroy_node(pNode);
+                    }
+                    else
+                    {
+                        for (auto pNode : *toDelete)
+                            register_node_to_delete(pNode);
                     }
                 }
-                for (auto pNode : *toDelete)
-                    destroy_node(pNode);
             }
         }
 
         void destroy_node(node_ptr pNode)
         {
-            pNode->~node();
+            pNode->~Node();
             m_nodeAllocator.deallocate(pNode, 1);
         }
 
@@ -111,8 +128,7 @@ namespace stk { namespace detail {
 
         allocator_type                         m_nodeAllocator;
         std::atomic<std::size_t>               m_refCounter{ 0 };
-        std::unique_ptr<std::vector<node_ptr>> m_nodes;
-        std::atomic<bool>                      m_hasNodes{ false };
+        std::atomic<std::vector<node_ptr>*>    m_nodes;
         std::mutex                             m_mtx;
 
     };
