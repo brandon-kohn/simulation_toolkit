@@ -249,24 +249,6 @@ TEST(concurrent_skip_list_tests, copy_iterator)
 	EXPECT_NE(it, m.end());
 }
 
-TEST(concurrent_skip_list_tests, move_iterator)
-{
-	using namespace stk;
-	using namespace stk::thread;
-	using iterator = concurrent_map<int, int>::iterator;
-
-	concurrent_map<int, int> m;
-	bool inserted = false;
-	iterator it, it2;
-
-	std::tie(it, inserted) = m.insert(std::make_pair(20, 30));
-	EXPECT_TRUE(inserted);
-
-	it2 = std::move(it);
-	EXPECT_EQ(it, m.end());
-	EXPECT_NE(it2, it);
-}
-
 TEST(lf_concurrent_skip_list_tests, insert_two_no_replication)
 {
 	using namespace stk;
@@ -275,13 +257,16 @@ TEST(lf_concurrent_skip_list_tests, insert_two_no_replication)
 
 	lock_free_concurrent_map<int, int> m;
 	bool inserted = false;
-	iterator it, it2;
+	{
+		iterator it, it2;
 
-	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
-	EXPECT_TRUE(inserted);
-	std::tie(it2, inserted) = m.insert(std::make_pair(10, 20));
-	EXPECT_EQ(it, it2);
-	EXPECT_FALSE(inserted);
+		std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+		EXPECT_TRUE(inserted);
+		std::tie(it2, inserted) = m.insert(std::make_pair(10, 20));
+		EXPECT_EQ(it, it2);
+		EXPECT_FALSE(inserted);
+	}
+	auto ref = m[20];
 }
 
 TEST(lf_concurrent_skip_list_tests, insert_two_remove_first)
@@ -292,57 +277,16 @@ TEST(lf_concurrent_skip_list_tests, insert_two_remove_first)
 
 	lock_free_concurrent_map<int, int> m;
 	bool inserted = false;
-	iterator it;
-
-	std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
-	EXPECT_TRUE(inserted);
-	std::tie(it, inserted) = m.insert(std::make_pair(20, 30));
-	EXPECT_TRUE(inserted);
-
-	auto it2 = m.erase(10);
-	EXPECT_EQ(it, it2);
-}
-
-template <typename Pool>
-void bash_map(Pool& pool, const char* name)
-{
-	using namespace ::testing;
-	using namespace stk;
-
-	concurrent_map<int, int> m;
-
-	auto nItems = 10000;
-	for (auto i = 0; i < nItems; ++i)
 	{
-		m.insert(std::make_pair(i, i * 10));
-	}
+		iterator it;
 
-	using future_t = typename Pool::template future<void>;
-	std::vector<future_t> fs;
-	unsigned nsubwork = 10;
-	fs.reserve(100000);
-	{
-		GEOMETRIX_MEASURE_SCOPE_TIME(name);
-		for (unsigned i = 0; i < 100000; ++i) {
-			fs.emplace_back(pool.send([&m, nsubwork, i]() -> void
-			{
-				for (unsigned int q = 0; q < nsubwork; ++q)
-				{
-					m[i] = i * 20;
-					m.erase(i);
-					m[i] = i * 20;
-				}
-			}));
-		}
-		boost::for_each(fs, [](const future_t& f) { f.wait(); });
-		m.quiesce();
-	}
+		std::tie(it, inserted) = m.insert(std::make_pair(10, 20));
+		EXPECT_TRUE(inserted);
+		std::tie(it, inserted) = m.insert(std::make_pair(20, 30));
+		EXPECT_TRUE(inserted);
 
-	for (auto i = 0; i < 100000; ++i)
-	{
-		auto r = m.find(i);
-		EXPECT_TRUE(r != m.end());
-		EXPECT_EQ(i * 20, r->second);
+		auto it2 = m.erase(10);
+		EXPECT_EQ(it, it2);
 	}
 }
 
@@ -360,6 +304,7 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 		m.insert(std::make_pair(i, i * 10));
 	}
 
+	auto safe = m.find(0);
 	using future_t = typename Pool::template future<void>;
 	std::vector<future_t> fs;
 	unsigned nsubwork = 10;
@@ -392,27 +337,12 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info.h>
 int nTimingRuns = 5;
-TEST(concurrent_skip_list_tests, bash_map_work_stealing)
-{
-	using namespace ::testing;
-	using namespace stk;
-	using namespace stk::thread;
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ 5 };
-	for (int i = 0; i < nTimingRuns; ++i)
-	{
-		bash_map(pool, "work_stealing_thread_pool moody-concurrent");
-		EXPECT_TRUE(true) << "Finished: " << i << "\n";
-	}
-
-	EXPECT_TRUE(true);
-}
-
 TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing)
 {
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ 5 };
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_lf_concurrent_map(pool, "work_stealing_thread_pool moody-/lock_free_concurrent");

@@ -10,6 +10,7 @@
 #ifndef STK_CONTAINER_ATOMIC_MARKED_PTR_HPP
 #define STK_CONTAINER_ATOMIC_MARKED_PTR_HPP
 
+#include <geometrix/utility/assert.hpp>
 #include <limits>
 #include <cstdint>
 #include <atomic>
@@ -40,6 +41,7 @@ private:
 
     static storage_type combine(T* ptr, mark_type mark)
     {
+        GEOMETRIX_ASSERT(((storage_type)ptr & 1) == 0);
         return ((((storage_type)ptr) & ~(storage_type)1) | (mark));
     }
 

@@ -637,13 +637,14 @@ namespace stk { namespace detail {
 		template <typename... Args>
         void emplace_back(Args&&... a)
         {
-			descriptor* pCurr;
+			descriptor* pCurr = get_descriptor();
 			auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
 			std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
 			auto pNode = create_node(std::forward<Args>(a)...);
+			auto spincount = 0UL;
             do
             {
-                pCurr = get_descriptor();
+                //pCurr = get_descriptor();
                 complete_write(*pCurr);
                 auto bucket = detail::hibit(pCurr->size + first_bucket_size) - detail::hibit(first_bucket_size);
                 bucket_array oldArray;
@@ -652,6 +653,12 @@ namespace stk { namespace detail {
 			    if(oldSize <= bucket)
                     allocate_bucket(oldArray, oldSize);
 				*newDesc = descriptor(pCurr->size + 1, at_impl(pCurr->size)->load(), pNode, pCurr->size);
+				if (++spincount > 100)
+				{
+					auto backoff = spincount * 10;
+					while (--backoff > 0)
+						std::this_thread::yield();
+				}
             }
             while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
 			m_desc_manager.register_node_to_delete(pCurr);
@@ -667,13 +674,14 @@ namespace stk { namespace detail {
 
         bool pop_back(T& value)
         {
-			descriptor* pCurr;
+			descriptor* pCurr = get_descriptor();
 			auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
 			std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
 			node_ptr pNode;
+		    auto spincount = 0UL;
             do
             {
-                pCurr = get_descriptor();
+                //pCurr = get_descriptor();
                 complete_write(*pCurr);
 				if (pCurr->size > 0)
 				{
@@ -682,6 +690,13 @@ namespace stk { namespace detail {
 				}
 				else
 					return false;
+ 
+				if (++spincount > 100)
+				{
+					auto backoff = spincount * 10;
+					while (--backoff > 0)
+						std::this_thread::yield();
+				}
             }
             while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
             value = std::move(pNode->value());
@@ -693,13 +708,14 @@ namespace stk { namespace detail {
 
 		void pop_back()
         {
-			descriptor* pCurr;
+			descriptor* pCurr = get_descriptor();
 			auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
 			std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
 			node_ptr pNode;
+			auto spincount = 0UL;
             do
             {
-                pCurr = get_descriptor();
+                //pCurr = get_descriptor();
                 complete_write(*pCurr);
 				if (pCurr->size > 0)
 				{
@@ -708,6 +724,13 @@ namespace stk { namespace detail {
 				}
 				else
 					return;
+
+				if (++spincount > 100)
+				{
+					auto backoff = spincount * 10;
+					while (--backoff > 0)
+						std::this_thread::yield();
+				}
             }
             while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
 			register_node_for_deletion(pNode);

@@ -534,20 +534,22 @@ TEST(lock_free_concurrent_vector, bash_concurrency_test)
 	using namespace stk;
 	using namespace stk::thread;
 
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(10);
 
 	auto nItems = 10000UL;
 
 	concurrent_vector<int> v;
 	for (auto i = 0UL; i < 20; ++i)
 	{
-		pool.parallel_apply(nItems, [&v](int q) {
-			v.push_back(q);
-			v.pop_back();
-			v.push_back(q);
-		});
-		v.quiesce();
-
+		{
+			GEOMETRIX_MEASURE_SCOPE_TIME("concurrent_vector");
+			pool.parallel_apply(nItems, [&v](int q) {
+				v.push_back(q);
+				v.pop_back();
+				v.push_back(q);
+			});
+			v.quiesce();
+		}
 		EXPECT_EQ((i+1) * nItems, v.size());
 	}
 		
@@ -559,7 +561,7 @@ TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
 	using namespace stk;
 	using namespace stk::thread;
 
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool(10);
 
 	auto nItems = 10000UL;
 
@@ -567,22 +569,46 @@ TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
 	std::vector<int> v;
 	for (auto i = 0UL; i < 20; ++i)
 	{
-		pool.parallel_apply(nItems, [&mtx, &v](int q) {
-			{
-				auto lk = std::unique_lock<std::mutex>{ mtx };
-			    v.push_back(q);
-			}
-			{
-				auto lk = std::unique_lock<std::mutex>{ mtx };
-			    v.pop_back();
-			}
-			{
-				auto lk = std::unique_lock<std::mutex>{ mtx };
-			    v.push_back(q);
-			}
-		});
+		{
+			GEOMETRIX_MEASURE_SCOPE_TIME("mutexed_vector");
+			pool.parallel_apply(nItems, [&mtx, &v](int q) {
+				{
+					auto lk = std::unique_lock<std::mutex>{ mtx };
+					v.push_back(q);
+				}
+				{
+					auto lk = std::unique_lock<std::mutex>{ mtx };
+					v.pop_back();
+				}
+				{
+					auto lk = std::unique_lock<std::mutex>{ mtx };
+					v.push_back(q);
+				}
+			});
+		}
 		EXPECT_EQ((i+1) * nItems, v.size());
 	}
 		
 	EXPECT_EQ(20 * nItems, v.size());
+}
+
+#include <stk/container/ref_count_memory_reclaimer.hpp>
+TEST(ref_count_memory_reclaimer_suite, bash_reclaimer)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+
+	std::atomic<std::uint32_t> reclaimed(0UL);
+	auto nItems = 100000;
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+	ref_count_memory_reclaimer sut;
+
+	pool.parallel_apply(nItems, [&reclaimed, &sut](int) {
+		sut.add_checkout();
+		sut.add([&reclaimed]() { ++reclaimed; });
+		sut.remove_checkout();
+	});
+
+	EXPECT_EQ(nItems, reclaimed);
 }
