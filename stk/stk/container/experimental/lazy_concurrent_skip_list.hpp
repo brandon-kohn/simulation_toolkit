@@ -365,17 +365,21 @@ public:
         void release()
         {
             GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             auto pMgr = m_pNodeManager.lock();
             if (pMgr)
                 pMgr->remove_checkout();
+#endif
         }
 
         void acquire()
         {
             GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
+#ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             auto pMgr = m_pNodeManager.lock();
             if (pMgr)
                 pMgr->add_checkout();
+#endif
         }
 
         void increment()
