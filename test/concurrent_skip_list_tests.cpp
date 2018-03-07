@@ -342,6 +342,7 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 		auto r = m.find(i);
 		EXPECT_TRUE(r != m.end());
 		EXPECT_EQ(i * 20, r->second);
+		EXPECT_TRUE(m.contains(i));
 	}
 }
 
@@ -407,9 +408,13 @@ void bash_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
 		{
 			EXPECT_TRUE(r != m.end());
 			EXPECT_EQ(i * 20, r->second);
+			EXPECT_TRUE(m.contains(i));
 		}
 		else
+		{
 			EXPECT_TRUE(r == m.end());
+			EXPECT_FALSE(m.contains(i));
+		}
 	}
 }
 
