@@ -13,7 +13,6 @@
 #include <stk/thread/function_wrapper_with_allocator.hpp>
 #include <stk/thread/function_wrapper.hpp>
 #include <stk/thread/barrier.hpp>
-#include <stk/thread/thread_specific.hpp>
 #include <stk/thread/scalable_task_counter.hpp>
 #include <stk/thread/task_counter.hpp>
 #include <stk/container/locked_queue.hpp>
@@ -23,6 +22,7 @@
 #include <stk/utility/none.hpp>
 #include <stk/thread/bind/bind_processor.hpp>
 #include <stk/thread/cache_line_padding.hpp>
+#include <stk/container/detail/skip_list.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #elif defined(STK_USE_RPMALLOC)
