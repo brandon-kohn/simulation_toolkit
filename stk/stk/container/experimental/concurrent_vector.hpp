@@ -303,10 +303,10 @@ namespace stk { namespace detail {
 
         private:
 
-            template <typename U>
-            BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<U> const& weak)
+            template <typename V>
+            BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<V> const& weak)
             {
-                using wt = std::weak_ptr<U>;
+                using wt = std::weak_ptr<V>;
                 return !weak.owner_before(wt{}) && !wt{}.owner_before(weak);
             }
 
@@ -382,8 +382,8 @@ namespace stk { namespace detail {
                 }
             }
 
-            template <typename U>
-            bool equal(node_iterator<U> const& other) const
+            template <typename V>
+            bool equal(node_iterator<V> const& other) const
             {
                 return (m_index == other.m_index || m_pNode == other.m_pNode) && m_pMyVector == other.m_pMyVector;
             }
@@ -403,16 +403,16 @@ namespace stk { namespace detail {
             size_type m_index;
         };
 
-        template <typename U, typename Alloc>
-        static U* allocate(Alloc& al, std::size_t n)
+        template <typename U, typename Allocator>
+        static U* allocate(Allocator& al, std::size_t n)
         {
-            return typename std::allocator_traits<Alloc>::template rebind_alloc<U>(al).allocate(n);
+            return typename std::allocator_traits<Allocator>::template rebind_alloc<U>(al).allocate(n);
         }
 
-        template <typename U, typename Alloc>
-        static void deallocate(Alloc& al, U* u, std::size_t n)
+        template <typename U, typename Allocator>
+        static void deallocate(Allocator& al, U* u, std::size_t n)
         {
-            typename std::allocator_traits<Alloc>::template rebind_alloc<U>(al).deallocate(u, n);
+            typename std::allocator_traits<Allocator>::template rebind_alloc<U>(al).deallocate(u, n);
         }
 
     public:
