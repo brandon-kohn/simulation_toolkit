@@ -872,21 +872,21 @@ protected:
 
 //! Declare a set type.
 template <typename Key, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
-class lock_free_concurrent_set : public lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > >
+class concurrent_set : public lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > >
 {
     using base_type = lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > >;
     using max_level = typename base_type::max_level;
 
 public:
 
-    lock_free_concurrent_set( const Compare& c = Compare() )
+    concurrent_set( const Compare& c = Compare() )
         : base_type( max_level::value, c )
     {}
 };
 
 //! Declare a map type.
 template <typename Key, typename Value, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
-class lock_free_concurrent_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >
+class concurrent_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >
 {
     using base_type = lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >;
     using max_level = typename base_type::max_level;
@@ -899,7 +899,7 @@ public:
     typedef typename boost::add_const< mapped_type >::type     const_reference;
     using iterator = typename base_type::iterator;
 
-    lock_free_concurrent_map( const Compare& c = Compare() )
+    concurrent_map( const Compare& c = Compare() )
         : base_type( max_level::value, c )
     {}
 
@@ -919,7 +919,7 @@ public:
 
 //! Declare a map type with a variable height parameter.
 template <typename Key, typename Value, unsigned int MaxHeight, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
-class lock_free_skip_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > >
+class concurrent_skip_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > >
 {
     using base_type = lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > >;
 
@@ -931,7 +931,7 @@ public:
     typedef typename boost::add_const< mapped_type >::type     const_reference;
     using iterator = typename base_type::iterator;
 
-    lock_free_skip_map( const Compare& c = Compare() )
+    concurrent_skip_map( const Compare& c = Compare() )
         : base_type( MaxHeight - 1, c )
     {}
 
