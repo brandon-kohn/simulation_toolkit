@@ -28,7 +28,6 @@
 #include "thread_test_utils.hpp"
 
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
-auto keepReference = boost::context::stack_traits::default_size();
 namespace stk {
     template <typename Fn, typename ... Ts>
     inline std::chrono::duration<double> time_execution(Fn&& fn, Ts&&... args)

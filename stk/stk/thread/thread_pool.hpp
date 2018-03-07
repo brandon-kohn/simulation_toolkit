@@ -18,6 +18,7 @@
 
 namespace stk { namespace thread {
 
+    //! A reference implementation of a threadpool. Prefer the work-stealing version.
     template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
     class thread_pool : boost::noncopyable
     {

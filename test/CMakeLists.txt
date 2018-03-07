@@ -38,9 +38,9 @@ if(Boost_FOUND)
         concurrency_tests
         concurrent_skip_list_tests
         hash_grid_tests
-        fiber_timing_tests
         thread_pool_tests
         rpmalloc_tests
+        concurrent_vector_tests
         )
 
     foreach(test ${parallel_tests})

@@ -12,7 +12,6 @@
 
 #include <stk/thread/active_object.hpp>
 #include <stk/thread/thread_pool.hpp>
-#include <stk/thread/fiber_pool.hpp> //-> requires C++11 with constexpr/noexcept etc. vs140 etc.
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/container/fine_locked_hash_map.hpp>
 #include <boost/thread/futures/wait_for_all.hpp>
@@ -28,6 +27,7 @@
 #include <exception>
 #include <iostream>
 #include <stk/thread/work_stealing_thread_pool.hpp>
+#include <stk/thread/thread_specific.hpp>
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
 #include <stk/thread/thread_specific.hpp>
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);

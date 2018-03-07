@@ -23,6 +23,7 @@
 #include <stk/thread/concurrentqueue.h>
 #include <stk/container/atomic_markable_ptr.hpp>
 #include <stk/thread/backoff.hpp>
+#include <stk/thread/std_thread_kernel.hpp>
 #include <stk/container/quiesce_memory_reclaimer.hpp>
 #include <memory>
 

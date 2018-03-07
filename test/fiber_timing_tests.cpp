@@ -12,7 +12,8 @@
 #include <stk/thread/active_object.hpp>
 #include <stk/thread/thread_pool.hpp>
 #include <stk/thread/work_stealing_thread_pool.hpp>
-#include <stk/thread/fiber_pool.hpp> //-> requires C++11 with constexpr/noexcept etc. vs140 etc.
+#include <stk/fiber/fiber_pool.hpp> //-> requires C++11 with constexpr/noexcept etc. vs140 etc.
+#include <stk/fiber/fiber_spin_lock_wait_strategies.hpp>
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/container/fine_locked_hash_map.hpp>
 #include <junction/ConcurrentMap_Leapfrog.h>
