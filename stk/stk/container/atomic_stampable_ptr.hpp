@@ -16,7 +16,7 @@
 
 #include <boost/predef.h>
 #ifndef BOOST_ARCH_X86_64
-    #error "atomic_stampable_ptr only works on the 48bit address space used in X86_64 as of 2017.
+    #error "atomic_stampable_ptr only works on the 48bit address space used in X86_64 as of 2017."
 #endif
 
 namespace stk {

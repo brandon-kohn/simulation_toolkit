@@ -711,7 +711,7 @@ public:
 
 	void quiesce()
 	{
-		get_scope_manager()->quiesce();
+		base_type::get_scope_manager()->quiesce();
 	}
 
 protected:
