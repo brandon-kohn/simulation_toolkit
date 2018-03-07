@@ -32,7 +32,7 @@ STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
 #include <stk/thread/thread_specific.hpp>
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
-#include <stk/container/concurrent_skip_list.hpp>
+#include <stk/container/experimental/lazy_concurrent_skip_list.hpp>
 #include <stk/container/lock_free_concurrent_skip_list.hpp>
 
 #include <cds/init.h>
@@ -290,6 +290,18 @@ TEST(lf_concurrent_skip_list_tests, insert_two_remove_first)
 	}
 }
 
+TEST(lf_concurrent_skip_list_tests, insert_multiple)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = lock_free_concurrent_map<int, int>::iterator;
+
+	lock_free_concurrent_map<int, int> m;
+
+	for (auto i = 0UL; i < 10;++i)
+		m.insert(std::make_pair(i, 2*i));
+}
+
 template <typename Pool>
 void bash_lf_concurrent_map(Pool& pool, const char* name)
 {
@@ -304,7 +316,6 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 		m.insert(std::make_pair(i, i * 10));
 	}
 
-	auto safe = m.find(0);
 	using future_t = typename Pool::template future<void>;
 	std::vector<future_t> fs;
 	unsigned nsubwork = 10;
@@ -407,7 +418,7 @@ TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing_
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ 5 };
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_lf_concurrent_map_remove_odd(pool, "work_stealing_thread_pool moody-remove_odd/lock_free_concurrent");
@@ -484,7 +495,7 @@ TEST(lf_concurrent_skip_list_tests, bash_cds_lock_free_concurrent_map_work_steal
 	using namespace stk;
 	using namespace stk::thread;
 	
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ cds_enter_thread, cds_exit_thread, 5 };
+	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool{ cds_enter_thread, cds_exit_thread };
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_cds_lf_concurrent_map_remove_odd(pool, "cds_work_stealing_thread_pool moody-remove_odd/lock_free_concurrent");

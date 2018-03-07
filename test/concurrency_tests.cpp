@@ -385,7 +385,7 @@ TEST(check_test, sizeof_mutexes)
     GMESSAGE() << "sizeof(stk::thread::tiny_atomic_spin_lock<>) = " << sizeof(stk::thread::tiny_atomic_spin_lock<>) << std::endl;
 }
 
-#include <stk/container/concurrent_vector.hpp>
+#include <stk/container/experimental/concurrent_vector.hpp>
 TEST(lock_free_concurrent_vector, construct)
 {
 	using namespace stk;

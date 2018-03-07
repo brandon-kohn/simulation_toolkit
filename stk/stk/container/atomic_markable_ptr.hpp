@@ -80,7 +80,7 @@ public:
 
     T* get_ptr() const
     {
-        auto pPtr = m_ptr.load(std::memory_order_acquire);
+        auto pPtr = m_ptr.load();
         return extract_ptr(pPtr);
     }
 
@@ -88,25 +88,20 @@ public:
     {
         auto mark = get_mark();
         auto pPtr = combine(p, mark);
-        m_ptr.store(pPtr, std::memory_order_release);
+        m_ptr.store(pPtr);
     }
 
     mark_type get_mark() const
     {
-        auto pPtr = m_ptr.load(std::memory_order_acquire);
+        auto pPtr = m_ptr.load();
         return extract_mark(pPtr);
-    }
-
-    mark_type get_next_mark() const
-    {
-        return (get_mark() + 1u) & (std::numeric_limits<mark_type>::max)();
     }
 
     void set_mark(mark_type t)
     {
         auto p = get_ptr();
         auto pPtr = combine(p, t);
-        m_ptr.store(pPtr, std::memory_order_release);
+        m_ptr.store(pPtr);
     }
 
     T& operator*() const

@@ -13,7 +13,10 @@ The stk now has the following facilities to support concurrent programming:
 
 #### Concurrent Skiplist
 
-A skiplist is an associative data structure which achieves amortized `O(log(N))` lookup times. Thus it is suitable for use in the contexts where a `std::set` or `std::map` might be used. The stk contains both a lock based and a lock-free implementation of skiplists which are described in [The Art of Multiprocessor Programming](https://www.amazon.com/Art-Multiprocessor-Programming-Revised-Reprint/dp/0123973376/ref=dp_ob_title_bk).
+A skiplist is an associative data structure which achieves amortized `O(log(N))` lookup times. Thus it is suitable for use in the contexts where a `std::set` or `std::map` might be used. The implementation is described in [The Art of Multiprocessor Programming](https://www.amazon.com/Art-Multiprocessor-Programming-Revised-Reprint/dp/0123973376/ref=dp_ob_title_bk).
+
+#### _Note:_
+The skiplist defers deleting memory until the member function `quiesce()` is called. This should only be called when no other threads access the skiplist. It should be called periodically to avoid a resource leak.
 
 Include:
 ```C++
@@ -56,6 +59,9 @@ public:
 
     //! Returns empty state at any given moment. This can be volatile in the presence of writers in other threads.
     bool                      empty() const;
+
+    //! Reclaim memory. Should be called at a time where there is no other thread accessing the skiplist.
+    void                      quiesce();
 };
 
 //! Associative set type (like std::set).
@@ -86,7 +92,7 @@ public:
 ```
 ###### Notes on use:
 
-The iterators returned via the skiplist interface are thread-safe in the sense that the underlying nodes to which the iterator refers will not be deleted while the iterator exists. No guarantees are made about iterator traversals in the presence of writers to the skiplist. Adding new elements to the skiplist should be fine. Erasing elements may cause iteration traversals to terminate prematurely.
+The iterators returned via the skiplist interface are thread-safe in the sense that the underlying nodes to which the iterator refers will not be deleted until `quiesce()` is called. No guarantees are made about iterator traversals in the presence of writers to the skiplist. Adding new elements to the skiplist should be fine. Erasing elements may cause iteration traversals to terminate prematurely or possibly crash.
 
 The actual data held by the iterators is not guaranteed to be thread-safe to access. Users must handle synchronization when modifying the data in the skiplist.
 
