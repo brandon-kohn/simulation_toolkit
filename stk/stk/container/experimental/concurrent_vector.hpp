@@ -113,6 +113,11 @@ namespace stk { namespace detail {
         using base_t = detail::concurrent_vector_base<T, Alloc>;
         using node_ptr = typename base_t::node_ptr;
         using node_manager = typename base_t::node_manager;
+		using base_t::register_node_for_deletion;
+		using base_t::get_scope_manager;
+		using base_t::create_node;
+		using base_t::destroy_node;
+
     public:
 
         using value_type = T;
@@ -249,7 +254,7 @@ namespace stk { namespace detail {
 #endif
                 m_pMyVector = rhs.m_pMyVector;
                 m_pNode = rhs.m_pNode;
-                m_index = other.m_index;
+                m_index = rhs.m_index;
                 return *this;
             }
 
@@ -421,6 +426,8 @@ namespace stk { namespace detail {
 
         struct iterator : node_iterator< value_type >
         {
+			using node_iterator::equal;
+
             iterator()
                 : node_iterator< value_type >()
             {}
@@ -449,6 +456,8 @@ namespace stk { namespace detail {
 
         struct const_iterator : node_iterator<const value_type>
         {
+			using node_iterator::equal;
+
             const_iterator()
                 : node_iterator<const value_type>()
             {}
@@ -821,7 +830,7 @@ namespace stk { namespace detail {
 
         void quiesce()
         {
-            get_scope_manager()->quiesce();
+            base_t::get_scope_manager()->quiesce();
             m_desc_manager.quiesce();
         }
 
