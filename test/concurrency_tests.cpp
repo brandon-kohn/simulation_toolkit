@@ -79,22 +79,6 @@ TEST(fine_locked_hash_map, add_update_item)
     EXPECT_FALSE(r);
 }
 
-#include <stk/thread/make_ready_future.hpp>
-TEST(fiber_make_ready_future, construct)
-{
-    using namespace ::testing;
-    std::vector<int> values = { 1, 2, 3, 4, 5, 6 };
-
-    auto f = boost::fibers::make_ready_future(values);
-    EXPECT_THAT(values, ElementsAre(1, 2, 3, 4, 5, 6));
-
-    EXPECT_TRUE(f.valid());
-
-    auto v = f.get();
-
-    EXPECT_THAT(v, ElementsAre(1, 2, 3, 4, 5, 6));
-}
-
 TEST(active_object_test, construct)
 {
     using namespace ::testing;
@@ -335,7 +319,5 @@ TEST(check_test, sizeof_mutexes)
 {
     GMESSAGE() << "sizeof(std::mutex) = " << sizeof(std::mutex) << std::endl;
     GMESSAGE() << "sizeof(boost::mutex) = " << sizeof(boost::mutex) << std::endl;
-    GMESSAGE() << "sizeof(boost::fibers::mutex) = " << sizeof(boost::fibers::mutex) << std::endl;
     GMESSAGE() << "sizeof(stk::thread::tiny_atomic_spin_lock<>) = " << sizeof(stk::thread::tiny_atomic_spin_lock<>) << std::endl;
 }
-
