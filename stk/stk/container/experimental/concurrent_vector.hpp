@@ -426,7 +426,7 @@ namespace stk { namespace detail {
 
         struct iterator : node_iterator< value_type >
         {
-			using node_iterator::equal;
+			using node_iterator<value_type>::equal;
 
             iterator()
                 : node_iterator< value_type >()
@@ -456,7 +456,7 @@ namespace stk { namespace detail {
 
         struct const_iterator : node_iterator<const value_type>
         {
-			using node_iterator::equal;
+			using node_iterator<const value_type>::equal;
 
             const_iterator()
                 : node_iterator<const value_type>()
