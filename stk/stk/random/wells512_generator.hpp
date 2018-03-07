@@ -1,10 +1,14 @@
 //
-//! Copyright © 2008-2011
-//! Brandon Kohn
+//! Copyright © 2018
+//  Chris Lomont (Public Domain)
+//! Brandon Kohn (Wrapper and interfaces).
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
+//
+// Implementation from Chris Lomont: Lomont_PRNG_2008.pdf which is public domain.
+// http://lomont.org/Math/Papers/2008/Lomont_PRNG_2008.pdf
 //
 #ifndef STK_WELLS512_GENERATOR_HPP
 #define STK_WELLS512_GENERATOR_HPP

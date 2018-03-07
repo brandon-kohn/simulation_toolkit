@@ -1,11 +1,19 @@
 //
-//! Copyright © 2008-2011
+//! Copyright © 2017-2018
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
+//
+/*
+Written in 2014-2016 by Sebastiano Vigna (vigna@acm.org)
+
+To the extent possible under law, the author has dedicated all copyright
+and related and neighboring rights to this software to the public domain
+worldwide. This software is distributed without any warranty.
+*/
 #ifndef STK_XORSHIFT_GENERATOR_HPP
 #define STK_XORSHIFT_GENERATOR_HPP
 
