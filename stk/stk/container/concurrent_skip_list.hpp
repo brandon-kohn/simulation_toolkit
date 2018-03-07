@@ -256,57 +256,35 @@ public:
 
         node_iterator(const node_iterator& other)
             : m_pNode(other.m_pNode)
-//            , m_pNodeManager(other.m_pNodeManager)
-        {
-//             if (m_pNode)
-//                 acquire();
-        }
+        {}
 
         node_iterator& operator = (const node_iterator& rhs)
         {
-//          bool sameNode = m_pNode == rhs.m_pNode;
-//             if (m_pNode && !sameNode)
-//                  release();
-//              m_pNodeManager = rhs.m_pNodeManager;
-//              if (m_pNode && !sameNode)
-//                 acquire();
             m_pNode = rhs.m_pNode;
             return *this;
         }
 
         node_iterator(node_iterator&& other)
             : m_pNode(other.m_pNode)
-//             , m_pNodeManager(std::move(other.m_pNodeManager))
         {
             other.m_pNode = nullptr;
         }
 
         node_iterator& operator = (node_iterator&& rhs)
         {
-//          bool sameNode = m_pNode == rhs.m_pNode;
-//             if (m_pNode && !sameNode)
-//                 release();
-//             m_pNodeManager = std::move(rhs.m_pNodeManager);
             m_pNode = rhs.m_pNode;
             rhs.m_pNode = nullptr;
             return *this;
         }
 
-        explicit node_iterator( const std::shared_ptr<node_scope_manager>& pNodeManager, node_ptr pNode )
+        explicit node_iterator(node_ptr pNode)
             : m_pNode( pNode )
-//          , m_pNodeManager(pNodeManager)
-        {
-//          if (m_pNode)
-//              acquire();
-        }
+        {}
 
         ~node_iterator()
-        {
-//             if (m_pNode)
-//                 release();
-        }
+        {}
 
-    private:
+    protected:
 
         template <typename U>
         BOOST_FORCEINLINE bool is_uninitialized(std::weak_ptr<U> const& weak)
@@ -317,29 +295,11 @@ public:
 
         friend class boost::iterator_core_access;
 
-//         void release()
-//         {
-//             GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
-//             auto pMgr = m_pNodeManager.lock();
-//             if (pMgr)
-//                 pMgr->remove_checkout(m_pNode);
-//         }
-//
-//         void acquire()
-//         {
-//             GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
-//             auto pMgr = m_pNodeManager.lock();
-//             if (pMgr)
-//                 pMgr->add_checkout(m_pNode);
-//         }
-
         void increment()
         {
             if (m_pNode)
             {
                 auto pNode = m_pNode->next(0).get_ptr();
-//                 if (!pNode && pNode != m_pNode)
-//                     release();
                 m_pNode = pNode;
             }
         }
@@ -357,7 +317,6 @@ public:
         }
 
         node_ptr m_pNode{ nullptr };
-//         std::weak_ptr<node_scope_manager> m_pNodeManager;
     };
 
     struct const_iterator;
@@ -373,8 +332,8 @@ public:
         iterator(iterator&&) = default;
         iterator& operator=(iterator&&) = default;
 
-        iterator( const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
-            : node_iterator< value_type >( pMgr, pNode )
+        iterator( node_ptr pNode )
+            : node_iterator< value_type >( pNode )
         {}
 
         template <typename U>
@@ -401,12 +360,12 @@ public:
         const_iterator(const_iterator&&) = default;
         const_iterator& operator=(const_iterator&&) = default;
 
-        const_iterator(const std::shared_ptr<node_scope_manager>& pMgr, node_ptr pNode )
-            : node_iterator< const value_type >(pMgr, pNode)
+        const_iterator( node_ptr pNode )
+            : node_iterator< const value_type >(pNode)
         {}
 
         const_iterator( iterator const& other )
-            : node_iterator< const value_type >( other )
+            : node_iterator< const value_type >( other.m_pNode )
         {}
 
         const_iterator operator =( iterator const& other )
@@ -451,22 +410,22 @@ public:
 
     iterator begin()
     {
-        return iterator(get_scope_manager(), left_most());
+        return iterator(left_most());
     }
 
     const_iterator begin() const
     {
-        return const_iterator(get_scope_manager(), left_most());
+        return const_iterator(left_most());
     }
 
     iterator end()
     {
-        return iterator(std::shared_ptr<node_scope_manager>(), nullptr);
+        return iterator(nullptr);
     }
 
     const_iterator end() const
     {
-        return const_iterator(std::shared_ptr<node_scope_manager>(), nullptr);
+        return const_iterator(nullptr);
     }
 
     iterator find( const key_type& x )
@@ -474,17 +433,13 @@ public:
         std::array<node_ptr, max_height::value> preds;
         std::array<node_ptr, max_height::value> succs;
 
-        //! acquire rcu lock if any.
-        get_scope_manager()->add_checkout();
-        STK_MEMBER_SCOPE_EXIT(get_scope_manager()->remove_checkout());
-
         auto found = find( x, preds, succs );
         if( found )
         {
             node_ptr pFound = succs[0];
             GEOMETRIX_ASSERT( pFound );
             if( pFound && !pFound->is_marked_for_removal() )
-                return iterator(get_scope_manager(), pFound);
+                return iterator(pFound);
         }
 
         return end();
@@ -495,17 +450,13 @@ public:
         std::array<node_ptr, max_height::value> preds;
         std::array<node_ptr, max_height::value> succs;
 
-        //! acquire rcu lock if any.
-        get_scope_manager()->add_checkout();
-        STK_MEMBER_SCOPE_EXIT(get_scope_manager()->remove_checkout());
-
         auto found = find( x, preds, succs );
         if( found )
         {
             auto pFound = succs[0];
             GEOMETRIX_ASSERT( pFound );
             if( pFound && !pFound->is_marked_for_removal() )
-                return const_iterator(get_scope_manager(),pFound);
+                return const_iterator(pFound);
         }
 
         return end();
@@ -523,10 +474,6 @@ public:
 
     bool contains( const key_type& x ) const
     {
-        //! acquire rcu lock if any.
-        get_scope_manager()->add_checkout();
-        STK_MEMBER_SCOPE_EXIT(get_scope_manager()->remove_checkout());
-
         int bottomLevel = 0;
         mark_type mark = 0;
         node_ptr pred = m_pHead;
@@ -567,10 +514,6 @@ public:
         std::array<node_ptr, max_height::value> succs;
         back_off bkoff;
 
-        //! acquire rcu lock if any.
-        get_scope_manager()->add_checkout();
-        STK_MEMBER_SCOPE_EXIT(get_scope_manager()->remove_checkout());
-
         while (true)
         {
             auto found = find(x, preds, succs);
@@ -600,7 +543,7 @@ public:
                         //GEOMETRIX_ASSERT(is_unlinked(nodeToRemove));
                         //register_node_for_deletion(nodeToRemove);
                         decrement_size();
-                        return iterator(get_scope_manager(), succs[bottomLevel]);
+                        return iterator(succs[bottomLevel]);
                     }
                     else if(mark)
                         return end();
@@ -801,10 +744,6 @@ protected:
     template <typename Value, typename Fn>
     std::pair<iterator, bool> add_or_update(Value&& x, Fn&& updateFn)
     {
-        //! acquire rcu lock if any.
-        get_scope_manager()->add_checkout();
-        STK_MEMBER_SCOPE_EXIT(get_scope_manager()->remove_checkout());
-
         auto pHead = m_pHead;
         int topLevel = m_selector(pHead->get_top_level());
         int bottomLevel = 0;
@@ -817,7 +756,7 @@ protected:
         {
             if(find(key, preds, succs))
             {
-                iterator it(get_scope_manager(), succs[bottomLevel]);
+                iterator it(succs[bottomLevel]);
                 updateFn(false, *it);
                 return std::make_pair<iterator,bool>(std::move(it), false);
             }
@@ -857,7 +796,7 @@ protected:
                 }
 
                 newSize = increment_size();
-                return std::make_pair(iterator(get_scope_manager(), pNewNode), true);
+                return std::make_pair(iterator(pNewNode), true);
             }
         }
     }

@@ -10,7 +10,7 @@
 #define STK_THREAD_THREAD_SPECIFIC_HPP
 #pragma once
 
-#include <stk/container/lock_free_concurrent_skip_list.hpp>
+#include <stk/container/concurrent_skip_list.hpp>
 #include <functional>
 #include <deque>
 #include <type_traits>
@@ -140,6 +140,11 @@ public:
         return has_value_on_calling_thread();
     }
 
+	void quiesce()
+	{
+		m_maps.quiesce();
+	}
+
 private:
 
     data_ptr get_item() const
@@ -201,7 +206,7 @@ private:
 
     std::function<T()> m_initializer;
     std::function<void(T&)> m_deinitializer;
-    mutable lock_free_concurrent_set<instance_map*> m_maps;
+    mutable concurrent_set<instance_map*> m_maps;
 
 };
 

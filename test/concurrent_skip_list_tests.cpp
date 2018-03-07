@@ -33,7 +33,7 @@ STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
 #include <stk/container/experimental/lazy_concurrent_skip_list.hpp>
-#include <stk/container/lock_free_concurrent_skip_list.hpp>
+#include <stk/container/concurrent_skip_list.hpp>
 
 #include <cds/init.h>
 #include <cds/gc/hp.h>
@@ -96,7 +96,7 @@ TEST(lf_concurrent_skip_list_tests, construct)
 	using namespace stk;
 	using namespace stk::thread;
 	
-	EXPECT_NO_THROW((lock_free_concurrent_map<int, int>()));
+	EXPECT_NO_THROW((concurrent_map<int, int>()));
 }
 
 TEST(concurrent_skip_list_tests, empty)
@@ -115,7 +115,7 @@ TEST(lf_concurrent_skip_list_tests, empty)
 	using namespace stk;
 	using namespace stk::thread;
 
-	lock_free_concurrent_map<int, int> m;
+	concurrent_map<int, int> m;
 
 	EXPECT_TRUE(m.empty());
 	EXPECT_TRUE(m.size() == 0);
@@ -253,9 +253,9 @@ TEST(lf_concurrent_skip_list_tests, insert_two_no_replication)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	using iterator = lock_free_concurrent_map<int, int>::iterator;
+	using iterator = concurrent_map<int, int>::iterator;
 
-	lock_free_concurrent_map<int, int> m;
+	concurrent_map<int, int> m;
 	bool inserted = false;
 	{
 		iterator it, it2;
@@ -273,9 +273,9 @@ TEST(lf_concurrent_skip_list_tests, insert_two_remove_first)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	using iterator = lock_free_concurrent_map<int, int>::iterator;
+	using iterator = concurrent_map<int, int>::iterator;
 
-	lock_free_concurrent_map<int, int> m;
+	concurrent_map<int, int> m;
 	bool inserted = false;
 	{
 		iterator it;
@@ -294,9 +294,9 @@ TEST(lf_concurrent_skip_list_tests, insert_multiple)
 {
 	using namespace stk;
 	using namespace stk::thread;
-	using iterator = lock_free_concurrent_map<int, int>::iterator;
+	using iterator = concurrent_map<int, int>::iterator;
 
-	lock_free_concurrent_map<int, int> m;
+	concurrent_map<int, int> m;
 
 	for (auto i = 0UL; i < 10;++i)
 		m.insert(std::make_pair(i, 2*i));
@@ -308,7 +308,7 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 	using namespace ::testing;
 	using namespace stk;
 
-	lock_free_concurrent_map<int, int> m;
+	concurrent_map<int, int> m;
 
 	auto nItems = 10000;
 	for (auto i = 0; i < nItems; ++i)
@@ -369,7 +369,7 @@ void bash_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
 	using namespace ::testing;
 	using namespace stk;
 
-	lock_free_concurrent_map<int, int> m;
+	concurrent_map<int, int> m;
 
 	auto nItems = 10000;
 	for (auto i = 0; i < nItems; ++i)
