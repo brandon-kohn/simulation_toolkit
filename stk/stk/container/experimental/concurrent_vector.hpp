@@ -200,18 +200,18 @@ namespace stk { namespace detail {
         using desc_allocator = typename allocator_type::template rebind<descriptor>::other;
         using desc_manager = stk::node_deletion_manager<descriptor, desc_allocator>;
 
-        template <typename T>
+        template <typename U>
         class node_iterator;
 
-        template <typename T>
+        template <typename U>
         friend class node_iterator;
 
-        template <typename T>
+        template <typename U>
         class node_iterator
             : public boost::iterator_facade
             <
-                node_iterator<T>
-              , T
+                node_iterator<U>
+              , U
               , boost::bidirectional_traversal_tag
             >
         {
