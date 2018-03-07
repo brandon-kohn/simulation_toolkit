@@ -113,10 +113,10 @@ namespace stk { namespace detail {
         using base_t = detail::concurrent_vector_base<T, Alloc>;
         using node_ptr = typename base_t::node_ptr;
         using node_manager = typename base_t::node_manager;
-		using base_t::register_node_for_deletion;
-		using base_t::get_scope_manager;
-		using base_t::create_node;
-		using base_t::destroy_node;
+        using base_t::register_node_for_deletion;
+        using base_t::get_scope_manager;
+        using base_t::create_node;
+        using base_t::destroy_node;
 
     public:
 
@@ -426,7 +426,7 @@ namespace stk { namespace detail {
 
         struct iterator : node_iterator< value_type >
         {
-			using node_iterator<value_type>::equal;
+            using node_iterator<value_type>::equal;
 
             iterator()
                 : node_iterator< value_type >()
@@ -456,7 +456,7 @@ namespace stk { namespace detail {
 
         struct const_iterator : node_iterator<const value_type>
         {
-			using node_iterator<const value_type>::equal;
+            using node_iterator<const value_type>::equal;
 
             const_iterator()
                 : node_iterator<const value_type>()
