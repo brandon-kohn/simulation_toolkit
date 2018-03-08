@@ -364,8 +364,8 @@ public:
 
         void release()
         {
-            GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
 #ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
+            GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
             auto pMgr = m_pNodeManager.lock();
             if (pMgr)
                 pMgr->remove_checkout();
@@ -374,8 +374,8 @@ public:
 
         void acquire()
         {
-            GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
 #ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
+            GEOMETRIX_ASSERT(is_uninitialized(m_pNodeManager) || !m_pNodeManager.expired());
             auto pMgr = m_pNodeManager.lock();
             if (pMgr)
                 pMgr->add_checkout();
