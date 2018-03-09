@@ -132,7 +132,7 @@ namespace stk { namespace thread {
                     catch(...)
                     {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
 
-                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stopThread[tIndex].load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
                         hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
@@ -147,7 +147,7 @@ namespace stk { namespace thread {
                     {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
-                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stopThread[tIndex].load(std::memory_order_relaxed)))
                         hasTask = poll(queueInfo, tIndex, lastStolenIndex, task);
                     else
                         return;
@@ -157,7 +157,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [&queueInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(queueInfo, tIndex, lastStolenIndex, task)) || m_stop[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [&queueInfo, tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(queueInfo, tIndex, lastStolenIndex, task)) || m_stopThread[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -200,9 +200,11 @@ namespace stk { namespace thread {
                         m_nTasksOutstanding.decrement(tid);
                     }
                     catch(...)
-                    {}//! TODO: Could collect there and let users iterate over exceptions collected to handle?
+                    {
+                       GEOMETRIX_ASSERT(false);//! Tasks are supposed to be noexcept. 
+                    }//! TODO: Could collect there and let users iterate over exceptions collected to handle?
 
-                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stopThread[tIndex].load(std::memory_order_relaxed)))
                     {
                         spincount = 0;
                         hasTask = poll(tIndex, lastStolenIndex, task);
@@ -217,7 +219,7 @@ namespace stk { namespace thread {
                     {
                         thread_traits::yield();//! yield works better for larger payloads.
                     }
-                    if (BOOST_LIKELY(!m_stop[tIndex].load(std::memory_order_relaxed)))
+                    if (BOOST_LIKELY(!m_stopThread[tIndex].load(std::memory_order_relaxed)))
                         hasTask = poll(tIndex, lastStolenIndex, task);
                     else
                         return;
@@ -227,7 +229,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                        m_pollingCnd.wait(lk, [tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, lastStolenIndex, task)) || m_stop[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_pollingCnd.wait(lk, [tIndex, &lastStolenIndex, &hasTask, &task, this]() {return (hasTask = poll(tIndex, lastStolenIndex, task)) || m_stopThread[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTask)
@@ -308,7 +310,7 @@ namespace stk { namespace thread {
         void set_done(bool v)
         {
             m_done.store(v, std::memory_order_relaxed);
-            for (auto& b : m_stop)
+            for (auto& b : m_stopThread)
                 b.store(v, std::memory_order_relaxed);
         }
 
@@ -319,7 +321,7 @@ namespace stk { namespace thread {
 
         work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency()-1, bool bindToProcs = false)
             : m_threads(nthreads)
-            , m_stop(nthreads)
+            , m_stopThread(nthreads)
             //, m_spinning(nthreads)
             , m_poolQ(1024)
             , m_localQs(nthreads)
@@ -330,7 +332,7 @@ namespace stk { namespace thread {
 
         work_stealing_thread_pool(std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency()-1, bool bindToProcs = false)
             : m_threads(nthreads)
-            , m_stop(nthreads)
+            , m_stopThread(nthreads)
             //, m_spinning(nthreads)
             , m_poolQ(1024)
             , m_localQs(nthreads)
@@ -685,7 +687,7 @@ namespace stk { namespace thread {
 
         std::vector<thread_type>                                           m_threads;
 
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_stop;
+        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_stopThread;
         //alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_spinning;
         alignas(STK_CACHE_LINE_SIZE) std::atomic<bool>                     m_done{ false };
         alignas(STK_CACHE_LINE_SIZE) queue_type                            m_poolQ;

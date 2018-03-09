@@ -66,7 +66,7 @@ namespace stk { namespace thread {
                 if(hasTasks)
                 {
                     task();
-					if (BOOST_LIKELY(!m_stop[idx]->load(std::memory_order_relaxed)))
+					if (BOOST_LIKELY(!m_stopThread[idx]->load(std::memory_order_relaxed)))
 					{
 						spincount = 0;
 						hasTasks = queue_traits::try_pop(m_tasks, task);
@@ -79,7 +79,7 @@ namespace stk { namespace thread {
                     auto backoff = spincount * 10;
                     while (backoff--)
                         thread_traits::yield();
-					if (BOOST_LIKELY(!m_stop[idx]->load(std::memory_order_relaxed)))
+					if (BOOST_LIKELY(!m_stopThread[idx]->load(std::memory_order_relaxed)))
                         hasTasks = queue_traits::try_pop(m_tasks, task);
 					else
 						return;
@@ -89,7 +89,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         unique_lock<mutex_type> lk{ m_mutex };
-                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_stop[idx]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_stopThread[idx]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTasks)
@@ -222,7 +222,7 @@ namespace stk { namespace thread {
         void set_done(bool v)
         {
             m_done.store(v, std::memory_order_relaxed);
-            for (auto& b : m_stop)
+            for (auto& b : m_stopThread)
                 b->store(v);
         }
 
@@ -233,7 +233,7 @@ namespace stk { namespace thread {
             {
 				for (std::uint32_t i = 0; i < nThreads; ++i)
 				{
-					m_stop.emplace_back(new std::atomic<bool>{ false });
+					m_stopThread.emplace_back(new std::atomic<bool>{ false });
 				}
 
                 m_threads.reserve(nThreads);
@@ -364,7 +364,7 @@ namespace stk { namespace thread {
         std::atomic<bool>               m_done{ false };
         std::atomic<std::uint32_t>      m_nThreads{ 0 };
         std::atomic<std::uint32_t>      m_active{ 0 };
-        std::vector<unique_atomic_bool> m_stop;
+        std::vector<unique_atomic_bool> m_stopThread;
         std::vector<thread_type>        m_threads;
         queue_type                      m_tasks;
         std::function<void()>           m_onThreadStart;
