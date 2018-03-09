@@ -42,16 +42,15 @@ namespace stk { namespace thread {
         void decrement(std::uint64_t tidx)
         {
             GEOMETRIX_ASSERT(tidx < m_counts.size());
-            GEOMETRIX_ASSERT(count() > 0);
             m_counts[tidx].fetch_sub(1, std::memory_order_relaxed);
         }
 
+        //! Counters are relaxed, so it's possible that this can be negative at times.
         std::int64_t count() const
         {
             std::int64_t sum = 0;
             for (auto& pc : m_counts)
                 sum += pc.load(std::memory_order_relaxed);
-            GEOMETRIX_ASSERT(sum >= 0);
             return sum;
         }
 
