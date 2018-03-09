@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstdint>
 #include <thread>
+#include <vector>
 
 namespace stk { namespace thread {
 
