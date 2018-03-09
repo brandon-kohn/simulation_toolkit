@@ -487,7 +487,7 @@ namespace stk { namespace thread {
             return id;
         }
 
-        bool has_outstanding_tasks() const { return m_nTasksOutstanding.count() != 0; }
+        bool has_outstanding_tasks() const noexcept { return m_nTasksOutstanding.count() != 0; }
 
     private:
 
