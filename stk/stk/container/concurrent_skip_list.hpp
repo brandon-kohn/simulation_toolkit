@@ -467,10 +467,20 @@ public:
     {
         return add( item );
     }
-
+ 
+	std::pair<iterator, bool> insert(value_type&& item)
+    {
+        return add( std::forward<value_type>(item) );
+    }
+ 
     iterator insert(const iterator&, const value_type& item)
     {
         return add( item ).first;
+    }
+
+    iterator insert(const iterator&, value_type&& item)
+    {
+        return add( std::forward<value_type>(item) ).first;
     }
 
     bool contains( const key_type& x ) const
@@ -878,10 +888,7 @@ public:
     //! This interface admits concurrent reads to find a default constructed value for a given key if there is a writer using this.
     reference operator [] ( const key_type& k )
     {
-        iterator it = this->find( k );
-        if( it == this->end() )
-            it = this->insert( std::make_pair( k, mapped_type() ) ).first;
-        return (it->second);
+        return this->add_or_update(std::make_pair(k, mapped_type()), [](bool, std::pair<const key_type, mapped_type>&) {}).first->second;
     }
 
     template <typename UpdateFn>
