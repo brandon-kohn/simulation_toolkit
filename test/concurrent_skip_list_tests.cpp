@@ -133,6 +133,18 @@ TEST(concurrent_skip_list_tests, find_on_empty_returns_end)
 	EXPECT_EQ(it, m.end());
 }
 
+TEST(concurrent_skip_list_tests, find_on_const_empty_returns_end)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	using iterator = concurrent_map<int, int>::iterator;
+	
+	const concurrent_map<int, int> m;
+	auto it = m.find(10);
+
+	EXPECT_EQ(it, m.end());
+}
+
 TEST(concurrent_skip_list_tests, insert_to_empty)
 {
 	using namespace stk;

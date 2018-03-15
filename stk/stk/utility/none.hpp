@@ -3,9 +3,13 @@
 #include <type_traits>
 
 namespace stk {
-    struct none_type{};
+    struct none_type
+    {
+        struct init{};
+        explicit none_type(init){}
+    };
     using none_t = none_type;
-    none_t none;
+    const none_type none = none_type{none_type::init()};
 
     template <typename T, typename EnableIf=void>
     struct is_none : std::false_type{};

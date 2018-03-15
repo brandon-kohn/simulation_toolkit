@@ -158,7 +158,7 @@ namespace stk { namespace detail {
         template <typename Data>
         node_ptr create_node(Data&& v, std::uint8_t topLevel, bool isHead = false)
         {
-            return m_scopeManager->create_node(v, topLevel, isHead);
+            return m_scopeManager->create_node(std::forward<Data>(v), topLevel, isHead);
         }
 
         void register_node_for_deletion(node_ptr pNode)
@@ -450,8 +450,8 @@ public:
     {
         std::array<node_ptr, max_height::value> preds;
         std::array<node_ptr, max_height::value> succs;
-
-        auto found = find( x, preds, succs );
+		using non_const_this = lock_free_concurrent_skip_list<AssociativeTraits, LevelSelectionPolicy, BackoffPolicy>*;
+        auto found = const_cast<non_const_this>(this)->find( x, preds, succs );
         if( found )
         {
             auto pFound = succs[0];
