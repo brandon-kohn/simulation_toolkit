@@ -10,15 +10,15 @@
 
 #include <stk/math/operators.hpp>
 #include <boost/numeric/interval.hpp>
-#include <boost/numeric/interval/compare/tribool.hpp>
-
+#include <boost/numeric/interval/io.hpp>
+#include <boost/numeric/interval/compare/certain.hpp>
+#include <boost/numeric/interval/compare/possible.hpp>
 namespace stk { namespace math {
 
 template <typename T>
 class interval 
 {
     using interval_type = boost::numeric::interval<T>;
-
 public:
 
     interval()
@@ -36,31 +36,50 @@ public:
     #define STK_DECLARE_COMPARE_OPERATOR(R, op)                        \
     R operator op (const T& rhs) const                                 \
     {                                                                  \
-        using namespace boost::numeric::interval_lib;                  \
-        return compare::tribool::operator op(m_interval, rhs);         \
+        using namespace boost::numeric::interval_lib::compare;         \
+        return possible::operator op(m_interval, rhs);               \
     }                                                                  \
     R operator op (const interval<T>& rhs) const                       \
     {                                                                  \
         using namespace boost::numeric::interval_lib::compare;         \
-        return tribool::operator op(m_interval, rhs.m_interval);       \
+        return possible::operator op(m_interval, rhs.m_interval);    \
     }                                                                  \
-    R operator op (const boost::numeric::interval<T>& rhs) const       \
+    R operator op (const interval_type& rhs) const                     \
     {                                                                  \
-        using namespace boost::numeric::interval_lib;                  \
-        return compare::tribool::operator op(m_interval, rhs);         \
+        using namespace boost::numeric::interval_lib::compare;         \
+        return possible::operator op(m_interval, rhs);               \
     }                                                                  \
     /***/
 
-    STK_DECLARE_COMPARE_OPERATOR(boost::logic::tribool,==);
-    STK_DECLARE_COMPARE_OPERATOR(boost::logic::tribool,!=);
-    STK_DECLARE_COMPARE_OPERATOR(boost::logic::tribool,<);
-    STK_DECLARE_COMPARE_OPERATOR(boost::logic::tribool,>);
-    STK_DECLARE_COMPARE_OPERATOR(boost::logic::tribool,<=);
-    STK_DECLARE_COMPARE_OPERATOR(boost::logic::tribool,>=);
-    //STK_DECLARE_OPERATOR(interval<T>,+);
-    //STK_DECLARE_OPERATOR(interval<T>,-);
-    //STK_DECLARE_OPERATOR(interval<T>,*);
-    //STK_DECLARE_OPERATOR(interval<T>,/);
+    STK_DECLARE_COMPARE_OPERATOR(bool,==);
+    STK_DECLARE_COMPARE_OPERATOR(bool,!=);
+    STK_DECLARE_COMPARE_OPERATOR(bool,<);
+    STK_DECLARE_COMPARE_OPERATOR(bool,>);
+    STK_DECLARE_COMPARE_OPERATOR(bool,<=);
+    STK_DECLARE_COMPARE_OPERATOR(bool,>=);
+
+    #define STK_DECLARE_BINARY_OPERATOR(op)                            \
+    interval<T>& operator op (const T& rhs)                            \
+    {                                                                  \
+        m_interval op rhs;                                             \
+        return *this;                                                  \
+    }                                                                  \
+    interval<T>& operator op (const interval<T>& rhs)                  \
+    {                                                                  \
+        m_interval op rhs.m_interval;                                  \
+        return *this;                                                  \
+    }                                                                  \
+    interval<T>& operator op (const interval_type& rhs)                \
+    {                                                                  \
+        m_interval op rhs;                                             \
+        return *this;                                                  \
+    }                                                                  \
+    /***/
+
+    STK_DECLARE_BINARY_OPERATOR(+=);
+    STK_DECLARE_BINARY_OPERATOR(-=);
+    STK_DECLARE_BINARY_OPERATOR(*=);
+    STK_DECLARE_BINARY_OPERATOR(/=);
 
 	bool intersects_interior(const T& v)
 	{
@@ -82,6 +101,12 @@ public:
 		return boost::logic::indeterminate((*this)==v);
 	}
 
+	template <typename NumberComparisonPolicy>
+	bool equivalent(const interval<T>& rhs, const NumberComparisonPolicy& cmp)
+	{
+		return cmp.equals(lower(), rhs.lower()) && cmp.equals(upper(), rhs.upper());
+	}
+
     STK_IMPLEMENT_ORDERED_FIELD_OPERATORS(interval<T>, T);
     STK_IMPLEMENT_ORDERED_FIELD_OPERATORS(interval<T>, interval_type);
     
@@ -96,8 +121,7 @@ private:
     interval_type m_interval;
 };
 
-BOOST_TRIBOOL_THIRD_STATE(intersects)
-
 }}//namespace stk::math;
 
 #undef STK_DECLARE_COMPARE_OPERATOR
+#undef STK_DECLARE_BINARY_OPERATOR
