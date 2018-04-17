@@ -17,7 +17,6 @@
 #include <boost/thread/futures/wait_for_all.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <geometrix/utility/scope_timer.ipp>
-#include <geometrix/test/gmessage.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info.h>
 #include <stk/thread/boost_thread_kernel.hpp>
