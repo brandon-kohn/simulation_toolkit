@@ -15,6 +15,7 @@ execute_process(COMMAND ${CMAKE_COMMAND} --build . WORKING_DIRECTORY ${CMAKE_BIN
 # when building with Visual Studio
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+set(BUILD_EXPLICIT_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "")
 
 if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
