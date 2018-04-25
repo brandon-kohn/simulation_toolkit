@@ -655,7 +655,7 @@ namespace stk { namespace detail {
             {
                 //pCurr = get_descriptor();
                 complete_write(*pCurr);
-                auto bucket = detail::hibit(pCurr->size + first_bucket_size) - detail::hibit(first_bucket_size);
+                auto bucket = detail::hibit(static_cast<std::uint64_t>(pCurr->size + first_bucket_size)) - detail::hibit(first_bucket_size);
                 bucket_array oldArray;
                 bucket_size_t oldSize;
                 std::tie(oldArray, oldSize) = m_array.load(std::memory_order_relaxed);
@@ -751,10 +751,10 @@ namespace stk { namespace detail {
         void reserve(size_type s)
         {
             auto pCurr = get_descriptor();
-            auto i = detail::hibit(pCurr->size + first_bucket_size - 1) - detail::hibit(first_bucket_size);
+            auto i = detail::hibit(static_cast<std::uint64_t>(pCurr->size + first_bucket_size - 1)) - detail::hibit(first_bucket_size);
             if (i < 0)
                 i = 0;
-            auto limit = detail::hibit(s + first_bucket_size - 1) - detail::hibit(first_bucket_size);
+            auto limit = detail::hibit(static_cast<std::uint64_t>(s + first_bucket_size - 1)) - detail::hibit(first_bucket_size);
 
             bucket_array oldArray;
             bucket_size_t oldSize;
@@ -855,7 +855,7 @@ namespace stk { namespace detail {
         std::tuple<size_type, size_type> get_bucket_index_and_offset(size_type i) const
         {
             size_type pos = i + first_bucket_size;
-            size_type hbit = detail::hibit(pos);
+            size_type hbit = detail::hibit(static_cast<std::uint64_t>(pos));
             size_type idx = pos ^ (1 << hbit);
             return std::make_tuple(hbit - detail::hibit(first_bucket_size), idx);
         }
@@ -863,7 +863,7 @@ namespace stk { namespace detail {
         atomic_t* at_impl(size_type i) const
         {
             auto pos = i + first_bucket_size;
-            auto hbit = detail::hibit(pos);
+            auto hbit = detail::hibit(static_cast<std::uint64_t>(pos));
             auto idx = pos ^ (1 << hbit);
             return &m_array.get_ptr()[hbit - detail::hibit(first_bucket_size)][idx];
         }
@@ -873,7 +873,7 @@ namespace stk { namespace detail {
             if(desc.get_state() == flags::write_pending)
             {
                 auto expected = desc.old_value;
-                if(at_impl(desc.location)->compare_exchange_strong(expected, desc.new_value));
+                if(at_impl(desc.location)->compare_exchange_strong(expected, desc.new_value))
                     desc.set_state(flags::write_complete);
             }
         }
@@ -908,10 +908,10 @@ namespace stk { namespace detail {
         {
             auto pCurr = get_descriptor();
             GEOMETRIX_ASSERT(pCurr->size == 0);//Only call this from ctor.
-            auto i = detail::hibit(pCurr->size + first_bucket_size - 1) - detail::hibit(first_bucket_size);
+            auto i = detail::hibit(static_cast<std::uint64_t>(pCurr->size + first_bucket_size - 1)) - detail::hibit(first_bucket_size);
             if (i < 0)
                 i = 0;
-            auto limit = detail::hibit(s + first_bucket_size - 1) - detail::hibit(first_bucket_size);
+            auto limit = detail::hibit(static_cast<std::uint64_t>(s + first_bucket_size - 1)) - detail::hibit(first_bucket_size);
 
             bucket_array oldArray;
             bucket_size_t oldSize;
