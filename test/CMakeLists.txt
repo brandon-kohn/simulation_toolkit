@@ -30,11 +30,11 @@ if(Boost_FOUND)
     foreach(test ${tests})
         add_executable(${test} ${test}.cpp)
         target_compile_definitions(${test} PRIVATE -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
-        target_link_libraries(${test} gtest_static gmock_main_static clipper_static stk geometrix poly2tri_static cds-s ${Boost_LIBRARIES})
+        target_link_libraries(${test} gtest_static gmock_main_static clipper_static stk geometrix poly2tri_static ${Boost_LIBRARIES})
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
-
+if(BUILD_LIBCDS)
     set(parallel_tests
         concurrency_tests
         concurrent_skip_list_tests
@@ -51,5 +51,5 @@ if(Boost_FOUND)
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
-
+endif()
 endif()
