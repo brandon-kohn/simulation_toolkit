@@ -1,12 +1,9 @@
 cmake_minimum_required(VERSION 3.1.0)
+include(cmake/compile_check.cmake)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
-
-if("$ENV{BOOST_ROOT}" STREQUAL "")
-    message(FATAL_ERROR "BOOST_ROOT must be defined. NOTE: If using 'sudo' remember to invoke with 'sudo -E' to preserve the environment.")
-endif()
 
 # Download and unpack googletest at configure time
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -39,13 +36,20 @@ set(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "Default relative lib path.")
 # Targets
 project(simulation_suite)
 
+CompileCheck(STK_HAS_CONSTEXPR "Checking for constexpr keyword" "static constexpr const char* foo = \"foo\";")
+
 add_subdirectory(stk/)
 add_subdirectory(clipper-lib/)
 add_subdirectory(geometrix/)
 add_subdirectory(nlopt/)
 add_subdirectory(poly2tri/)
 add_subdirectory(junction/)
-add_subdirectory(libcds/)
+if(${STK_HAS_CONSTEXPR})
+    if("$ENV{BOOST_ROOT}" STREQUAL "")
+        message(FATAL_ERROR "BOOST_ROOT must be defined. NOTE: If using 'sudo' remember to invoke with 'sudo -E' to preserve the environment.")
+    endif()
+   add_subdirectory(libcds/)
+endif()
 add_subdirectory(rpmalloc/)
 
 # Tests
