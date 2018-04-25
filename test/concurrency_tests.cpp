@@ -314,10 +314,9 @@ TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
 
 }
 
-#include <geometrix/test/gmessage.hpp>
 TEST(check_test, sizeof_mutexes)
 {
-    GMESSAGE() << "sizeof(std::mutex) = " << sizeof(std::mutex) << std::endl;
-    GMESSAGE() << "sizeof(boost::mutex) = " << sizeof(boost::mutex) << std::endl;
-    GMESSAGE() << "sizeof(stk::thread::tiny_atomic_spin_lock<>) = " << sizeof(stk::thread::tiny_atomic_spin_lock<>) << std::endl;
+    GTEST_MESSAGE() << "sizeof(std::mutex) = " << sizeof(std::mutex) << std::endl;
+    GTEST_MESSAGE() << "sizeof(boost::mutex) = " << sizeof(boost::mutex) << std::endl;
+    GTEST_MESSAGE() << "sizeof(stk::thread::tiny_atomic_spin_lock<>) = " << sizeof(stk::thread::tiny_atomic_spin_lock<>) << std::endl;
 }
