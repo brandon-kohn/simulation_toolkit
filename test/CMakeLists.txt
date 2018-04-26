@@ -60,7 +60,7 @@ if(Boost_FOUND)
     find_package(Boost 1.60.0 COMPONENTS thread system filesystem)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_FILESYSTEM_FOUND)
         add_executable(test_runner test_runner.cpp)
-        target_link_libraries(test_runner ${Boost_LIBRARIES})
+        target_link_libraries(test_runner ${CMAKE_DL_LIBS} ${Boost_LIBRARIES})
 
         add_library(shared_module1 SHARED shared_module1.cpp)
         target_link_libraries(shared_module1 gtest ${Boost_LIBRARIES})
