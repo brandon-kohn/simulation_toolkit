@@ -138,7 +138,8 @@ namespace stk { namespace thread {
     class function_wrapper_with_allocator//<Alloc, typename std::enable_if<boost::is_stateless<Alloc>::value>::type>
     {
         using alloc_t = Alloc;
-        
+        using fixed_function_type = fixed_function<void(), 128>;
+
         struct impl_base
         {
         public:
@@ -183,6 +184,14 @@ namespace stk { namespace thread {
             return std::unique_ptr<impl_base, deleter>(bptr, del);
         }
 
+        static fixed_function_type make_call_impl(impl_base* p)
+        {
+            return fixed_function_type{ [p](){
+			    GEOMETRIX_ASSERT(p); 
+                return p->call();
+            }};
+        }
+
     public:
 
         using result_type = void;
@@ -191,12 +200,8 @@ namespace stk { namespace thread {
 
 		template <typename F, typename std::enable_if<fixed_function<void()>::storage_size < sizeof(typename std::decay<F>::type), int>::type = 0>
         function_wrapper_with_allocator(F&& f)
-            : m_pImpl( make_impl(std::forward<F>(f)) )
-			, m_fixed_function([p = m_pImpl.get()]() 
-		      { 
-			      GEOMETRIX_ASSERT(p); 
-				  p->call();
-		      })
+            : m_pImpl{make_impl(std::forward<F>(f))}
+			, m_fixed_function{make_call_impl(m_pImpl.get())}
         {}
 
         template <typename F, typename std::enable_if<sizeof(typename std::decay<F>::type) <= fixed_function<void()>::storage_size, int>::type = 0>
@@ -235,7 +240,7 @@ namespace stk { namespace thread {
     private:
 
         std::unique_ptr<impl_base, deleter> m_pImpl;
-        fixed_function<void(), 128> m_fixed_function;
+        fixed_function_type m_fixed_function;
     };
 
 
