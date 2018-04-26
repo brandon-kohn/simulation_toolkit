@@ -34,7 +34,7 @@ if(Boost_FOUND)
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
-    if(BUILD_LIBCDS And BOOST_THREAD_FOUND And BOOST_SYSTEM_FOUND And BOOST_CONTEXT_FOUND And BOOST_FIBER_FOUND)
+    if(BUILD_LIBCDS AND Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_CONTEXT_FOUND AND Boost_FIBER_FOUND)
     set(parallel_tests
         concurrency_tests
         concurrent_skip_list_tests
