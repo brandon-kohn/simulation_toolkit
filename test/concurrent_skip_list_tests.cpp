@@ -65,6 +65,7 @@ struct libcds_raii
 	{
 		std::swap(hpGC, rhs.hpGC);
 		std::swap(gpbRCU, rhs.gpbRCU);
+        return *this;
 	}
 
 	~libcds_raii()
