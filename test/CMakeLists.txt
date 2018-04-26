@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
  
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.60.0 REQUIRED COMPONENTS thread system context fiber)
+find_package(Boost 1.60.0 COMPONENTS thread system context fiber)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
@@ -34,7 +34,7 @@ if(Boost_FOUND)
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
-if(BUILD_LIBCDS)
+    if(BUILD_LIBCDS And BOOST_THREAD_FOUND And BOOST_SYSTEM_FOUND And BOOST_CONTEXT_FOUND And BOOST_FIBER_FOUND)
     set(parallel_tests
         concurrency_tests
         concurrent_skip_list_tests
