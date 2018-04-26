@@ -72,6 +72,6 @@ if(Boost_FOUND)
         target_link_libraries(shared_module2 gtest shared_module1 ${Boost_LIBRARIES})
         set_target_properties(shared_module2 PROPERTIES DEBUG_POSTFIX "d")
 
-        add_test(NAME shared_module2_test COMMAND test_runner.exe shared_module2)
+        add_test(NAME shared_module2_test COMMAND test_runner shared_module2)
     endif()
 endif()
