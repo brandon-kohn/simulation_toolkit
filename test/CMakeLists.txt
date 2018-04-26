@@ -59,19 +59,29 @@ if(Boost_FOUND)
     # Google Test using modules and a test runner.
     find_package(Boost 1.60.0 COMPONENTS thread system filesystem)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_FILESYSTEM_FOUND)
-        add_executable(test_runner test_runner.cpp)
-        target_link_libraries(test_runner ${CMAKE_DL_LIBS} ${Boost_LIBRARIES})
+        add_executable(gtest_runner test_runner.cpp)
+        target_link_libraries(gtest_runner ${CMAKE_DL_LIBS} ${Boost_LIBRARIES})
+        set_target_properties(gtest_runner PROPERTIES DEBUG_POSTFIX "d")
+
+        # Deployment
+        install (TARGETS gtest_runner
+            RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
         add_library(shared_module1 SHARED shared_module1.cpp)
         target_link_libraries(shared_module1 gtest ${Boost_LIBRARIES})
         set_target_properties(shared_module1 PROPERTIES DEBUG_POSTFIX "d")
         
-        add_test(NAME shared_module1_test COMMAND test_runner shared_module1)
+        add_test(NAME shared_module1_test COMMAND gtest_runner shared_module1)
+        set_tests_properties( shared_module1_test PROPERTIES ENVIRONMENT "PATH=${CMAKE_CURRENT_BINARY_DIR};$ENV{PATH}" )
 
         add_library(shared_module2 SHARED shared_module2.cpp)
         target_link_libraries(shared_module2 gtest shared_module1 ${Boost_LIBRARIES})
         set_target_properties(shared_module2 PROPERTIES DEBUG_POSTFIX "d")
 
-        add_test(NAME shared_module2_test COMMAND test_runner.exe shared_module2)
+        add_test(NAME shared_module2_test COMMAND gtest_runner shared_module2)
+        set_tests_properties( shared_module2_test PROPERTIES ENVIRONMENT "PATH=${CMAKE_CURRENT_BINARY_DIR};$ENV{PATH}" )
+
     endif()
 endif()
