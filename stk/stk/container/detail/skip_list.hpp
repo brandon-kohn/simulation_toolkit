@@ -140,6 +140,7 @@ namespace stk { namespace detail {
         random_xor_shift_generator& operator=(const random_xor_shift_generator&rhs)
         {
             m_state.store(rhs.m_state.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            return *this;
         }
 
         BOOST_FORCEINLINE unsigned int operator()()
