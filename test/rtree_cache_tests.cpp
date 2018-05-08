@@ -6,6 +6,7 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
+#define _ENABLE_ATOMIC_ALIGNMENT_FIX
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -49,3 +50,41 @@ TEST(RTreeTriangleCacheTestSuite, testBasicUsage_2TrianglesInMesh_PointOutside)
 
     EXPECT_TRUE(result.empty());
 }
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <stk/utility/compressed_integer_pair.hpp>
+TEST(compressed_integer_pair_tests, compressed_integer_as_8_bytes)
+{
+	using namespace stk;
+	std::uint32_t hiword = 10;
+	std::uint32_t loword = 10;
+	compressed_integer_pair p = { hiword, loword };
+	std::uint64_t val = (std::uint64_t)hiword << 32 | loword;
+	EXPECT_EQ(val, p.to_uint64());
+}
+
+TEST(compressed_integer_pair_tests, atomic_is_lock_free)
+{
+	using namespace stk;
+	std::uint32_t hiword = 10;
+	std::uint32_t loword = 10;
+	std::atomic<compressed_integer_pair> p{compressed_integer_pair{ hiword, loword }};
+	EXPECT_TRUE(p.is_lock_free());
+}
+
+TEST(compressed_integer_pair_tests, atomic_cas_works)
+{
+	using namespace stk;
+	std::uint32_t hiword = 10;
+	std::uint32_t loword = 20;
+	auto a = compressed_integer_pair{ hiword, loword };
+
+	std::atomic<compressed_integer_pair> p{a};
+	auto b = compressed_integer_pair{ loword, hiword };
+
+	EXPECT_TRUE(p.compare_exchange_strong(a, b));
+	EXPECT_EQ(b, p.load());
+}
+
+

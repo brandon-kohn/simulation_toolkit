@@ -411,3 +411,11 @@ TEST(TransformerTestSuite, testFindRotationAxisThetaEqualsPi)
 	auto a = rotation_angle_of(m);
 	EXPECT_TRUE(make_tolerance_policy().equals(theta, a));
 }
+
+#include <boost/optional.hpp>
+TEST(optionalTest, optionalTest)
+{
+  boost::optional<int> o = 0;
+  EXPECT_TRUE(o);
+}
+

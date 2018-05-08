@@ -10,3 +10,17 @@
 [submodule "clipper-lib"]
 	path = clipper-lib
 	url = https://github.com/brandon-kohn/clipper-lib.git
+[submodule "turf"]
+	path = turf
+	url = https://github.com/brandon-kohn/turf.git
+	branch = master
+[submodule "junction"]
+	path = junction
+	url = https://github.com/brandon-kohn/junction.git
+	branch = master
+[submodule "libcds"]
+	path = libcds
+	url = https://github.com/brandon-kohn/libcds.git
+[submodule "rpmalloc"]
+	path = rpmalloc
+	url = https://github.com/brandon-kohn/rpmalloc.git
