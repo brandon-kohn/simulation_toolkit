@@ -61,7 +61,9 @@ if(BUILD_LIBCDS)
     endif()
    add_subdirectory(libcds/)
 endif()
-add_subdirectory(rpmalloc/)
+if(NOT (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0.0"))
+    add_subdirectory(rpmalloc/)
+endif()
 
 # Tests
 if(BUILD_TESTS)
