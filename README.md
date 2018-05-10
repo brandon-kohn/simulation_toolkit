@@ -11,12 +11,13 @@
     nlopt
     poly2tri
     turf
+    rpmalloc
 
 ##### Requirements:
 ###### Requires C++11 for boost.fiber, junction, and libcds.
 ###### Boost version 1.65.1 is required with the following compiled libraries:
-        context
-        fiber
+        context 
+        fiber - (to use stk fiber pool)
         system
         thread
 
@@ -43,11 +44,11 @@
     //! NOTE: IDE generators such as Xcode will not work with the update script as the `cmake --build --config <Config>` is not respected. 
     //! Prefer makefile generators with the update script.
     
-After running the above command the superproject and submodules will be built into the specified install path using "bin/include/lib/share" subdirectories.
+After running the above command the superproject and submodules will be built into the specified install path using "bin|include|lib|share" subdirectories.
 
 ##### To link with the libraries use:
 
-    -lclipper-lib
+    -lclipper
     -lnlopt
     -lpoly2tri
     -lgtest
@@ -55,6 +56,7 @@ After running the above command the superproject and submodules will be built in
     -lcds
     -ljunction
     -lturf
+    -lrpmalloc
     //! NOTE: Append a 'd' to the library name for libraries compiled against the debug c-runtime. CDS uses '_d'.
     
 ##### To run stk tests (slow):
