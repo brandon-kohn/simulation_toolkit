@@ -10,8 +10,8 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # Google Test using modules and a test runner.
-find_package(Boost 1.61.0 COMPONENTS thread system)
-if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
+find_package(Boost 1.61.0 COMPONENTS thread system filesystem)
+if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_FILESYSTEM_FOUND)
     message("Boost found: ${Boost_INCLUDE_DIRS}")  
     include_directories(${Boost_INCLUDE_DIRS})
     link_directories(${Boost_LIBRARY_DIRS})
