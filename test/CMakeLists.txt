@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
  
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.60.0 COMPONENTS thread system)
+find_package(Boost 1.61.0 COMPONENTS thread system)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
@@ -15,6 +15,8 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS -fext-numeric-literals)
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    find_package(Threads)
 endif()
 
 if(Boost_FOUND)
@@ -57,12 +59,14 @@ if(Boost_FOUND)
     endif()
 
     # Google Test using modules and a test runner.
-    find_package(Boost 1.60.0 COMPONENTS thread system filesystem)
+    find_package(Boost 1.61.0 COMPONENTS thread system filesystem)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_FILESYSTEM_FOUND)
         add_executable(local_gtest_runner ${CMAKE_SOURCE_DIR}/gtest_runner/gtest_runner.cpp)
         target_link_libraries(local_gtest_runner ${CMAKE_DL_LIBS} ${Boost_LIBRARIES})
         set_target_properties(local_gtest_runner PROPERTIES DEBUG_POSTFIX "d")
-
+        if(Threads_FOUND)
+            target_link_libraries(local_gtest_runner Threads::Threads)
+        endif()
         add_library(shared_module1 SHARED shared_module1.cpp)
         target_link_libraries(shared_module1 gtest ${Boost_LIBRARIES})
         set_target_properties(shared_module1 PROPERTIES DEBUG_POSTFIX "d")
