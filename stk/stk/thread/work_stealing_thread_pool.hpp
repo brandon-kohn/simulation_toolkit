@@ -93,7 +93,7 @@ namespace stk { namespace thread {
             return rnd();
         }
 
-        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::true_type)//! Q has queue_info
+        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::false_type)//! Q has queue_info
         {
             if(bindToProcs)
                 bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
@@ -168,7 +168,7 @@ namespace stk { namespace thread {
             return;
         }
 
-        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::false_type) //! Q has void queue_info.
+        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::true_type) //! Q has void queue_info.
         {
             if(bindToProcs)
                 bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
