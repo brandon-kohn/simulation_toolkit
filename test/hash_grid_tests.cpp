@@ -28,12 +28,20 @@
 #include <boost/context/stack_traits.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 #include <stk/thread/concurrentqueue.h>
+#ifndef BOOST_NO_CXX11_THREAD_LOCAL
 #include <stk/thread/concurrentqueue_queue_info.h>
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+using mc_queue_traits = moodycamel_concurrent_queue_traits;
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
+#else
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
+#endif
 #include <stk/container/concurrent_hash_grid.hpp>
 #include <chrono>
 
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
-auto keepReference = boost::context::stack_traits::default_size();
+//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
+//auto keepReference = boost::context::stack_traits::default_size();
 namespace stk {
 
     template <typename Fn, typename ... Ts>
@@ -213,7 +221,7 @@ TEST(timing, threads_moodycamel_concurrentQ_bash_grid)
     using namespace stk;
     using namespace stk::thread;
 
-    thread_pool<moodycamel_concurrent_queue_traits> threads(nOSThreads);
+    thread_pool<mc_queue_traits> threads(nOSThreads);
     std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
     xorshift1024starphi_generator gen;
 
@@ -232,7 +240,7 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid_with_stripin
     using namespace stk;
     using namespace stk::thread;
 
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits> threads(nOSThreads);
+    work_stealing_thread_pool<mc_queue_traits> threads(nOSThreads);
     std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
     xorshift1024starphi_generator gen;
 

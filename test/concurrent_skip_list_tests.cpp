@@ -15,11 +15,8 @@
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/container/fine_locked_hash_map.hpp>
 #include <boost/thread/futures/wait_for_all.hpp>
-
 #include <boost/context/stack_traits.hpp>
-
 #include <geometrix/utility/scope_timer.ipp>
-
 #include <stk/thread/concurrentqueue.h>
 
 #include <thread>
@@ -27,62 +24,13 @@
 #include <exception>
 #include <iostream>
 #include <stk/thread/work_stealing_thread_pool.hpp>
-#include <stk/thread/thread_specific.hpp>
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
-#include <stk/thread/thread_specific.hpp>
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
 #include <stk/container/experimental/lazy_concurrent_skip_list.hpp>
 #include <stk/container/concurrent_skip_list.hpp>
 
-#include <cds/init.h>
-#include <cds/gc/hp.h>
-#include <cds/urcu/general_buffered.h>
-typedef cds::urcu::gc< cds::urcu::general_buffered<> >    rcu_gpb;
-struct libcds_raii
-{
-
-	libcds_raii()
-	{
-		cds::Initialize();
-		hpGC = new cds::gc::HP{};
-		gpbRCU = new rcu_gpb{};
-		cds::threading::Manager::attachThread();
-	}
-
-	libcds_raii(const libcds_raii&) = delete;
-	libcds_raii& operator=(const libcds_raii&) = delete;
-
-	libcds_raii(libcds_raii&& rhs)
-		: hpGC(rhs.hpGC)
-		, gpbRCU(rhs.gpbRCU)
-	{
-		rhs.hpGC = nullptr;
-		rhs.gpbRCU = nullptr;
-	}
-
-	libcds_raii& operator=(libcds_raii&&rhs)
-	{
-		std::swap(hpGC, rhs.hpGC);
-		std::swap(gpbRCU, rhs.gpbRCU);
-        return *this;
-	}
-
-	~libcds_raii()
-	{
-		if (hpGC)
-		{
-			delete hpGC;
-			delete gpbRCU;
-			cds::Terminate();
-		}
-	}
-
-	cds::gc::HP* hpGC{ nullptr };
-	rcu_gpb* gpbRCU{ nullptr };
-};
-
-auto cdsSinglton = libcds_raii();
+//#include <stk/thread/thread_specific.hpp>
+//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
+//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
+//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
 
 TEST(concurrent_skip_list_tests, construct)
 {
@@ -360,14 +308,23 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 }
 
 #include <stk/thread/concurrentqueue.h>
+#ifndef BOOST_NO_CXX11_THREAD_LOCAL
 #include <stk/thread/concurrentqueue_queue_info.h>
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+using mc_queue_traits = moodycamel_concurrent_queue_traits;
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
+#else
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
+#endif
+
 int nTimingRuns = 5;
 TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing)
 {
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+	work_stealing_thread_pool<mc_queue_traits> pool;
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_lf_concurrent_map(pool, "work_stealing_thread_pool moody-/lock_free_concurrent");
@@ -436,7 +393,7 @@ TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing_
 	using namespace ::testing;
 	using namespace stk;
 	using namespace stk::thread;
-	work_stealing_thread_pool<moodycamel_concurrent_queue_traits> pool;
+	work_stealing_thread_pool<mc_queue_traits> pool;
 	for (int i = 0; i < nTimingRuns; ++i)
 	{
 		bash_lf_concurrent_map_remove_odd(pool, "work_stealing_thread_pool moody-remove_odd/lock_free_concurrent");
@@ -446,6 +403,7 @@ TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing_
 	EXPECT_TRUE(true);
 }
 
+/*
 #include <cds/container/skip_list_map_rcu.h>
 template <typename Pool>
 void bash_cds_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
@@ -497,6 +455,54 @@ void bash_cds_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
 	}
 }
 
+#include <cds/init.h>
+#include <cds/gc/hp.h>
+#include <cds/urcu/general_buffered.h>
+typedef cds::urcu::gc< cds::urcu::general_buffered<> >    rcu_gpb;
+struct libcds_raii
+{
+
+	libcds_raii()
+	{
+		cds::Initialize();
+		hpGC = new cds::gc::HP{};
+		gpbRCU = new rcu_gpb{};
+		cds::threading::Manager::attachThread();
+	}
+
+	libcds_raii(const libcds_raii&) = delete;
+	libcds_raii& operator=(const libcds_raii&) = delete;
+
+	libcds_raii(libcds_raii&& rhs)
+		: hpGC(rhs.hpGC)
+		, gpbRCU(rhs.gpbRCU)
+	{
+		rhs.hpGC = nullptr;
+		rhs.gpbRCU = nullptr;
+	}
+
+	libcds_raii& operator=(libcds_raii&&rhs)
+	{
+		std::swap(hpGC, rhs.hpGC);
+		std::swap(gpbRCU, rhs.gpbRCU);
+        return *this;
+	}
+
+	~libcds_raii()
+	{
+		if (hpGC)
+		{
+			delete hpGC;
+			delete gpbRCU;
+			cds::Terminate();
+		}
+	}
+
+	cds::gc::HP* hpGC{ nullptr };
+	rcu_gpb* gpbRCU{ nullptr };
+};
+
+auto cdsSinglton = libcds_raii();
 inline void cds_enter_thread()
 {
 	cds::threading::Manager::attachThread();
@@ -522,3 +528,4 @@ TEST(lf_concurrent_skip_list_tests, bash_cds_lock_free_concurrent_map_work_steal
 
 	EXPECT_TRUE(true);
 }
+*/

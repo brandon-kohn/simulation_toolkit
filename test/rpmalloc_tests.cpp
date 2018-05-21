@@ -12,7 +12,16 @@
 
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
+#ifndef BOOST_NO_CXX11_THREAD_LOCAL
 #include <stk/thread/concurrentqueue_queue_info.h>
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+using mc_queue_traits = moodycamel_concurrent_queue_traits;
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
+//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(unsigned int);
+#else
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
+#endif
 #include <stk/utility/rpmalloc_system.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 
@@ -40,7 +49,6 @@ namespace test
         F m_f;
     };
 }//! namespace test;
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(unsigned int);
 STK_INSTANTIATE_RPMALLOC_SYSTEM();//! Calls rpmalloc_initialize() and finalize() using RAII in a global.
 std::size_t nAllocations = 1000000;
 TEST(rpmalloc_test_suite, cross_thread_bench)
@@ -48,7 +56,7 @@ TEST(rpmalloc_test_suite, cross_thread_bench)
     using namespace stk::thread;
     std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
 	{
-		using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
+		using pool_t = work_stealing_thread_pool<mc_queue_traits>;
 		pool_t pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);
 		using future_t = pool_t::future<void>;
 		std::vector<future_t> futures;
@@ -74,7 +82,7 @@ TEST(rpmalloc_test_suite, cross_thread_bench_malloc_free)
 {
     using namespace stk::thread;
     std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
-	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits>;
+	using pool_t = work_stealing_thread_pool<mc_queue_traits>;
     pool_t pool(nOSThreads);
 
     using future_t = pool_t::future<void>;

@@ -41,6 +41,10 @@ if(Boost_FOUND)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
         set(thread_pool_set
             thread_pool_tests
+            concurrent_skip_list_tests
+            hash_grid_tests
+            concurrent_vector_tests
+            rpmalloc_tests
             )
 
         foreach(test ${thread_pool_set})
@@ -57,10 +61,6 @@ if(Boost_FOUND)
     if(BUILD_LIBCDS AND Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_CONTEXT_FOUND AND Boost_FIBER_FOUND)
         set(parallel_tests
             concurrency_tests
-            concurrent_skip_list_tests
-            hash_grid_tests
-            rpmalloc_tests
-            concurrent_vector_tests
             )
 
         foreach(test ${parallel_tests})

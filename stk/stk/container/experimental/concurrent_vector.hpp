@@ -426,7 +426,7 @@ namespace stk { namespace detail {
 
         struct iterator : node_iterator< value_type >
         {
-            using node_iterator<value_type>::equal;
+            //using node_iterator<value_type>::equal;
 
             iterator()
                 : node_iterator< value_type >()
@@ -434,8 +434,14 @@ namespace stk { namespace detail {
 
             iterator(const iterator&) = default;
             iterator& operator=(const iterator&) = default;
-            iterator(iterator&&) = default;
-            iterator& operator=(iterator&&) = default;
+			iterator(iterator&& o)
+				: node_iterator<value_type>(std::forward<iterator>(o))
+			{}
+			iterator& operator=(iterator&& o)
+			{
+				node_iterator<value_type>::operator =(std::forward<iterator>(o));
+				return *this;
+			}
 
             iterator(concurrent_vector<value_type, allocator_type>* myVector, node_ptr pNode, size_type index)
                 : node_iterator< value_type >(myVector, pNode, index)
@@ -456,7 +462,7 @@ namespace stk { namespace detail {
 
         struct const_iterator : node_iterator<const value_type>
         {
-            using node_iterator<const value_type>::equal;
+            //using node_iterator<const value_type>::equal;
 
             const_iterator()
                 : node_iterator<const value_type>()
@@ -464,8 +470,14 @@ namespace stk { namespace detail {
 
             const_iterator(const const_iterator&) = default;
             const_iterator& operator=(const const_iterator&) = default;
-            const_iterator(const_iterator&&) = default;
-            const_iterator& operator=(const_iterator&&) = default;
+			const_iterator(const_iterator&& o)
+				: node_iterator<const value_type>(std::forward<const_iterator>(o))
+			{}
+			const_iterator& operator=(const_iterator&& o)
+			{
+				node_iterator<const value_type>::operator =(std::forward<const_iterator>(o));
+				return *this;
+			}
 
             const_iterator(const concurrent_vector<value_type, allocator_type>* myVector, node_ptr pNode, size_type index)
                 : node_iterator<const value_type>(const_cast<concurrent_vector<value_type, allocator_type>*>(myVector), pNode, index)
@@ -557,7 +569,7 @@ namespace stk { namespace detail {
         {}
 
         //! The destructor is not thread safe.
-        ~concurrent_vector() noexcept
+        ~concurrent_vector() BOOST_NOEXCEPT
         {
             bucket_array pArray;
             bucket_size_t aSize;

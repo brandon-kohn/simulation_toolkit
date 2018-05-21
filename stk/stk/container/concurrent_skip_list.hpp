@@ -335,7 +335,8 @@ public:
 		{}
         iterator& operator=(iterator&& o)
 		{
-			return node_iterator<value_type>::operator =(std::forward<iterator>(o));
+			node_iterator<value_type>::operator =(std::forward<iterator>(o));
+			return *this;
 		}
 
         iterator( node_ptr pNode )
@@ -364,11 +365,12 @@ public:
         const_iterator(const const_iterator&) = default;
         const_iterator& operator=(const const_iterator&) = default;
 		const_iterator(const_iterator&& o)
-			: node_iterator<value_type>(std::forward<const_iterator>(o))
+			: node_iterator<const value_type>(std::forward<const_iterator>(o))
 		{}
 		const_iterator& operator=(const_iterator&& o)
 		{
-			return node_iterator<value_type>::operator =(std::forward<const_iterator>(o));
+			node_iterator<const value_type>::operator =(std::forward<const_iterator>(o));
+			return *this;
 		}
         const_iterator( node_ptr pNode )
             : node_iterator< const value_type >(pNode)

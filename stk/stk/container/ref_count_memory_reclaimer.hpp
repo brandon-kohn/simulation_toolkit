@@ -44,7 +44,7 @@ namespace stk { namespace thread {
         using queue_type = moodycamel::ConcurrentQueue<func_t>;
 		using queue_ptr = queue_type*;
         using atomic_ptr = atomic_stampable_ptr<queue_type>;
-        using stamp_type = typename atomic_ptr::stamp_type;
+        using stamp_type = atomic_ptr::stamp_type;
 
         ref_count_memory_reclaimer()
             : m_queue(new queue_type())
