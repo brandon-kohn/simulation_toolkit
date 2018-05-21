@@ -54,8 +54,16 @@ public:
 
     atomic_markable_ptr(atomic_markable_ptr const&) = delete;
     atomic_markable_ptr& operator=(atomic_markable_ptr const&) = delete;
-    atomic_markable_ptr(atomic_markable_ptr&&) = default;
-    atomic_markable_ptr& operator=(atomic_markable_ptr&&) = default;
+	atomic_markable_ptr(atomic_markable_ptr&& o)
+		: m_ptr(std::move(o.m_ptr)) 
+	{}
+
+	atomic_markable_ptr& operator=(atomic_markable_ptr&& o)
+	{
+		m_ptr = std::move(o.m_ptr);
+		return *this;
+	}
+
 
     std::tuple<T*, mark_type> get() const
     {
@@ -125,20 +133,20 @@ public:
     bool is_lock_free() const { return m_ptr.is_lock_free(); }
     void store(T* p, mark_type m, std::memory_order order = std::memory_order_seq_cst) { m_ptr.store(combine(p, m), order); }
 
-    std::tuple<T*, mark_type> load(std::memory_order order = std::memory_order_seq_cst) const noexcept
+    std::tuple<T*, mark_type> load(std::memory_order order = std::memory_order_seq_cst) const BOOST_NOEXCEPT
     {
         auto pPtr = m_ptr.load(order);
         return std::make_tuple(extract_ptr(pPtr), extract_mark(pPtr));
     }
 
-    std::tuple<T*, mark_type> exchange(T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept
+    std::tuple<T*, mark_type> exchange(T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) BOOST_NOEXCEPT
     {
         auto pPtr = combine(desiredPtr, desiredStamp);
         auto pResult = m_ptr.exchange(pPtr, order);
         return std::make_tuple(extract_ptr(pResult), extract_mark(pResult));
     }
 
-    bool compare_exchange_weak(T*& expectedPtr, mark_type& expectedStamp, T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept
+    bool compare_exchange_weak(T*& expectedPtr, mark_type& expectedStamp, T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) BOOST_NOEXCEPT
     {
         auto pPtrExpected = combine(expectedPtr, expectedStamp);
         auto pPtrDesired = combine(desiredPtr, desiredStamp);
@@ -149,7 +157,7 @@ public:
         return false;
     }
 
-    bool compare_exchange_strong(T*& expectedPtr, mark_type& expectedStamp, T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) noexcept
+    bool compare_exchange_strong(T*& expectedPtr, mark_type& expectedStamp, T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) BOOST_NOEXCEPT
     {
         auto pPtrExpected = combine(expectedPtr, expectedStamp);
         auto pPtrDesired = combine(desiredPtr, desiredStamp);

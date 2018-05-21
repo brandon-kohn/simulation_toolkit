@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/config.hpp>
 #include <cstdint>
 
 #ifndef STK_CACHE_LINE_SIZE
@@ -7,10 +8,17 @@
 #endif//! STK_CACHE_LINE_SIZE
 
 namespace stk { namespace thread {
+
+#ifndef BOOST_NO_CXX11_CONSTEXPR 
     inline constexpr std::uint64_t cache_line_pad(std::uint64_t size)
     {
         return (size / STK_CACHE_LINE_SIZE) * STK_CACHE_LINE_SIZE + ((size % STK_CACHE_LINE_SIZE) > 0) * STK_CACHE_LINE_SIZE - size;
     }
+
+	#define STK_CACHE_LINE_PAD(Size) cache_line_pad(Size)
+#else
+	#define STK_CACHE_LINE_PAD(size) (size / STK_CACHE_LINE_SIZE) * STK_CACHE_LINE_SIZE + ((size % STK_CACHE_LINE_SIZE) > 0) * STK_CACHE_LINE_SIZE - size
+#endif
     namespace detail {
         template<typename T, typename EnableIf=void>
         struct padded_impl
@@ -21,8 +29,8 @@ namespace stk { namespace thread {
                 pad(Ts&&... a)
                     : obj(std::forward<Ts>(a)...)
                 {}
-                alignas(STK_CACHE_LINE_SIZE)T obj;
-                char padding[cache_line_pad(sizeof(T))];
+                BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE)T obj;
+                char padding[STK_CACHE_LINE_PAD(sizeof(T))];
 
                 T& operator *()
                 {
@@ -58,7 +66,7 @@ namespace stk { namespace thread {
                     : obj(std::forward<Ts>(a)...)
                 {}
 
-                alignas(STK_CACHE_LINE_SIZE)T obj;
+                BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE)T obj;
  
                 T& operator *()
                 {

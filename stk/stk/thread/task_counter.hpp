@@ -47,7 +47,7 @@ namespace stk { namespace thread {
         }
 
     private:
-        alignas(STK_CACHE_LINE_SIZE)std::atomic<std::int64_t> m_counter;
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE)std::atomic<std::int64_t> m_counter;
     };
 
 }}//! namespace stk::thread;
