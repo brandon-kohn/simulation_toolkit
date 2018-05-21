@@ -38,15 +38,14 @@ if(Boost_FOUND)
     endforeach()
 
     # Concurrency tests.
-    find_package(Boost 1.60.0 COMPONENTS thread system filesystem context fiber)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
-        set(thread_pool_tests
+        set(thread_pool_set
             thread_pool_tests
             )
 
-        foreach(test ${thread_pool_tests})
+        foreach(test ${thread_pool_set})
             add_executable(${test} ${test}.cpp)
-            target_compile_definitions(${test} PRIVATE -DJUNCTION_STATIC_LIB -DTURF_STATIC_LIB -DCDS_USE_STATIC_LIB -DRPMALLOC_STATIC_LIB -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
+            target_compile_definitions(${test} PRIVATE -DJUNCTION_STATIC_LIB -DTURF_STATIC_LIB -DRPMALLOC_STATIC_LIB -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
             target_link_libraries(${test} gtest_static gmock_main_static stk geometrix turf_static junction_static clipper_static poly2tri_static rpmalloc_static ${Boost_LIBRARIES})
             add_test(NAME ${test} COMMAND ${test})
             set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
@@ -54,6 +53,7 @@ if(Boost_FOUND)
     endif()
 
     # Concurrency tests.
+    find_package(Boost 1.61.0 COMPONENTS thread system filesystem context fiber)
     if(BUILD_LIBCDS AND Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_CONTEXT_FOUND AND Boost_FIBER_FOUND)
         set(parallel_tests
             concurrency_tests
