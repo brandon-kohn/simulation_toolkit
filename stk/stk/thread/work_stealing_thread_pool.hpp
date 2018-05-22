@@ -348,17 +348,19 @@ namespace stk { namespace thread {
         {
             set_done(true);
 
-            //while (number_threads())//! This hangs if the pool is a global as the threads seem to exit without running their scope exit in that case.
+            while (number_threads())
             {
                 auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                 m_pollingCnd.notify_all();
             }
 
-            boost::for_each(m_threads, [](thread_type& t)
+			GEOMETRIX_ASSERT(number_threads() == 0);
+
+            for(auto& t : m_threads)
             {
                 if (t.joinable())
-                    t.join();
-            });
+                    t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+            }
         }
 
         template <typename Task>

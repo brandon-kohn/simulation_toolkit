@@ -120,13 +120,17 @@ namespace stk { namespace thread {
         {
             set_done(true);
 
-            //while (number_threads())
+            while (number_threads())
             {
                 auto lk = unique_lock<mutex_type>{ m_mutex };
                 m_cnd.notify_all();
             }
 
-            boost::for_each(m_threads, [](thread_type& t) { if (t.joinable()) t.join(); });
+            for(auto& t : m_threads)
+            {
+                if (t.joinable())
+                    t.detach();
+            }
         }
 
         template <typename Action>
