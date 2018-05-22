@@ -74,7 +74,7 @@ public:
 		: m_ptr(std::move(o.m_ptr))
 	{}
 
-	atomic_stampable_ptr& operator=(atomic_stampable_ptr&&)
+	atomic_stampable_ptr& operator=(atomic_stampable_ptr&& o)
 	{
 		m_ptr = std::move(o.m_ptr);
 		return *this;

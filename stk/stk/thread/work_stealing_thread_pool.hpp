@@ -519,8 +519,9 @@ namespace stk { namespace thread {
                 if(bindToProcs)
                     bind_to_processor(0);
 
+				using qinfo_is_void = typename stk::is_none<queue_info>::type;
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
-                    m_threads[i] = thread_type([i, bindToProcs, this]() { worker_thread(i, bindToProcs, stk::is_none<queue_info>::type() ); });
+                    m_threads[i] = thread_type([i, bindToProcs, this]() { worker_thread(i, bindToProcs, qinfo_is_void() ); });
 
                 while (number_threads() != m_threads.size())
                     thread_traits::yield();
