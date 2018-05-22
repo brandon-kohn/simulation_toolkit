@@ -18,6 +18,7 @@
 #include <stk/container/locked_queue.hpp>
 #include <stk/thread/partition_work.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
+#include <stk/thread/thread_local_pod.hpp>
 #include <stk/utility/scope_exit.hpp>
 #include <stk/utility/none.hpp>
 #include <stk/thread/bind/bind_processor.hpp>
@@ -57,7 +58,7 @@ namespace stk { namespace thread {
         using alloc_type = std::allocator<char>;
 #endif
 
-        struct alignas(STK_CACHE_LINE_SIZE) padded_atomic_bool : std::atomic<bool>
+        struct BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) padded_atomic_bool : std::atomic<bool>
         {
             padded_atomic_bool()
                 : std::atomic<bool>(false)
@@ -69,7 +70,7 @@ namespace stk { namespace thread {
         using queue_info = typename queue_traits::queue_info;
 
         template <typename Q>
-        struct alignas(STK_CACHE_LINE_SIZE) padded_queue : Q
+        struct BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) padded_queue : Q
         {
             padded_queue()
                 : Q{1024}
@@ -92,7 +93,7 @@ namespace stk { namespace thread {
             return rnd();
         }
 
-        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::true_type)//! Q has queue_info
+        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::false_type)//! Q has queue_info
         {
             if(bindToProcs)
                 bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
@@ -167,7 +168,7 @@ namespace stk { namespace thread {
             return;
         }
 
-        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::false_type) //! Q has void queue_info.
+        void worker_thread(std::uint32_t tIndex, bool bindToProcs, std::true_type) //! Q has void queue_info.
         {
             if(bindToProcs)
                 bind_to_processor((tIndex+1) % std::thread::hardware_concurrency());
@@ -201,7 +202,7 @@ namespace stk { namespace thread {
                     }
                     catch(...)
                     {
-                       GEOMETRIX_ASSERT(false);//! Tasks are supposed to be noexcept. 
+                       GEOMETRIX_ASSERT(false);//! Tasks are supposed to be BOOST_NOEXCEPT. 
                     }//! TODO: Could collect there and let users iterate over exceptions collected to handle?
 
                     if (BOOST_LIKELY(!m_stopThread[tIndex].load(std::memory_order_relaxed)))
@@ -347,89 +348,109 @@ namespace stk { namespace thread {
         {
             set_done(true);
 
-            //while (number_threads())//! This hangs if the pool is a global as the threads seem to exit without running their scope exit in that case.
+            while (number_threads())
             {
                 auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                 m_pollingCnd.notify_all();
             }
 
-            boost::for_each(m_threads, [](thread_type& t)
+			GEOMETRIX_ASSERT(number_threads() == 0);
+
+            for(auto& t : m_threads)
             {
                 if (t.joinable())
-                    t.join();
-            });
+                    t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+            }
         }
 
         template <typename Task>
-        future<decltype(std::declval<Task>()())> send(Task&& x) noexcept
+        future<decltype(std::declval<Task>()())> send(Task&& x) BOOST_NOEXCEPT
         {
             return send_impl(get_thread_id(), std::forward<Task>(x));
         }
 
         //! Send a task to the specified thread index. Thread indices are in the range of [1, nthreads]. 0 is the pool queue.
         template <typename Task>
-        future<decltype(std::declval<Task>()())> send(std::uint32_t threadQueueIndex, Task&& x) noexcept
+        future<decltype(std::declval<Task>()())> send(std::uint32_t threadQueueIndex, Task&& x) BOOST_NOEXCEPT
         {
             GEOMETRIX_ASSERT(threadQueueIndex < number_threads()+1);
             return send_impl(threadQueueIndex, std::forward<Task>(x));
         }
 
         template <typename Task>
-        void send_no_future(Task&& x) noexcept
+        void send_no_future(Task&& x) BOOST_NOEXCEPT
         {
             return send_no_future_impl(get_thread_id(), std::forward<Task>(x));
         }
 
         //! Send a task to the specified thread index. Thread indices are in the range of [1, nthreads]. 0 is the pool queue.
         template <typename Task>
-        void send_no_future(std::uint32_t threadQueueIndex, Task&& x) noexcept
+        void send_no_future(std::uint32_t threadQueueIndex, Task&& x) BOOST_NOEXCEPT
         {
             GEOMETRIX_ASSERT(threadQueueIndex < number_threads()+1);
             return send_no_future_impl(threadQueueIndex, std::forward<Task>(x));
         }
 
         template <typename Range, typename TaskFn>
-        void parallel_for(Range&& range, TaskFn&& task) noexcept
+        void parallel_for(Range&& range, TaskFn&& task) BOOST_NOEXCEPT
         {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
             using value_t = typename boost::range_value<Range>::type;
-            parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, BOOST_NOEXCEPT(task(std::declval<value_t>()))>());
+#else
+			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions, std::false_type());
+#endif
         }
 
         template <typename TaskFn>
-        void parallel_apply(std::ptrdiff_t count, TaskFn&& task) noexcept
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task) BOOST_NOEXCEPT
         {
             auto nthreads = number_threads();
             auto npartitions = nthreads * nthreads;
-            parallel_apply_impl(count, std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, noexcept(task(0))>());
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            parallel_apply_impl(count, std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, BOOST_NOEXCEPT(task(0))>());
+#else
+			parallel_apply_impl(count, std::forward<TaskFn>(task), nthreads, npartitions, std::false_type());
+#endif
         }
 
         template <typename Range, typename TaskFn>
-        void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions) noexcept
+        void parallel_for(Range&& range, TaskFn&& task, std::size_t npartitions) BOOST_NOEXCEPT
         {
             using value_t = typename boost::range_value<Range>::type;
-            parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, noexcept(task(std::declval<value_t>()))>());
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, BOOST_NOEXCEPT(task(std::declval<value_t>()))>());
+#else
+			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), number_threads(), npartitions, std::false_type());
+#endif
         }
 
         template <typename TaskFn>
-        void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions) noexcept
+        void parallel_apply(std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions) BOOST_NOEXCEPT
         {
-            parallel_apply_impl(count, std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, noexcept(task(0))>());
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            parallel_apply_impl(count, std::forward<TaskFn>(task), number_threads(), npartitions, std::integral_constant<bool, BOOST_NOEXCEPT(task(0))>());
+#else
+			parallel_apply_impl(count, std::forward<TaskFn>(task), number_threads(), npartitions, std::false_type());
+#endif
         }
 
-        std::size_t number_threads() const noexcept { return m_nThreads.load(std::memory_order_relaxed); }
+        std::size_t number_threads() const BOOST_NOEXCEPT { return m_nThreads.load(std::memory_order_relaxed); }
 
-        void wait_for_all_tasks() noexcept
+        void wait_for_all_tasks() BOOST_NOEXCEPT
         {
-            auto pred = [this]() noexcept { return !has_outstanding_tasks(); };
+            auto pred = [this]() BOOST_NOEXCEPT { return !has_outstanding_tasks(); };
             wait_for(pred);
         }
 
         template <typename Pred>
-        void wait_for(Pred&& pred) noexcept
+        void wait_for(Pred&& pred) BOOST_NOEXCEPT
         {
-            static_assert(noexcept(pred()), "Pred must be noexcept.");
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            static_assert(BOOST_NOEXCEPT(pred()), "Pred must be BOOST_NOEXCEPT.");
+#endif
             auto tid = get_thread_id();
             fun_wrapper task;
             std::uint32_t lastStolenIndex = 0;
@@ -443,7 +464,7 @@ namespace stk { namespace thread {
             }
         }
 
-        void wait_or_work(std::vector<future<void>>&fs) noexcept
+        void wait_or_work(std::vector<future<void>>&fs) BOOST_NOEXCEPT
         {
             auto tid = get_thread_id();
             fun_wrapper tsk;
@@ -474,20 +495,20 @@ namespace stk { namespace thread {
 
         std::uint32_t get_rnd_queue_index() const
         {
-            static thread_local std::size_t id = 0;
+            static STK_THREAD_LOCAL_POD std::size_t id = 0;
             auto idx = (++id % (m_threads.size() - 1)) + 1;
             GEOMETRIX_ASSERT(idx > 0 && idx < m_threads.size());
             return idx;
         }
 
         //! If the thread is in the pool the id will be 1..N. Subtract 1 to get the local queue index. If the thread is not in the pool return 0. Usually 0 should be the main thread.
-        static std::uint32_t& get_thread_id() noexcept
+        static std::uint32_t& get_thread_id() BOOST_NOEXCEPT
         {
-            static thread_local std::uint32_t id = 0;
+            static STK_THREAD_LOCAL_POD std::uint32_t id = 0;
             return id;
         }
 
-        bool has_outstanding_tasks() const noexcept { return m_nTasksOutstanding.count() != 0; }
+        bool has_outstanding_tasks() const BOOST_NOEXCEPT { return m_nTasksOutstanding.count() != 0; }
 
     private:
 
@@ -499,7 +520,7 @@ namespace stk { namespace thread {
                     bind_to_processor(0);
 
                 for (std::uint32_t i = 0; i < m_threads.size(); ++i)
-                    m_threads[i] = thread_type([i, bindToProcs, this]() { worker_thread(i, bindToProcs, typename stk::is_none<queue_info>::type() ); });
+                    m_threads[i] = thread_type([i, bindToProcs, this]() { worker_thread(i, bindToProcs, stk::is_none<queue_info>::type() ); });
 
                 while (number_threads() != m_threads.size())
                     thread_traits::yield();
@@ -512,7 +533,7 @@ namespace stk { namespace thread {
         }
 
         template <typename Range, typename TaskFn>
-        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::false_type) noexcept
+        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::false_type) BOOST_NOEXCEPT
         {
             using iterator_t = typename boost::range_iterator<Range>::type;
             std::vector<future<void>> fs;
@@ -538,7 +559,7 @@ namespace stk { namespace thread {
         }
 
         template <typename TaskFn>
-        void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::false_type) noexcept
+        void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::false_type) BOOST_NOEXCEPT
         {
             std::vector<future<void>> fs;
             fs.reserve(npartitions);
@@ -563,10 +584,13 @@ namespace stk { namespace thread {
         }
 
         template <typename Range, typename TaskFn>
-        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
+        void parallel_for_impl(Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) BOOST_NOEXCEPT
         {
             using value_t = typename boost::range_value<Range>::type;
-            static_assert(noexcept(task(std::declval<value_t>())), "call to parallel_for_noexcept must have noexcept task");
+
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            static_assert(BOOST_NOEXCEPT(task(std::declval<value_t>())), "call to parallel_for must have BOOST_NOEXCEPT task");
+#endif
             using iterator_t = typename boost::range_iterator<Range>::type;
             counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
@@ -577,7 +601,7 @@ namespace stk { namespace thread {
                     //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
                     //std::uint32_t threadID = get_spinning_index();
                     std::uint32_t threadID = njobs % (nthreads - 1) + 1;
-                    send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
+                    send_no_future(threadID, [&consumed, &task, from, to, this]() BOOST_NOEXCEPT -> void
                     {
                         STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
                         for (auto i = from; i != to; ++i)
@@ -588,13 +612,15 @@ namespace stk { namespace thread {
                 }
             );
 
-            wait_for([&consumed, njobs]() noexcept { return consumed.count() == njobs; });
+            wait_for([&consumed, njobs]() BOOST_NOEXCEPT { return consumed.count() == njobs; });
         }
 
         template <typename TaskFn>
-        void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) noexcept
+        void parallel_apply_impl(std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions, std::true_type) BOOST_NOEXCEPT
         {
-            static_assert(noexcept(task(0)), "call to parallel_apply_noexcept must have noexcept task");
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            static_assert(BOOST_NOEXCEPT(task(0)), "call to parallel_apply_BOOST_NOEXCEPT must have BOOST_NOEXCEPT task");
+#endif
             task_counter consumed(nthreads+1);
             std::uint32_t njobs = 0;
             partition_work(count, npartitions,
@@ -604,7 +630,7 @@ namespace stk { namespace thread {
                     //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
                     //std::uint32_t threadID = get_spinning_index();
                     std::uint32_t threadID = njobs % (nthreads - 1) + 1;
-                    send_no_future(threadID, [&consumed, &task, from, to, this]() noexcept -> void
+                    send_no_future(threadID, [&consumed, &task, from, to, this]() BOOST_NOEXCEPT -> void
                     {
                         STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
                         for (auto i = from; i != to; ++i)
@@ -615,11 +641,11 @@ namespace stk { namespace thread {
                 }
             );
 
-            wait_for([&consumed, njobs]() noexcept { return consumed.count() == njobs; });
+            wait_for([&consumed, njobs]() BOOST_NOEXCEPT { return consumed.count() == njobs; });
         }
 
         template <typename Task>
-        future<decltype(std::declval<Task>()())> send_impl(std::uint32_t threadQueueIndex, Task&& m) noexcept
+        future<decltype(std::declval<Task>()())> send_impl(std::uint32_t threadQueueIndex, Task&& m) BOOST_NOEXCEPT
         {
             using result_type = decltype(m());
             auto tid = get_thread_id();
@@ -656,9 +682,11 @@ namespace stk { namespace thread {
         }
 
         template <typename Task>
-        void send_no_future_impl(std::uint32_t threadQueueIndex, Task&& m) noexcept
+        void send_no_future_impl(std::uint32_t threadQueueIndex, Task&& m) BOOST_NOEXCEPT
         {
-            static_assert(noexcept(m()), "call to send_no_future must have noexcept task");
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+            static_assert(BOOST_NOEXCEPT(m()), "call to send_no_future must have BOOST_NOEXCEPT task");
+#endif
             auto tid = get_thread_id();
             m_nTasksOutstanding.increment(tid);
             fun_wrapper p(std::forward<Task>(m));
@@ -687,14 +715,14 @@ namespace stk { namespace thread {
 
         std::vector<thread_type>                                           m_threads;
 
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_stopThread;
-        //alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_spinning;
-        alignas(STK_CACHE_LINE_SIZE) std::atomic<bool>                     m_done{ false };
-        alignas(STK_CACHE_LINE_SIZE) queue_type                            m_poolQ;
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_queue<queue_type>> m_localQs;
-        alignas(STK_CACHE_LINE_SIZE) std::atomic<std::uint32_t>            m_active{ 0 };
-        alignas(STK_CACHE_LINE_SIZE) std::atomic<std::uint32_t>            m_nThreads{ 0 };
-        alignas(STK_CACHE_LINE_SIZE) scalable_task_counter                 m_nTasksOutstanding;
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_stopThread;
+        //BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_bool>       m_spinning;
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::atomic<bool>                     m_done{ false };
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) queue_type                            m_poolQ;
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::vector<padded_queue<queue_type>> m_localQs;
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::atomic<std::uint32_t>            m_active{ 0 };
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::atomic<std::uint32_t>            m_nThreads{ 0 };
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) scalable_task_counter                 m_nTasksOutstanding;
 
         std::function<void()>                                              m_onThreadStart;
         std::function<void()>                                              m_onThreadStop;

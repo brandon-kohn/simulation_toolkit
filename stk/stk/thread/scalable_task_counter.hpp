@@ -8,6 +8,7 @@
 //
 #pragma once
 
+#include <boost/config.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <stk/thread/cache_line_padding.hpp>
 #include <atomic>
@@ -19,10 +20,10 @@ namespace stk { namespace thread {
 
     class scalable_task_counter
     {
-        struct alignas(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::int64_t>
+        struct BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::int64_t>
         {
             padded_atomic_counter()
-                : std::atomic<std::int64_t>{0}
+                : std::atomic<std::int64_t>()
             {}
         };
 
@@ -61,7 +62,7 @@ namespace stk { namespace thread {
         }
 
     private:
-        alignas(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_counter> m_counts;
+        BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) std::vector<padded_atomic_counter> m_counts;
     };
 
 }}//! namespace stk::thread;

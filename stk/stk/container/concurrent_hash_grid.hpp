@@ -29,9 +29,9 @@ namespace stk {
     struct compressed_integer_pair_key_traits
     {
         typedef std::uint64_t Key;
-        typedef typename turf::util::BestFit<std::uint64_t>::Unsigned Hash;
-        static const Key NullKey = (std::numeric_limits<Key>::max)();
-        static const Hash NullHash = Hash((std::numeric_limits<Key>::max)());
+        typedef turf::util::BestFit<std::uint64_t>::Unsigned Hash;
+		static const Key NullKey = UINT64_MAX;// (std::numeric_limits<Key>::max)();
+        static const Hash NullHash = Hash(NullKey);
         static Hash hash(Key key)
         {
             return turf::util::avalanche(Hash(key));
@@ -150,7 +150,7 @@ namespace stk {
         //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
         void quiesce()
         {
-            junction::DefaultQSBR.flush();
+            junction::DefaultQSBR().flush();
         }
 
     private:
