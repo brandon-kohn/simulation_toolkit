@@ -358,8 +358,14 @@ namespace stk { namespace thread {
 
             for(auto& t : m_threads)
             {
-                if (t.joinable())
-                    t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+				if (t.joinable())
+				{
+#ifdef BOOST_MSVC
+					t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+#else
+					t.join();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+#endif
+				}
             }
         }
 
