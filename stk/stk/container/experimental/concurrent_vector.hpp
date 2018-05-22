@@ -426,7 +426,7 @@ namespace stk { namespace detail {
 
         struct iterator : node_iterator< value_type >
         {
-            //using node_iterator<value_type>::equal;
+            using base_t = node_iterator<value_type>;
 
             iterator()
                 : node_iterator< value_type >()
@@ -450,19 +450,19 @@ namespace stk { namespace detail {
             template <typename U>
             bool operator ==(node_iterator<U> const& other) const
             {
-                return equal(other);
+                return base_t::equal(other);
             }
 
             template <typename U>
             bool operator !=(node_iterator<U> const& other) const
             {
-                return !equal(other);// this->m_pNode != other.m_pNode;
+                return !base_t::equal(other);// this->m_pNode != other.m_pNode;
             }
         };
 
         struct const_iterator : node_iterator<const value_type>
         {
-            //using node_iterator<const value_type>::equal;
+            using base_t = node_iterator<const value_type>;
 
             const_iterator()
                 : node_iterator<const value_type>()
@@ -495,22 +495,22 @@ namespace stk { namespace detail {
 
             bool operator ==(iterator const& other) const
             {
-                return equal(other);// this->m_pNode == other.m_pNode;
+                return base_t::equal(other);// this->m_pNode == other.m_pNode;
             }
 
             bool operator ==(const_iterator const& other) const
             {
-                return equal(other);// this->m_pNode == other.m_pNode;
+                return base_t::equal(other);// this->m_pNode == other.m_pNode;
             }
 
             bool operator !=(iterator const& other) const
             {
-                return !equal(other);// this->m_pNode != other.m_pNode;
+                return !base_t::equal(other);// this->m_pNode != other.m_pNode;
             }
 
             bool operator !=(const_iterator const& other) const
             {
-                return !equal(other);// this->m_pNode != other.m_pNode;
+                return !base_t::equal(other);// this->m_pNode != other.m_pNode;
             }
         };
 
