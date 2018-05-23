@@ -23,7 +23,7 @@ namespace stk { namespace thread {
         struct BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::int64_t>
         {
             padded_atomic_counter()
-                : std::atomic<std::int64_t>()
+                : std::atomic<std::int64_t>{0}
             {}
         };
 
