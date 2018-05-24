@@ -40,6 +40,7 @@ if(Boost_FOUND)
     # Concurrency tests.
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
         set(thread_pool_set
+            concurrent_integral_map_tests
             thread_pool_tests
             concurrent_skip_list_tests
             hash_grid_tests

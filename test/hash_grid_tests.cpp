@@ -127,6 +127,28 @@ TEST(concurrent_hash_grid_2d_tests, construct_and_delete)
     EXPECT_EQ(0, cell<null_mutex>::update(0));
 }
 
+TEST(concurrent_hash_grid_2d_tests, construct_and_erase)
+{
+	using namespace geometrix;
+	using namespace stk;
+	using namespace stk::thread;
+	{
+		double xmin = 0;
+		double xmax = extent;
+		double ymin = 0;
+		double ymax = extent;
+		grid_traits<double> grid(xmin, xmax, ymin, ymax, 3.0);
+		concurrent_hash_grid_2d<cell<null_mutex>, grid_traits<double>> sut(grid);
+
+		for (int i = 0; i < extent; ++i)
+			sut.get_cell(i, i);
+		EXPECT_EQ(extent, cell<null_mutex>::update(0));
+		for (int i = 0; i < extent; ++i)
+			sut.erase(i, i);
+		EXPECT_EQ(0, cell<null_mutex>::update(0));
+	}
+}
+
 template <typename Mutex, typename Pool, typename Inputs>
 void bash_grid(Pool& pool, Inputs const& rndpairs, std::string const& name, std::size_t partitionSize)
 {
