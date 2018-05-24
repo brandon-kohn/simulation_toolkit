@@ -137,7 +137,7 @@ namespace stk {
             if (iter.isValid())
             {
                 auto pValue = iter.eraseValue();
-				if(pValue != pointer_value_traits<Data>::NullValue)
+				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
 					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
             }
         }
@@ -148,7 +148,7 @@ namespace stk {
             while(it.isValid())
             {
                 auto pValue = m_grid.erase(it.getKey());
-				if(pValue != pointer_value_traits<Data>::NullValue)
+				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
 					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
                 it.next();
             };

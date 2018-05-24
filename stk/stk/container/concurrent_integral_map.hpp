@@ -115,7 +115,7 @@ namespace stk { namespace detail {
             if (iter.isValid())
             {
 				auto pValue = iter.eraseValue();
-				if (pValue != stk::detail::pointer_value_traits<Data>::NullValue)
+				if (pValue != (data_ptr)stk::detail::pointer_value_traits<Data>::NullValue)
 					junction::DefaultQSBR().enqueue<erase_policy>(pValue);
             }
         }
