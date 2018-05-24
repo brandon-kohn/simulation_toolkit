@@ -8,6 +8,7 @@
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+#include <boost/smart_ptr/make_unique.hpp>
 
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
 
@@ -53,7 +54,7 @@ TEST(concurrent_integral_map_test_suite, contruct_insert_destruct)
 		bool added;
 		for (int i = 0; i < extent; ++i)
 		{
-			std::tie(pData, added) = sut.insert(i, std::make_unique<cell>(i));
+			std::tie(pData, added) = sut.insert(i, boost::make_unique<cell>(i));
 			EXPECT_TRUE(added);
 		}
 		junction::DefaultQSBR().flush();
@@ -72,7 +73,7 @@ TEST(concurrent_integral_map_test_suite, insert_and_erase)
 
 		for (int i = 0; i < extent; ++i)
 		{
-			sut.insert(i, std::make_unique<cell>(i));
+			sut.insert(i, boost::make_unique<cell>(i));
 		}
 		EXPECT_EQ(extent, cell::update(0));
 		for (int i = 0; i < extent; ++i)
@@ -114,7 +115,7 @@ TEST(concurrent_integral_map_test_suite, find_inserted)
 
 		for (int i = 0; i < extent; ++i)
 		{
-			sut.insert(i, std::make_unique<cell>(i));
+			sut.insert(i, boost::make_unique<cell>(i));
 		}
 
 		for (int i = 0; i < extent; ++i)
@@ -162,13 +163,13 @@ TEST(concurrent_integral_map_test_suite, insert_existing)
 
 		for (int i = 0; i < extent; ++i)
 		{
-			sut.insert(i, std::make_unique<cell>(i));
+			sut.insert(i, boost::make_unique<cell>(i));
 		}
 		EXPECT_EQ(extent, cell::update(0));
 
 		for (int i = 0; i < extent; ++i)
 		{
-			sut.insert(i, std::make_unique<cell>(i));
+			sut.insert(i, boost::make_unique<cell>(i));
 		}
 		EXPECT_EQ(extent, cell::update(0));
 	}
@@ -186,7 +187,7 @@ TEST(concurrent_integral_map_test_suite, emplace_existing)
 
 		for (int i = 0; i < extent; ++i)
 		{
-			sut.insert(i, std::make_unique<cell>(i));
+			sut.insert(i, boost::make_unique<cell>(i));
 		}
 		EXPECT_EQ(extent, cell::update(0));
 
