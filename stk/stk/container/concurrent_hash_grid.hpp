@@ -68,7 +68,6 @@ namespace stk {
 
         ~concurrent_hash_grid_2d()
         {
-            quiesce();
             clear();
         }
 
@@ -107,11 +106,15 @@ namespace stk {
             auto result = mutator.getValue();
             if (result == nullptr)
             {
-                auto pNewData = boost::make_unique<Data>();
-                result = pNewData.get();
-                if (result != mutator.exchangeValue(result))
-                    pNewData.release();
-                result = mutator.getValue();
+				result = new Data{};
+				auto oldData = mutator.exchangeValue(result);
+				if (oldData)
+					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(oldData);
+
+				//! If a new value has been put into the key which isn't result.. get it.
+				bool wasInserted = oldData != result;
+				if (!wasInserted)
+					result = mutator.getValue();
             }
 
             GEOMETRIX_ASSERT(result != nullptr);
@@ -133,9 +136,9 @@ namespace stk {
             auto iter = m_grid.find(p.to_uint64());
             if (iter.isValid())
             {
-                auto pValue = iter.getValue();
-                delete pValue;
-                iter.eraseValue();
+                auto pValue = iter.eraseValue();
+				if(pValue != pointer_value_traits<Data>::NullValue)
+					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
             }
         }
 
@@ -144,15 +147,15 @@ namespace stk {
             auto it = typename grid_type::Iterator(m_grid);
             while(it.isValid())
             {
-                auto pValue = it.getValue();
-                delete pValue;
-                m_grid.erase(it.getKey());
+                auto pValue = m_grid.erase(it.getKey());
+				if(pValue != pointer_value_traits<Data>::NullValue)
+					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
                 it.next();
             };
         }
 
         //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
-        void quiesce()
+        static void quiesce()
         {
             junction::DefaultQSBR().flush();
         }

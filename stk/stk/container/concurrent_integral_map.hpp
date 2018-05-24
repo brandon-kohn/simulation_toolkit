@@ -5,6 +5,7 @@
 #include <turf/Util.h>
 #include <geometrix/utility/assert.hpp>
 #include <cstdint>
+#include <memory>
 
 namespace stk { namespace detail {
         struct uint64_key_traits
@@ -40,6 +41,8 @@ namespace stk { namespace detail {
     {
     public:
 
+		static_assert(std::is_default_constructible<OnErasePolicy>::value, "The OnErasePolicy of concurrent_integral_map must be default constructible and ideally stateless.");
+
 		using erase_policy = OnErasePolicy;
         using data_ptr = Data*;
         using map_type = junction::ConcurrentMap_Leapfrog<std::uint64_t, data_ptr, stk::detail::uint64_key_traits, stk::detail::pointer_value_traits<Data>>;
@@ -63,28 +66,57 @@ namespace stk { namespace detail {
 			return nullptr;
         }
 
-        std::pair<data_ptr, bool> insert(std::uint64_t k, data_ptr pData)
+        std::pair<data_ptr, bool> insert(std::uint64_t k, std::unique_ptr<Data>&& pData)
         {
             auto mutator = m_map.insertOrFind(k);
             auto result = mutator.getValue();
-            if (result == nullptr)
-            {
-				result = pData;
-                if (result != mutator.exchangeValue(pData))
-                    result = mutator.getValue();
-            }
+			bool wasInserted = false;
+			if (result == nullptr)
+			{
+				result = pData.release();
+				auto oldData = mutator.exchangeValue(result);
+				if (oldData)
+					junction::DefaultQSBR().enqueue<erase_policy>(oldData);
 
-            return std::make_pair(result, result == pData);
+				//! If a new value has been put into the key which isn't result.. get it.
+				wasInserted = oldData != result;
+				if (!wasInserted)
+					result = mutator.getValue();
+			}
+
+            return std::make_pair(result, wasInserted);
         }
+
+		template <typename... Args>
+		std::pair<data_ptr, bool> emplace(std::uint64_t k, Args&&... a) 
+		{
+			auto mutator = m_map.insertOrFind(k);
+			auto result = mutator.getValue();
+			bool wasInserted = false;
+			if (result == nullptr)
+			{
+				result = new Data(a...);
+				auto oldData = mutator.exchangeValue(result);
+				if (oldData)
+					junction::DefaultQSBR().enqueue<erase_policy>(oldData);
+
+				//! If a new value has been put into the key which isn't result.. get it.
+				wasInserted = oldData != result;
+				if (!wasInserted)
+					result = mutator.getValue();
+			}
+
+			return std::make_pair(result, wasInserted);
+		}
 
 		void erase(std::uint64_t k)
         {
 			auto iter = m_map.find(k);
             if (iter.isValid())
             {
-				auto pValue = iter.getValue();
-				erase_policy()(pValue);
-                iter.eraseValue();
+				auto pValue = iter.eraseValue();
+				if (pValue != stk::detail::pointer_value_traits<Data>::NullValue)
+					junction::DefaultQSBR().enqueue<erase_policy>(pValue);
             }
         }
 
@@ -100,6 +132,11 @@ namespace stk { namespace detail {
                 it.next();
             };
         }
+
+		static void quiesce()
+		{
+			junction::DefaultQSBR().flush();
+		}
 
     private:
 

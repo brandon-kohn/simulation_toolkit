@@ -123,7 +123,7 @@ TEST(concurrent_hash_grid_2d_tests, construct_and_delete)
             sut.get_cell(i, i);
         EXPECT_EQ(extent, cell<null_mutex>::update(0));
     }
-
+	junction::DefaultQSBR().flush();
     EXPECT_EQ(0, cell<null_mutex>::update(0));
 }
 
@@ -145,6 +145,7 @@ TEST(concurrent_hash_grid_2d_tests, construct_and_erase)
 		EXPECT_EQ(extent, cell<null_mutex>::update(0));
 		for (int i = 0; i < extent; ++i)
 			sut.erase(i, i);
+		junction::DefaultQSBR().flush();
 		EXPECT_EQ(0, cell<null_mutex>::update(0));
 	}
 }
