@@ -125,11 +125,16 @@ namespace stk { namespace thread {
                 auto lk = unique_lock<mutex_type>{ m_mutex };
                 m_cnd.notify_all();
             }
-
+	        GEOMETRIX_ASSERT(number_threads() == 0);
             for(auto& t : m_threads)
             {
+#ifdef BOOST_MSVC
                 if (t.joinable())
                     t.detach();
+#else
+                if (t.joinable())
+                    t.join();
+#endif
             }
         }
 

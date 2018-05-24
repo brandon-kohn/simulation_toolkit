@@ -22,7 +22,7 @@
 #pragma once
 
 #include <stk/container/atomic_stampable_ptr.hpp>
-#include <stk/container/node_deletion_manager.hpp>
+#include <stk/container/experimental/node_deletion_manager.hpp>
 #include <memory>
 
 namespace stk { namespace detail {

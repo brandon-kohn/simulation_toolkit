@@ -25,12 +25,7 @@
 #include <iostream>
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/container/experimental/lazy_concurrent_skip_list.hpp>
-#include <stk/container/concurrent_skip_list.hpp>
-
-//#include <stk/thread/thread_specific.hpp>
-//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
-//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
-//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
+#include <stk/container/experimental/concurrent_skip_list.hpp>
 
 TEST(concurrent_skip_list_tests, construct)
 {
@@ -308,15 +303,9 @@ void bash_lf_concurrent_map(Pool& pool, const char* name)
 }
 
 #include <stk/thread/concurrentqueue.h>
-#ifndef BOOST_NO_CXX11_THREAD_LOCAL
-#include <stk/thread/concurrentqueue_queue_info.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
-using mc_queue_traits = moodycamel_concurrent_queue_traits;
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::uint32_t);
-#else
-#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
-#endif
 
 int nTimingRuns = 5;
 TEST(lf_concurrent_skip_list_tests, bash_lock_free_concurrent_map_work_stealing)

@@ -42,7 +42,7 @@
     #pragma once
 #endif
 
-#include <stk/container/detail/skip_list.hpp>
+#include <stk/container/experimental/detail/skip_list.hpp>
 
 //! A concurrent skip list implementation with map and set versions.
 

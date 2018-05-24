@@ -23,7 +23,7 @@
 #include <stk/utility/none.hpp>
 #include <stk/thread/bind/bind_processor.hpp>
 #include <stk/thread/cache_line_padding.hpp>
-#include <stk/container/detail/skip_list.hpp>
+#include <stk/container/experimental/detail/skip_list.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #elif defined(STK_USE_RPMALLOC)
@@ -363,7 +363,7 @@ namespace stk { namespace thread {
 #ifdef BOOST_MSVC
 					t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
 #else
-					t.join();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+					t.join();
 #endif
 				}
             }

@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#error concurrentqueue_queue_info doesn't work very well... experimental use of thread_specific. Use concurrentqueue_queue_info_no_tokens.h
+
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/thread_specific.hpp>
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(moodycamel::queue_info);

@@ -10,7 +10,6 @@
 #define STK_THREAD_THREAD_SPECIFIC_HPP
 #pragma once
 
-#include <stk/container/concurrent_skip_list.hpp>
 #include <functional>
 #include <deque>
 #include <type_traits>
@@ -25,26 +24,6 @@ namespace stk { namespace thread {
 
     template <typename T>
     class thread_specific;
-
-    namespace detail {
-        template <typename Fn>
-        inline void on_thread_exit(Fn&& fn)
-        {
-            thread_local struct raii_tl
-            {
-                std::deque<std::function<void()>> callbacks;
-
-                ~raii_tl()
-                {
-                    for (auto& callback : callbacks)
-                        callback();
-                }
-            } exiter;
-
-            exiter.callbacks.emplace_front(std::forward<Fn>(fn));
-        }
-
-    }//! namespace detail;
 
     //! Creates a thread local object which can be scoped to an objects lifetime. Must call quiesce occasionally to reclaim memory from threads going out of scope.
     template <typename T>
@@ -65,7 +44,7 @@ namespace stk { namespace thread {
                 {
                     if (i.first->m_deinitializer)
                         i.first->m_deinitializer(i.second);
-                    i.first->m_maps.erase(this);
+                    i.first->remove_instance_map(this);
                 }
             }
         };
@@ -83,6 +62,9 @@ namespace stk { namespace thread {
 
         ~thread_specific()
         {
+#ifndef NDEBUG
+	        m_isBeingDestructed = true;
+#endif
             destroy();
         }
 
@@ -150,9 +132,10 @@ namespace stk { namespace thread {
 
         data_ptr get_item() const
         {
+	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
             auto& m = hive();
-            auto iter = m.lower_bound(this);
-            if (iter != m.end() && iter->first == this)
+            auto iter = m.find(this);
+            if (iter != m.end())
                 return &iter->second;
 
             return nullptr;
@@ -160,16 +143,27 @@ namespace stk { namespace thread {
 
         data_ptr get_or_add_item () const
         {
+	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
             auto& m = hive();
             auto iter = m.lower_bound(this);
             if(iter != m.end() && iter->first == this)
                 return &iter->second;
 
+	        {
+		        auto lk = std::unique_lock<std::mutex> { m_mutex };
             m_maps.insert(&m);
+	        }
             iter = m.insert(iter, std::make_pair(this, m_initializer()));
             GEOMETRIX_ASSERT(iter != m.end());
             return &iter->second;
         }
+
+	    void remove_instance_map(instance_map* pMap) const
+	    {
+	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
+		    auto lk = std::unique_lock<std::mutex> { m_mutex };
+		    m_maps.erase(pMap);
+	    }
 
         void destroy()
         {
@@ -178,10 +172,11 @@ namespace stk { namespace thread {
             if (!m_deinitializer)
             {
                 m.erase(key);
-                std::for_each(m_maps.begin(), m_maps.end(), [key, this](instance_map* pMap)
+	            auto lk = std::unique_lock<std::mutex> { m_mutex };
+	            for(auto pMap : m_maps)
                 {
                     pMap->erase(key);
-                });
+                }
             }
             else
             {
@@ -191,7 +186,9 @@ namespace stk { namespace thread {
                     m_deinitializer(it->second);
                     m.erase(it);
                 }
-                std::for_each(m_maps.begin(), m_maps.end(), [key, this](instance_map* pMap)
+	            
+	            auto lk = std::unique_lock<std::mutex> { m_mutex };
+	            for(auto pMap : m_maps)
                 {
                     auto it = pMap->find(key);
                     if (it != pMap->end())
@@ -199,7 +196,7 @@ namespace stk { namespace thread {
                         m_deinitializer(it->second);
                         pMap->erase(it);
                     }
-                });
+                }
             }
 
             GEOMETRIX_ASSERT(m.find(this) == m.end());
@@ -207,7 +204,12 @@ namespace stk { namespace thread {
 
         std::function<T()> m_initializer;
         std::function<void(T&)> m_deinitializer;
-        mutable concurrent_set<instance_map*> m_maps;
+	    
+	    mutable std::mutex m_mutex;
+	    mutable std::set<instance_map*> m_maps;
+#ifndef NDEBUG
+	    std::atomic<bool> m_isBeingDestructed { false };
+#endif
 
     };
 

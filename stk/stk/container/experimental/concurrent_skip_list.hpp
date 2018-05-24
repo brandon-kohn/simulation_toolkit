@@ -24,7 +24,7 @@
 #include <stk/container/atomic_markable_ptr.hpp>
 #include <stk/thread/backoff.hpp>
 #include <stk/thread/std_thread_kernel.hpp>
-#include <stk/container/quiesce_memory_reclaimer.hpp>
+#include <stk/container/experimental/quiesce_memory_reclaimer.hpp>
 #include <memory>
 
 //! A lock-free concurrent skip list implementation with map and set versions.
