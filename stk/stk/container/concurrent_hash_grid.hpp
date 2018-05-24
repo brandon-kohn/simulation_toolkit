@@ -132,7 +132,11 @@ namespace stk {
             stk::compressed_integer_pair p = { i, j };
             auto iter = m_grid.find(p.to_uint64());
             if (iter.isValid())
+            {
+                auto pValue = iter.getValue();
+                delete pValue;
                 iter.eraseValue();
+            }
         }
 
         void clear()
