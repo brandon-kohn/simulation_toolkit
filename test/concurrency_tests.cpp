@@ -26,7 +26,6 @@
 TEST(fine_locked_hash_map, construct)
 {
     //! Had to put this verify in to stop this reference from being dropped on gcc in linux.
-    GEOMETRIX_VERIFY(boost::context::stack_traits::default_size() > 0);
     using namespace ::testing;
     using namespace stk;
 

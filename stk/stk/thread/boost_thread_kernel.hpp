@@ -59,7 +59,7 @@ struct boost_thread_traits
 };
 
 }}//! namespace stk::thread;
-
+/*
 namespace std {
     template<>
     struct hash<boost::thread::id> 
@@ -70,5 +70,5 @@ namespace std {
         }
     };
 }
-
+*/
 #endif//! STK_THREAD_BOOST_THREAD_TRAITS_HPP
