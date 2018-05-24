@@ -60,4 +60,15 @@ struct boost_thread_traits
 
 }}//! namespace stk::thread;
 
+namespace std {
+    template<>
+    struct hash<boost::thread::id> 
+    {
+        std::size_t operator()(const boost::thread::id& v) const 
+        {
+            return boost::hash_value(v);
+        }
+    };
+}
+
 #endif//! STK_THREAD_BOOST_THREAD_TRAITS_HPP
