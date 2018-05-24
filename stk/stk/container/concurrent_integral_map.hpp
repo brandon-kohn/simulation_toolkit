@@ -3,6 +3,7 @@
 #include <junction/ConcurrentMap_Leapfrog.h>
 #include <junction/Core.h>
 #include <turf/Util.h>
+#include <geometrix/utility/assert.hpp>
 #include <cstdint>
 
 namespace stk { namespace detail {
@@ -33,11 +34,13 @@ namespace stk { namespace detail {
 
     }//! namespace detail;
 
-    template<typename Data>
+	//! The erase policy specifies ownership semantics of the pointers to Data held by the map.
+	template<typename Data, typename OnErasePolicy = std::default_delete<Data>>
     class concurrent_integral_map
     {
     public:
 
+		using erase_policy = OnErasePolicy;
         using data_ptr = Data*;
         using map_type = junction::ConcurrentMap_Leapfrog<std::uint64_t, data_ptr, stk::detail::uint64_key_traits, stk::detail::pointer_value_traits<Data>>;
 
@@ -51,8 +54,13 @@ namespace stk { namespace detail {
         data_ptr find(std::uint64_t k) const
         {
             auto iter = m_map.find(k);
-            GEOMETRIX_ASSERT(iter.getValue() != (data_ptr)stk::pointer_value_traits<Data>::Redirect);
-            return iter.getValue();
+			if(iter.isValid())
+			{
+				GEOMETRIX_ASSERT(iter.getValue() != (data_ptr)stk::detail::pointer_value_traits<Data>::Redirect);
+				return iter.getValue();
+			}
+
+			return nullptr;
         }
 
         std::pair<data_ptr, bool> insert(std::uint64_t k, data_ptr pData)
@@ -61,11 +69,11 @@ namespace stk { namespace detail {
             auto result = mutator.getValue();
             if (result == nullptr)
             {
+				result = pData;
                 if (result != mutator.exchangeValue(pData))
                     result = mutator.getValue();
             }
 
-            GEOMETRIX_ASSERT(result != nullptr);
             return std::make_pair(result, result == pData);
         }
 
@@ -74,7 +82,8 @@ namespace stk { namespace detail {
 			auto iter = m_map.find(k);
             if (iter.isValid())
             {
-                delete pValue;
+				auto pValue = iter.getValue();
+				erase_policy()(pValue);
                 iter.eraseValue();
             }
         }
@@ -86,7 +95,7 @@ namespace stk { namespace detail {
             while(it.isValid())
             {
                 auto pValue = it.getValue();
-                delete pValue;
+				erase_policy()(pValue);
                 m_map.erase(it.getKey());
                 it.next();
             };
@@ -94,7 +103,7 @@ namespace stk { namespace detail {
 
     private:
 
-        map_type m_map;
+        mutable map_type m_map;
 
     };
 
