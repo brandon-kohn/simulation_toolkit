@@ -120,6 +120,19 @@ namespace stk { namespace detail {
             }
         }
 
+        template <typename Fn>
+        void for_each(Fn&& fn)
+        {
+            auto it = typename map_type::Iterator(m_map);
+            while(it.isValid())
+            {
+                auto k = it.getKey();
+                auto pValue = it.getValue();
+                fn(k, pValue);
+                it.next();
+            }
+        }
+
         //! Clear is not thread safe.
         void clear()
         {
