@@ -2,7 +2,6 @@
 
 The stk now has the following facilities to support concurrent programming:
 
-* [Concurrent skiplist based associative containers (set and map).](#concurrent-skiplist)
 * [Concurrent hash-map via junction library.](#junction-hash)[<sup>[1]</sup>](https://github.com/preshing/junction)
 * [Just about every other type of concurrent data structure via libcds](#libcds).[<sup>[2]</sup>](https://github.com/khizmax/libcds)
 * [Active Objects](#active-objects)
@@ -10,98 +9,6 @@ The stk now has the following facilities to support concurrent programming:
 * [Thread-Pools](#thread-pools)
 * [Tiny Spinlock](#tiny-spinlock)
 * [Thread local data with object scoped lifetime](#thread-local)
-
-#### Concurrent Skiplist
-
-A skiplist is an associative data structure which achieves amortized `O(log(N))` lookup times. Thus it is suitable for use in the contexts where a `std::set` or `std::map` might be used. The implementation is described in [The Art of Multiprocessor Programming](https://www.amazon.com/Art-Multiprocessor-Programming-Revised-Reprint/dp/0123973376/ref=dp_ob_title_bk).
-
-#### _Note:_
-The skiplist defers deleting memory until the member function `quiesce()` is called. This should only be called when no other threads access the skiplist. It should be called periodically to avoid a resource leak.
-
-Include:
-```C++
-#include <stk/container/lock_free_concurrent_skip_list.hpp>
-```
-Synopsis:
-```C++
-template <typename AssociativeTraits, typename LevelSelectionPolicy = skip_list_level_selector<AssociativeTraits::max_level::value+1>>
-class lock_free_concurrent_skip_list
-{
-public:
-    using size_type = typename traits_type::size_type;
-    using key_type = typename traits_type::key_type;
-    using value_type = typename traits_type::value_type;
-    using key_compare = typename traits_type::key_compare;
-    using allocator_type = typename traits_type::allocator_type;
-    using reference = typename std::add_lvalue_reference<value_type>::type;
-    using const_reference = typename std::add_const<reference>::type;
-    struct const_iterator;
-    struct iterator;
-
-    lock_free_concurrent_skip_list(std::uint8_t topLevel = 1, const key_compare& pred = key_compare(), const allocator_type& al = allocator_type() );
-    ~lock_free_concurrent_skip_list();
-
-    iterator                  begin();
-    const_iterator            begin() const;
-    iterator                  end();
-    const_iterator            end() const;
-    iterator                  find(const key_type& x);
-    const_iterator            find(const key_type& x) const;
-    std::pair<iterator, bool> insert(const value_type& item);
-    iterator                  insert(const iterator&, const value_type& item);
-    bool                      contains(const key_type& x) const;
-    iterator                  erase(const key_type& x);
-    iterator                  erase(const_iterator it);
-    void                      clear();
-
-    //! Returns the size at any given moment. This can be volatile in the presence of writers in other threads.
-    size_type                 size() const;
-
-    //! Returns empty state at any given moment. This can be volatile in the presence of writers in other threads.
-    bool                      empty() const;
-
-    //! Reclaim memory. Should be called at a time where there is no other thread accessing the skiplist.
-    void                      quiesce();
-};
-
-//! Associative set type (like std::set).
-template <typename Key, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
-class lock_free_concurrent_set : public lock_free_concurrent_skip_list< detail::associative_set_traits< Key, Compare, Alloc, 32, false > >
-{
-public:
-
-    lock_free_concurrent_set(const Compare& c = Compare());
-};
-
-//! Associative map type (like std::map).
-template <typename Key, typename Value, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
-class lock_free_concurrent_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, 32, false > >
-{
-public:
-
-    using mapped_type = Value;
-    using key_type = Key;
-
-    lock_free_concurrent_map(const Compare& c = Compare());
-
-    reference operator [] (const key_type& k);
-
-    template <typename UpdateFn>
-    std::pair<iterator, bool> insert_or_update(const key_type& key, UpdateFn&& fn);
-};
-```
-###### Notes on use:
-
-The iterators returned via the skiplist interface are thread-safe in the sense that the underlying nodes to which the iterator refers will not be deleted until `quiesce()` is called. No guarantees are made about iterator traversals in the presence of writers to the skiplist. Adding new elements to the skiplist should be fine. Erasing elements may cause iteration traversals to terminate prematurely or possibly crash.
-
-The actual data held by the iterators is not guaranteed to be thread-safe to access. Users must handle synchronization when modifying the data in the skiplist.
-
-The capacity of a skiplist is determined by the maximum height of the skiplist. In general a skiplist can hold 2<sup>H</sup>-1 elements where H is the maximum height. The specializations for the set and map variants in the stk set the max height to 32. It is possible to generate skiplists with H value up to 64 using:
-```C++
-template <typename Key, typename Value, unsigned int MaxHeight, typename Compare = std::less< Key >, typename Alloc = std::allocator< Key > >
-class lock_free_skip_map : public lock_free_concurrent_skip_list< detail::associative_map_traits< Key, Value, Compare, Alloc, MaxHeight, false > >;
-```
-
 
 #### Junction Hash
 
