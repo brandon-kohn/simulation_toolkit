@@ -11,7 +11,11 @@
 #include "gmock/gmock.h"
 
 #include <geometrix/utility/scope_timer.ipp>
+#include <stk/thread/work_stealing_thread_pool.hpp>
+#include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
 #include <stk/thread/thread_specific.hpp>
+#include <boost/smart_ptr/make_unique.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/tss.hpp>
 
@@ -140,7 +144,7 @@ TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
 {
     using namespace stk;
     using namespace stk::thread;
-    work_stealing_thread_pool<moodycamel_concurrent_queue_traits, boost_thread_traits> pool;
+    work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
     std::size_t nRuns = 100000;
     {
         GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific");

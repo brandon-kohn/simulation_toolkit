@@ -39,7 +39,7 @@ if(Boost_FOUND)
 
     # Concurrency tests.
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
-        set(thread_pool_set
+        set(concurrency_test_suite
             concurrency_tests
             concurrent_integral_map_tests
             thread_pool_tests
@@ -49,7 +49,11 @@ if(Boost_FOUND)
             rpmalloc_tests
             )
 
-        foreach(test ${thread_pool_set})
+        if(${STK_HAS_THREAD_LOCAL})
+            set(concurrency_test_suite ${concurrency_test_suite} thread_specific_tests)
+        endif()    
+
+        foreach(test ${concurrency_test_suite})
             add_executable(${test} ${test}.cpp)
             target_compile_definitions(${test} PRIVATE -DJUNCTION_STATIC_LIB -DTURF_STATIC_LIB -DRPMALLOC_STATIC_LIB -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
             target_link_libraries(${test} gtest_static gmock_main_static stk geometrix turf_static junction_static clipper_static poly2tri_static rpmalloc_static ${Boost_LIBRARIES})

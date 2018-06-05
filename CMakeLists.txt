@@ -39,8 +39,10 @@ project(simulation_suite)
 
 if(MSVC)
     CompileCheck(STK_HAS_CONSTEXPR "Checking for constexpr keyword" "static constexpr const char* foo = \"foo\";")
+    CompileCheck(STK_HAS_THREAD_LOCAL "Checking for thread_local keyword" "static thread_local const char* foo = \"foo\";")
 else()
     CompileCheckWithFlags(STK_HAS_CONSTEXPR "Checking for constexpr keyword" "-std=c++11" "static constexpr const char* foo = \"foo\";")
+    CompileCheckWithFlags(STK_HAS_THREAD_LOCAL "Checking for thread_local keyword" "-std=c++11" "static thread_local const char* foo = \"foo\";")
 endif()
 
 if(${STK_HAS_CONSTEXPR})
