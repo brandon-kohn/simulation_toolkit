@@ -11,7 +11,8 @@
 #pragma once
 
 #include <functional>
-#include <deque>
+#include <set>
+#include <mutex>
 #include <type_traits>
 
 #include <boost/version.hpp>
