@@ -66,7 +66,8 @@ namespace stk { namespace detail {
 			return nullptr;
         }
 
-        std::pair<data_ptr, bool> insert(std::uint64_t k, std::unique_ptr<Data>&& pData)
+        template <typename Deleter>
+        std::pair<data_ptr, bool> insert(std::uint64_t k, std::unique_ptr<Data, Deleter>&& pData)
         {
             auto mutator = m_map.insertOrFind(k);
             auto result = mutator.getValue();
