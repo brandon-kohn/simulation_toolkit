@@ -123,11 +123,6 @@ namespace stk { namespace thread {
             return has_value_on_calling_thread();
         }
 
-        void quiesce()
-        {
-            m_maps.quiesce();
-        }
-
     private:
 
         data_ptr get_item() const
@@ -151,7 +146,7 @@ namespace stk { namespace thread {
 
 	        {
 		        auto lk = std::unique_lock<std::mutex> { m_mutex };
-            m_maps.insert(&m);
+                m_maps.insert(&m);
 	        }
             iter = m.insert(iter, std::make_pair(this, m_initializer()));
             GEOMETRIX_ASSERT(iter != m.end());
