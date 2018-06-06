@@ -25,6 +25,21 @@ namespace stk {
 using polyline2 = geometrix::polyline<point2>;
 using polyline3 = geometrix::polyline<point3>;
 
+template <typename Result, typename Polyline>
+inline Result make_polyline(const Polyline& pline)
+{
+    using namespace geometrix;
+    using namespace boost::adaptors;
+    BOOST_CONCEPT_ASSERT((PointSequenceConcept<Polyline>));
+    using access = point_sequence_traits<Polyline>;
+    Result poly;
+
+    auto transform = [](const typename access::point_type& p) { return construct<typename point_sequence_traits<Result>::point_type>(p); };
+    boost::copy(pline | transformed(transform), std::back_inserter(poly));
+
+    return poly;
+}
+
 template <typename Result, typename Polyline, typename Vector>
 inline Result translate_polyline(const Polyline& pline, const Vector& translation)
 {
@@ -34,7 +49,7 @@ inline Result translate_polyline(const Polyline& pline, const Vector& translatio
     using access = point_sequence_traits<Polyline>;
     Result poly;
 
-    auto translate = [translation](const typename access::point_type& p) { return construct<point2>(p + translation); };
+    auto translate = [translation](const typename access::point_type& p) { return construct<typename point_sequence_traits<Result>::point_type>(p + translation); };
     boost::copy(pline | transformed(translate), std::back_inserter(poly));
 
     return poly;
