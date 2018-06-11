@@ -470,12 +470,13 @@ namespace stk { namespace thread {
             }
         }
 
-        void wait_or_work(std::vector<future<void>>&fs) BOOST_NOEXCEPT
+        template <typename Futures>
+        void wait_or_work(Futures&&fs) BOOST_NOEXCEPT
         {
             auto tid = get_thread_id();
             fun_wrapper tsk;
             std::uint32_t lastStolenIndex = 0;
-            for(auto it = fs.begin() ; it != fs.end();)
+            for(auto it = std::begin(fs) ; it != std::end(fs);)
             {
                 if (!thread_traits::is_ready(*it))
                 {
