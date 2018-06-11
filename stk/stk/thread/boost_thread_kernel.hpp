@@ -13,6 +13,7 @@
 #include <boost/thread/future.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <thread>
 
 namespace stk { namespace thread {
 
