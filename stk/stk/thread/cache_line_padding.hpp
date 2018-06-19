@@ -7,18 +7,9 @@
     #define STK_CACHE_LINE_SIZE 64
 #endif//! STK_CACHE_LINE_SIZE
 
+#define STK_CACHE_LINE_PAD(size) (size / STK_CACHE_LINE_SIZE) * STK_CACHE_LINE_SIZE + ((size % STK_CACHE_LINE_SIZE) > 0) * STK_CACHE_LINE_SIZE - size
+
 namespace stk { namespace thread {
-
-#ifndef BOOST_NO_CXX11_CONSTEXPR 
-    inline constexpr std::uint64_t cache_line_pad(std::uint64_t size)
-    {
-        return (size / STK_CACHE_LINE_SIZE) * STK_CACHE_LINE_SIZE + ((size % STK_CACHE_LINE_SIZE) > 0) * STK_CACHE_LINE_SIZE - size;
-    }
-
-	#define STK_CACHE_LINE_PAD(Size) cache_line_pad(Size)
-#else
-	#define STK_CACHE_LINE_PAD(size) (size / STK_CACHE_LINE_SIZE) * STK_CACHE_LINE_SIZE + ((size % STK_CACHE_LINE_SIZE) > 0) * STK_CACHE_LINE_SIZE - size
-#endif
     namespace detail {
         template<typename T, typename EnableIf=void>
         struct padded_impl
