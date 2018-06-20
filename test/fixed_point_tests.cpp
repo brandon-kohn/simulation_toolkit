@@ -4,9 +4,9 @@
 
 using fixed_point_3_traits = geometrix::fixed_point_traits
 <
-	geometrix::decimal_format_traits< std::int64_t >,
-	geometrix::generic_compile_time_scale_policy<10, 3>,
-	geometrix::round_half_to_even
+	geometrix::decimal_format_traits<std::int64_t>
+  , geometrix::generic_compile_time_scale_policy<10, 3>
+  , geometrix::round_half_to_even
 >;
 
 using fixed_point3 = geometrix::fixed_point<fixed_point_3_traits>;
