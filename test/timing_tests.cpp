@@ -16,7 +16,7 @@
 #include <geometrix/utility/scope_timer.ipp>
 
 int nTimingRuns = 200000;
-auto numberToInsert = 100;
+auto numberToInsert = 50;
 template <typename Key>
 Key random_value()
 {
