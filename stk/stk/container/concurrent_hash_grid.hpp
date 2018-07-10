@@ -109,7 +109,7 @@ namespace stk {
 				result = new Data{};
 				auto oldData = mutator.exchangeValue(result);
 				if (oldData)
-					m_grid.getMemoryReclaimer().reclaim_via_defaultable_callable<std::default_delete<Data>>(oldData);
+					m_grid.getMemoryReclaimer().template reclaim_via_defaultable_callable<std::default_delete<Data>>(oldData);
 
 				//! If a new value has been put into the key which isn't result.. get it.
 				bool wasInserted = oldData != result;
@@ -138,7 +138,7 @@ namespace stk {
             {
                 auto pValue = iter.eraseValue();
 				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					m_grid.getMemoryReclaimer().reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
+					m_grid.getMemoryReclaimer().template reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
             }
         }
 
@@ -149,7 +149,7 @@ namespace stk {
             {
                 auto pValue = m_grid.erase(it.getKey());
 				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					m_grid.getMemoryReclaimer().reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
+					m_grid.getMemoryReclaimer().template reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
                 it.next();
             };
         }

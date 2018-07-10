@@ -77,7 +77,7 @@ namespace stk { namespace detail {
                 result = pData.release();
                 auto oldData = mutator.exchangeValue(result);
                 if (oldData)
-                    m_map.getMemoryReclaimer().reclaim_via_defaultable_callable<erase_policy>(oldData);
+                    m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(oldData);
 
                 //! If a new value has been put into the key which isn't result.. get it.
                 wasInserted = oldData != result;
@@ -99,7 +99,7 @@ namespace stk { namespace detail {
                 result = new Data(a...);
                 auto oldData = mutator.exchangeValue(result);
                 if (oldData)
-                    m_map.getMemoryReclaimer().reclaim_via_defaultable_callable<erase_policy>(oldData);
+                    m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(oldData);
 
                 //! If a new value has been put into the key which isn't result.. get it.
                 wasInserted = oldData != result;
@@ -117,7 +117,7 @@ namespace stk { namespace detail {
             {
                 auto pValue = iter.eraseValue();
                 if (pValue != (data_ptr)stk::detail::pointer_value_traits<Data>::NullValue)
-                    m_map.getMemoryReclaimer().reclaim_via_defaultable_callable<erase_policy>(pValue);
+                    m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(pValue);
             }
         }
 
