@@ -51,7 +51,7 @@ namespace stk {
         static const IntType Redirect = 1;
     };
 
-    template<typename Data, typename GridTraits>
+    template<typename Data, typename GridTraits, typename MemoryReclamationPolicy = junction::QSBRMemoryReclamationPolicy>
     class concurrent_hash_grid_2d
     {
     public:
@@ -61,9 +61,9 @@ namespace stk {
         typedef stk::compressed_integer_pair key_type;
         typedef junction::ConcurrentMap_Leapfrog<std::uint64_t, Data*, stk::compressed_integer_pair_key_traits, stk::pointer_value_traits<Data>> grid_type;
 
-        concurrent_hash_grid_2d( const GridTraits& traits )
+        concurrent_hash_grid_2d( const GridTraits& traits, const MemoryReclamationPolicy& reclaimer = MemoryReclamationPolicy() )
             : m_gridTraits(traits)
-            , m_grid()
+            , m_grid(reclaimer)
         {}
 
         ~concurrent_hash_grid_2d()
