@@ -59,7 +59,7 @@ namespace stk {
         typedef Data* data_ptr;
         typedef GridTraits traits_type;
         typedef stk::compressed_integer_pair key_type;
-        typedef junction::ConcurrentMap_Leapfrog<std::uint64_t, Data*, stk::compressed_integer_pair_key_traits, stk::pointer_value_traits<Data>> grid_type;
+        typedef junction::ConcurrentMap_Leapfrog<std::uint64_t, Data*, stk::compressed_integer_pair_key_traits, stk::pointer_value_traits<Data>, MemoryReclamationPolicy> grid_type;
 
         concurrent_hash_grid_2d( const GridTraits& traits, const MemoryReclamationPolicy& reclaimer = MemoryReclamationPolicy() )
             : m_gridTraits(traits)
@@ -109,7 +109,7 @@ namespace stk {
 				result = new Data{};
 				auto oldData = mutator.exchangeValue(result);
 				if (oldData)
-					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(oldData);
+					m_grid.getMemoryReclaimer().reclaim_via_defaultable_callable<std::default_delete<Data>>(oldData);
 
 				//! If a new value has been put into the key which isn't result.. get it.
 				bool wasInserted = oldData != result;
@@ -138,7 +138,7 @@ namespace stk {
             {
                 auto pValue = iter.eraseValue();
 				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
+					m_grid.getMemoryReclaimer().reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
             }
         }
 
@@ -149,7 +149,7 @@ namespace stk {
             {
                 auto pValue = m_grid.erase(it.getKey());
 				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
+					m_grid.getMemoryReclaimer().reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
                 it.next();
             };
         }
