@@ -157,7 +157,7 @@ namespace stk {
         //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
         void quiesce()
         {
-            m_grid.getMemoryReclaimer().flush();
+            m_grid.getMemoryReclaimer().quiesce();
         }
 
     private:
