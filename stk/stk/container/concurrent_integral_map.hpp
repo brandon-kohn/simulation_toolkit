@@ -147,7 +147,7 @@ namespace stk { namespace detail {
             };
         }
 
-        static void quiesce()
+        void quiesce()
         {
             m_map.getMemoryReclaimer().quiesce();
         }

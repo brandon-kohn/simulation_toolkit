@@ -155,9 +155,9 @@ namespace stk {
         }
 
         //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
-        static void quiesce()
+        void quiesce()
         {
-            junction::DefaultQSBR().flush();
+            m_grid.getMemoryReclaimer().flush();
         }
 
     private:
