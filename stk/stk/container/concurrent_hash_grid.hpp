@@ -154,6 +154,17 @@ namespace stk {
             };
         }
 
+        //! Visit each key and its associated value. Their values are copies of the underlying data in the grid.
+        template <typename Fn>
+        void for_each(Fn&& fn) const
+        {
+            auto it = typename grid_type::Iterator(m_grid);
+            while(it.isValid())
+            {
+                fn(it.getKey(), it.getValue());
+            }
+        }
+
         //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
         void quiesce()
         {
