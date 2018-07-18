@@ -51,7 +51,33 @@ namespace stk {
         static const IntType Redirect = 1;
     };
 
-    template<typename Data, typename GridTraits, typename MemoryReclamationPolicy = junction::QSBRMemoryReclamationPolicy>
+    namespace detail {
+	template <typename T>
+	struct DefaultDataAllocator
+	{
+		T* construct()
+		{
+			return new T;
+		}
+
+		void destroy(T* t)
+		{
+			delete t;
+		}
+
+		T* operator()()
+		{
+			return construct();
+		}
+
+		void operator()(T* t)
+		{
+			destroy(t);
+		}
+	};
+    }//! namespace detail;
+
+    template<typename Data, typename GridTraits, typename DataAllocator = detail::DefaultDataAllocator<Data>, typename MemoryReclamationPolicy = junction::QSBRMemoryReclamationPolicy>
     class concurrent_hash_grid_2d
     {
     public:
@@ -61,8 +87,9 @@ namespace stk {
         typedef stk::compressed_integer_pair key_type;
         typedef junction::ConcurrentMap_Leapfrog<std::uint64_t, Data*, stk::compressed_integer_pair_key_traits, stk::pointer_value_traits<Data>, MemoryReclamationPolicy> grid_type;
 
-        concurrent_hash_grid_2d( const GridTraits& traits, const MemoryReclamationPolicy& reclaimer = MemoryReclamationPolicy() )
+        concurrent_hash_grid_2d( const GridTraits& traits, const DataAllocator& dataAlloc = DataAllocator(), const MemoryReclamationPolicy& reclaimer = MemoryReclamationPolicy() )
             : m_gridTraits(traits)
+            , m_dataAlloc(dataAlloc)
             , m_grid(reclaimer)
         {}
 
@@ -106,15 +133,18 @@ namespace stk {
             auto result = mutator.getValue();
             if (result == nullptr)
             {
-				result = new Data{};
+				result = m_dataAlloc.construct();
 				auto oldData = mutator.exchangeValue(result);
 				if (oldData)
-					m_grid.getMemoryReclaimer().template reclaim_via_defaultable_callable<std::default_delete<Data>>(oldData);
+					m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, oldData);
 
 				//! If a new value has been put into the key which isn't result.. get it.
 				bool wasInserted = oldData != result;
 				if (!wasInserted)
+                {
+                    m_dataAlloc.destroy(result);
 					result = mutator.getValue();
+                }
             }
 
             GEOMETRIX_ASSERT(result != nullptr);
@@ -138,7 +168,7 @@ namespace stk {
             {
                 auto pValue = iter.eraseValue();
 				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					m_grid.getMemoryReclaimer().template reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
+					m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
             }
         }
 
@@ -149,7 +179,7 @@ namespace stk {
             {
                 auto pValue = m_grid.erase(it.getKey());
 				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					m_grid.getMemoryReclaimer().template reclaim_via_defaultable_callable<std::default_delete<Data>>(pValue);
+					m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
                 it.next();
             };
         }
@@ -174,6 +204,7 @@ namespace stk {
     private:
 
         traits_type m_gridTraits;
+        mutable DataAllocator m_dataAlloc;
         mutable grid_type m_grid;
 
     };
