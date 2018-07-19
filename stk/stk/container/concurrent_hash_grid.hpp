@@ -30,7 +30,7 @@ namespace stk {
     {
         typedef std::uint64_t Key;
         typedef turf::util::BestFit<std::uint64_t>::Unsigned Hash;
-		static const Key NullKey = UINT64_MAX;// (std::numeric_limits<Key>::max)();
+        static const Key NullKey = UINT64_MAX;// (std::numeric_limits<Key>::max)();
         static const Hash NullHash = Hash(NullKey);
         static Hash hash(Key key)
         {
@@ -52,29 +52,29 @@ namespace stk {
     };
 
     namespace detail {
-	template <typename T>
-	struct DefaultDataAllocator
-	{
-		T* construct()
-		{
-			return new T;
-		}
+    template <typename T>
+    struct DefaultDataAllocator
+    {
+        T* construct()
+        {
+            return new T;
+        }
 
-		void destroy(T* t)
-		{
-			delete t;
-		}
+        void destroy(T* t)
+        {
+            delete t;
+        }
 
-		T* operator()()
-		{
-			return construct();
-		}
+        T* operator()()
+        {
+            return construct();
+        }
 
-		void operator()(T* t)
-		{
-			destroy(t);
-		}
-	};
+        void operator()(T* t)
+        {
+            destroy(t);
+        }
+    };
     }//! namespace detail;
 
     template<typename Data, typename GridTraits, typename DataAllocator = detail::DefaultDataAllocator<Data>, typename MemoryReclamationPolicy = junction::QSBRMemoryReclamationPolicy>
@@ -133,17 +133,17 @@ namespace stk {
             auto result = mutator.getValue();
             if (result == nullptr)
             {
-				result = m_dataAlloc.construct();
-				auto oldData = mutator.exchangeValue(result);
-				if (oldData)
-					m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, oldData);
+                result = m_dataAlloc.construct();
+                auto oldData = mutator.exchangeValue(result);
+                if (oldData)
+                    m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, oldData);
 
-				//! If a new value has been put into the key which isn't result.. get it.
-				bool wasInserted = oldData != result;
-				if (!wasInserted)
+                //! If a new value has been put into the key which isn't result.. get it.
+                bool wasInserted = oldData != result;
+                if (!wasInserted)
                 {
                     m_dataAlloc.destroy(result);
-					result = mutator.getValue();
+                    result = mutator.getValue();
                 }
             }
 
@@ -167,8 +167,8 @@ namespace stk {
             if (iter.isValid())
             {
                 auto pValue = iter.eraseValue();
-				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
+                if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
+                    m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
             }
         }
 
@@ -178,8 +178,8 @@ namespace stk {
             while(it.isValid())
             {
                 auto pValue = m_grid.erase(it.getKey());
-				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
+                if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
+                    m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
                 it.next();
             };
         }
@@ -191,7 +191,10 @@ namespace stk {
             auto it = typename grid_type::Iterator(m_grid);
             while(it.isValid())
             {
-                fn(it.getKey(), it.getValue());
+                auto uKey = it.getKey();
+                auto pKey = reinterpret_cast<compressed_integer_pair*>(&uKey);
+                fn(*pKey, *it.getValue());
+                it.next();
             }
         }
 
