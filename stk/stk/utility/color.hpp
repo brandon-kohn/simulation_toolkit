@@ -56,12 +56,12 @@ namespace stk {
             return bits < rhs.bits;
         }
 
-        BOOST_CONSTEXPR std::uint8_t const& operator[](std::size_t index) const BOOST_NOEXCEPT
+        BOOST_CONSTEXPR std::uint8_t operator[](std::size_t index) const BOOST_NOEXCEPT
         {
             return this->array[index];
         }
 
-        BOOST_CONSTEXPR std::uint8_t& operator[](std::size_t index) BOOST_NOEXCEPT
+        std::uint8_t& operator[](std::size_t index) BOOST_NOEXCEPT
         {
             return this->array[index];
         }
