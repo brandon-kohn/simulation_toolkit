@@ -35,57 +35,13 @@
 */
 #pragma once
 
+#include <stk/utility/color.hpp>
 #include <cstdio>
 #include <cmath>
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 
 namespace stk {
-
-    union color
-    {
-        color(std::uint8_t r = 0, std::uint8_t g = 0, std::uint8_t b = 0, std::uint8_t a = 255)
-            : alpha{a}
-            , red{r}
-            , green{g}
-            , blue{b}
-        {}
-
-        bool operator ==(const color& rhs) const
-        {
-            return bits == rhs.bits;
-        }
-
-        bool operator !=(const color& rhs) const
-        {
-            return bits != rhs.bits;
-        }
-
-        bool operator <(const color& rhs) const
-        {
-            return bits < rhs.bits;
-        }
-
-        std::array<std::uint8_t, 4> array;
-        struct
-        {
-            std::uint8_t alpha;
-            std::uint8_t red;
-            std::uint8_t green;
-            std::uint8_t blue;
-        };
-
-    private:
-
-        std::uint32_t bits;
-    };
-
-    static_assert(sizeof(color)==4, "color should be packed in 4 bytes.");
-
-    inline BOOST_CONSTEXPR color make_color(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 255)
-    {
-        return color{r, g, b, a};
-    }
 
     /* A colour system is defined by the CIE x and y coordinates of
        its three primary illuminants and the x and y coordinates of
@@ -697,7 +653,7 @@ namespace stk {
 
         public:
 
-            static color apply_wavelength(double wavelength, double temp)
+            static color_rgba apply_wavelength(double wavelength, double temp)
             {
                 using namespace detail;
 
@@ -708,49 +664,39 @@ namespace stk {
                 xyz_to_rgb(&cs, x, y, z, &r, &g, &b);
                 constrain_rgb(&r, &g, &b);
                 norm_rgb(&r, &g, &b);
-                return color(255*r,255*g,255*b);
+                return color_rgba(255*r,255*g,255*b);
             }
 
-            static color apply_temp(double temp)
+            static color_rgba apply_temp(double temp)
             {
                 using namespace detail;
-
-                struct A
+                auto spectralIntensityMap = [temp](double wavelength)
                 {
-                    A(double t)
-                        : temp(t)
-                    {}
-
-                    double operator()( double wavelength ) const
-                    {
-                        double wlm = wavelength * 1e-9;   /* Wavelength in meters */
-                        return (3.74183e-16 * pow(wlm, -5.0)) / (exp(1.4388e-2 / (wlm * temp)) - 1.0);
-                    }
-
-                    double temp;
+                    double wlm = wavelength * 1e-9;   /* Wavelength in meters */
+                    return (3.74183e-16 * pow(wlm, -5.0)) / (exp(1.4388e-2 / (wlm * temp)) - 1.0);
                 };
 
                 double x, y, z, r, g, b;
                 static color_system cs = CSystem();
-                spectrum_to_xyz(A(temp), x, y, z);
+                spectrum_to_xyz(spectralIntensityMap, x, y, z);
                 xyz_to_rgb(&cs, x, y, z, &r, &g, &b);
                 if (constrain_rgb(&r, &g, &b))
                     norm_rgb(&r, &g, &b);
                 else
                     norm_rgb(&r, &g, &b);
 
-                return color(255*r,255*g,255*b);
+                return color_rgba(255*r,255*g,255*b);
             }
         };
     }//! namespace detail;
 
     struct spectral_color
     {
-        spectral_color(double l, color c)
+        spectral_color(double l, color_rgba c)
             : data(l,l,c)
         {}
 
-        spectral_color(double l, double u, color c)
+        spectral_color(double l, double u, color_rgba c)
             : data(l,u,c)
         {}
 
@@ -761,14 +707,14 @@ namespace stk {
 
         const double& upper() const { return data.get<1>(); }
         const double& lower() const { return data.get<0>(); }
-        const color& colour() const { return data.get<2>(); }
+        const color_rgba& colour() const { return data.get<2>(); }
         double& upper() { return data.get<1>(); }
         double& lower() { return data.get<0>(); }
-        color& colour() { return data.get<2>(); }
+        color_rgba& colour() { return data.get<2>(); }
 
     private:
 
-        boost::tuple<double,double, color> data;
+        boost::tuple<double,double, color_rgba> data;
 
     };
 
@@ -781,7 +727,7 @@ namespace stk {
         for( std::size_t i = 0; i < intervals; ++i )
         {
             double l = startWavelength + (double)i * interval;
-            color colour = detail::color_converter<System>::apply_wavelength(l, colourTemp);
+            color_rgba colour = detail::color_converter<System>::apply_wavelength(l, colourTemp);
             if (c.empty() || c.back().colour() != colour)
                 c.emplace_back(l, l + interval, colour);
             else
@@ -794,16 +740,16 @@ namespace stk {
     template <typename CSystem = Rec709system>
     struct color_spectrum_mapper
     {
-        color_spectrum_mapper(double xmin, double xmax, double startWavelength = detail::color_table::min_wavelength(), double endWavelength = detail::color_table::max_wavelength(), double colorTemp = 5500.0)
-            : m_xmin(xmin)
-            , m_xmax(xmax)
-            , m_start(startWavelength)
-            , m_end(endWavelength)
-            , m_temp(colorTemp)
-            , m_slope((endWavelength - startWavelength) / (xmax - xmin))
+        BOOST_CONSTEXPR color_spectrum_mapper(double xmin, double xmax, double startWavelength = detail::color_table::min_wavelength(), double endWavelength = detail::color_table::max_wavelength(), double colorTemp = 5500.0)
+            : m_xmin{xmin}
+            , m_xmax{xmax}
+            , m_start{startWavelength}
+            , m_end{endWavelength}
+            , m_temp{colorTemp}
+            , m_slope{(endWavelength - startWavelength) / (xmax - xmin)}
         {}
 
-        color operator()( double x ) const
+        BOOST_CONSTEXPR color_rgba operator()( double x ) const BOOST_NOEXCEPT
         {
             double l = m_slope * (x-m_xmin) + m_start;
             return detail::color_converter<CSystem>::apply_wavelength(l, m_temp);
@@ -815,23 +761,23 @@ namespace stk {
         double m_xmax;
         double m_start;
         double m_end;
-        double m_slope;
         double m_temp;
+        double m_slope;
 
     };
 
     template <typename CSystem = Rec709system>
     struct color_spectrum_mapper_temp
     {
-        color_spectrum_mapper_temp(double xmin, double xmax, double startTemp = 1000, double endTemp = 10000)
-            : m_xmin(xmin)
-            , m_xmax(xmax)
-            , m_start(startTemp)
-            , m_end(endTemp)
-            , m_slope((endTemp - startTemp) / (xmax - xmin))
+        BOOST_CONSTEXPR color_spectrum_mapper_temp(double xmin, double xmax, double startTemp = 1000, double endTemp = 10000)
+            : m_xmin{xmin}
+            , m_xmax{xmax}
+            , m_start{startTemp}
+            , m_end{endTemp}
+            , m_slope{(endTemp - startTemp) / (xmax - xmin)}
         {}
 
-        color operator()(double x) const
+        BOOST_CONSTEXPR color_rgba operator()(double x) const BOOST_NOEXCEPT
         {
             double l = m_slope * (x-m_xmin) + m_start;
             return detail::color_converter<CSystem>::apply_temp(l);
@@ -847,147 +793,4 @@ namespace stk {
 
     };
 
-    //! Common colors.
-    namespace colors
-    {
-        color Empty = make_color(0,0,0,0);
-        color Transparent = make_color(255,255,255,0);
-        color White = make_color(255, 255, 255, 255);
-        color WhiteSmoke = make_color(245, 245, 245, 255);
-        color Gainsboro = make_color(220, 220, 220, 255);
-        color LightGrey = make_color(211, 211, 211, 255);
-        color Silver = make_color(192, 192, 192, 255);
-        color DarkGray = make_color(169, 169, 169, 255);
-        color Gray = make_color(128, 128, 128, 255);
-        color DimGray = make_color(105, 105, 105, 255);
-        color Black = make_color(0, 0, 0, 255);
-        color RosyBrown = make_color(188, 143, 143, 255);
-        color LightCoral = make_color(240, 128, 128, 255);
-        color IndianRed = make_color(205, 92, 92, 255);
-        color Brown = make_color(165, 42, 42, 255);
-        color FireBrick = make_color(178, 34, 34, 255);
-        color Red = make_color(255, 0, 0, 255);
-        color DarkRed = make_color(139, 0, 0, 255);
-        color Maroon = make_color(128, 0, 0, 255);
-        color LightPink = make_color(255, 182, 193, 255);
-        color Crimson = make_color(220, 20, 60, 255);
-        color PaleVioletRed = make_color(219, 112, 147, 255);
-        color LavenderBlush = make_color(255, 240, 245, 255);
-        color HotPink = make_color(255, 105, 180, 255);
-        color DeepPink = make_color(255, 20, 147, 255);
-        color MediumVioletRed = make_color(199, 21, 133, 255);
-        color Orchid = make_color(218, 112, 214, 255);
-        color Thistle = make_color(216, 191, 216, 255);
-        color Violet = make_color(238, 130, 238, 255);
-        color Fuchsia = make_color(255, 0, 255, 255);
-        color Magenta = make_color(255, 0, 255, 255);
-        color DarkMagenta = make_color(139, 0, 139, 255);
-        color Purple = make_color(128, 0, 128, 255);
-        color MediumOrchid = make_color(186, 85, 211, 255);
-        color DarkViolet = make_color(148, 0, 211, 255);
-        color DarkOrchid = make_color(153, 50, 204, 255);
-        color Indigo = make_color(75, 0, 130, 255);
-        color BlueViolet = make_color(138, 43, 226, 255);
-        color MediumPurple = make_color(147, 112, 219, 255);
-        color SlateBlue = make_color(106, 90, 205, 255);
-        color DarkSlateBlue = make_color(72, 61, 139, 255);
-        color MediumSlateBlue = make_color(123, 104, 238, 255);
-        color GhostWhite = make_color(248, 248, 255, 255);
-        color Lavender = make_color(230, 230, 250, 255);
-        color MidnightBlue = make_color(25, 25, 112, 255);
-        color Blue = make_color(0, 0, 255, 255);
-        color MediumBlue = make_color(0, 0, 205, 255);
-        color DarkBlue = make_color(0, 0, 139, 255);
-        color Navy = make_color(0, 0, 128, 255);
-        color RoyalBlue = make_color(65, 105, 225, 255);
-        color CornflowerBlue = make_color(100, 149, 237, 255);
-        color LightSteelBlue = make_color(176, 196, 222, 255);
-        color LightSlateGray = make_color(119, 136, 153, 255);
-        color SlateGray = make_color(112, 128, 144, 255);
-        color DodgerBlue = make_color(30, 144, 255, 255);
-        color AliceBlue = make_color(240, 248, 255, 255);
-        color SteelBlue = make_color(70, 130, 180, 255);
-        color LightSkyBlue = make_color(135, 206, 250, 255);
-        color SkyBlue = make_color(135, 206, 235, 255);
-        color DeepSkyBlue = make_color(0, 191, 255, 255);
-        color LightBlue = make_color(173, 216, 230, 255);
-        color PowderBlue = make_color(176, 224, 230, 255);
-        color CadetBlue = make_color(95, 158, 160, 255);
-        color DarkTurquoise = make_color(0, 206, 209, 255);
-        color Azure = make_color(240, 255, 255, 255);
-        color LightCyan = make_color(224, 255, 255, 255);
-        color PaleTurquoise = make_color(175, 238, 238, 255);
-        color DarkSlateGray = make_color(47, 79, 79, 255);
-        color Aqua = make_color(0, 255, 255, 255);
-        color DarkCyan = make_color(0, 139, 139, 255);
-        color Teal = make_color(0, 128, 128, 255);
-        color MediumTurquoise = make_color(72, 209, 204, 255);
-        color LightSeaGreen = make_color(32, 178, 170, 255);
-        color Turquoise = make_color(64, 224, 208, 255);
-        color Aquamarine = make_color(127, 205, 170, 255);
-        color MediumAquamarine = make_color(102, 205, 170, 255);
-        color MediumSpringGreen = make_color(0, 250, 154, 255);
-        color MintCream = make_color(245, 255, 250, 255);
-        color SpringGreen = make_color(0, 255, 127, 255);
-        color MediumSeaGreen = make_color(60, 179, 113, 255);
-        color SeaGreen = make_color(46, 139, 87, 255);
-        color HoneyDew = make_color(240, 255, 240, 255);
-        color DarkSeaGreen = make_color(143, 188, 143, 255);
-        color PaleGreen = make_color(152, 251, 152, 255);
-        color LightGreen = make_color(144, 238, 144, 255);
-        color ForestGreen = make_color(34, 139, 34, 255);
-        color LimeGreen = make_color(50, 205, 50, 255);
-        color Lime = make_color(0, 255, 0, 255);
-        color Green = make_color(0, 128, 0, 255);
-        color DarkGreen = make_color(0, 100, 0, 255);
-        color LawnGreen = make_color(124, 252, 0, 255);
-        color Chartreuse = make_color(127, 255, 0, 255);
-        color GreenYellow = make_color(173, 255, 47, 255);
-        color DarkOliveGreen = make_color(85, 107, 47, 255);
-        color YellowGreen = make_color(154, 205, 50, 255);
-        color OliveDrab = make_color(107, 142, 35, 255);
-        color Ivory = make_color(255, 255, 240, 255);
-        color Beige = make_color(245, 245, 220, 255);
-        color LightYellow = make_color(255, 255, 224, 255);
-        color LightGoldenrodYellow = make_color(250, 250, 210, 255);
-        color Yellow = make_color(255, 255, 0, 255);
-        color Olive = make_color(128, 128, 0, 255);
-        color DarkKhaki = make_color(189, 183, 107, 255);
-        color PaleGoldenrod = make_color(238, 232, 170, 255);
-        color LemonChiffon = make_color(255, 250, 205, 255);
-        color Khaki = make_color(240, 230, 140, 255);
-        color Cornsilk = make_color(255, 248, 220, 255);
-        color Goldenrod = make_color(218, 165, 32, 255);
-        color DarkGoldenrod = make_color(184, 134, 11, 255);
-        color FloralWhite = make_color(255, 250, 240, 255);
-        color OldLace = make_color(253, 245, 230, 255);
-        color Wheat = make_color(245, 222, 179, 255);
-        color Orange = make_color(255, 165, 0, 255);
-        color Moccasin = make_color(255, 228, 181, 255);
-        color PapayaWhip = make_color(255, 239, 213, 255);
-        color BlanchedAlmond = make_color(255, 235, 205, 255);
-        color NavajoWhite = make_color(255, 222, 173, 255);
-        color AntiqueWhite = make_color(250, 235, 215, 255);
-        color Burlywood = make_color(222, 184, 135, 255);
-        color DarkOrange = make_color(255, 140, 0, 255);
-        color Bisque = make_color(255, 228, 196, 255);
-        color Linen = make_color(250, 240, 230, 255);
-        color PeachPuff = make_color(255, 218, 185, 255);
-        color SandyBrown = make_color(244, 164, 96, 255);
-        color Seashell = make_color(255, 245, 238, 255);
-        color Chocolate = make_color(210, 105, 30, 255);
-        color SaddleBrown = make_color(139, 69, 19, 255);
-        color Sienna = make_color(160, 82, 45, 255);
-        color LightSalmon = make_color(255, 160, 122, 255);
-        color Coral = make_color(255, 127, 80, 255);
-        color OrangeRed = make_color(255, 69, 0, 255);
-        color DarkSalmon = make_color(233, 150, 122, 255);
-        color Tomato = make_color(255, 99, 71, 255);
-        color MistyRose = make_color(255, 228, 225, 255);
-        color Salmon = make_color(250, 128, 114, 255);
-        color ExcelRed = make_color(192, 80, 77, 255);
-        color ExcelBlue = make_color(79, 129, 189, 255);
-        color ExcelGreen = make_color(155, 187, 89, 255);
-    }//! namespace colors;
 }//namespace stk;
-

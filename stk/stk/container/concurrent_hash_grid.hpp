@@ -135,16 +135,13 @@ namespace stk {
             {
                 result = m_dataAlloc.construct();
                 auto oldData = mutator.exchangeValue(result);
-                if (oldData)
+                if (oldData)//! Either oldData is the old value or if result wasn't inserted oldData == result. So it's memory is handled.
                     m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, oldData);
 
                 //! If a new value has been put into the key which isn't result.. get it.
                 bool wasInserted = oldData != result;
                 if (!wasInserted)
-                {
-                    m_dataAlloc.destroy(result);
                     result = mutator.getValue();
-                }
             }
 
             GEOMETRIX_ASSERT(result != nullptr);
