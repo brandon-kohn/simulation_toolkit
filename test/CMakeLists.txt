@@ -21,6 +21,7 @@ endif()
 
 if(Boost_FOUND)
     set(tests
+        vector_compare_tests
         fixed_point_tests
         rtree_cache_tests
         temporary_vertex_graph_adaptor_tests

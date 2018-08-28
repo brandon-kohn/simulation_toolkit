@@ -10,6 +10,7 @@
 #include <stk/geometry/geometry_kernel.hpp>
 #include <stk/graph/stoppable_astar_search.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <geometrix/algorithm/euclidean_distance.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
