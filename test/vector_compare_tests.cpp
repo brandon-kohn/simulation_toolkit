@@ -473,3 +473,27 @@ TEST(velocity_obstacle_test_suite, test_construct)
 	ss = moving_sphere_sphere_intersection(c1, c2, vs, v2, absolute_tolerance_comparison_policy<double>{});
 	EXPECT_FALSE(ss);
 }
+
+#include <geometrix/numeric/interval.hpp>
+
+TEST(interval_test_suite, construct)
+{
+	using namespace geometrix;
+	auto sut = interval<double>{};
+	EXPECT_TRUE(sut.is_empty());
+	sut.expand(0.0);
+	EXPECT_EQ(0.0, sut.lower());
+	EXPECT_EQ(0.0, sut.upper());
+	sut = sut + 1.0;
+	EXPECT_EQ(1.0, sut.lower());
+	EXPECT_EQ(1.0, sut.upper());
+	sut = sut * 2.0;
+	EXPECT_EQ(2.0, sut.lower());
+	EXPECT_EQ(2.0, sut.upper());
+	sut = sut - 1.0;
+	EXPECT_EQ(1.0, sut.lower());
+	EXPECT_EQ(1.0, sut.upper());
+	sut = sut / 2.0;
+	EXPECT_EQ(0.5, sut.lower());
+	EXPECT_EQ(0.5, sut.upper());
+}
