@@ -24,3 +24,6 @@
 [submodule "rpmalloc"]
 	path = rpmalloc
 	url = https://github.com/brandon-kohn/rpmalloc.git
+[submodule "icl"]
+	path = icl
+	url = https://github.com/brandon-kohn/icl.git
