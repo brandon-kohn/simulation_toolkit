@@ -295,13 +295,13 @@ struct collision_cone
 	segment2 m_rs;
 };
 
-#include <geometrix/algorithm/intersection/circle_circle_intersection.hpp>
+#include <geometrix/algorithm/intersection/sphere_sphere_intersection.hpp>
 std::pair<point2, point2> calculate_tangent_points(const circle2& c, const point2& p)
 {
 	auto cp = vector2{ c.get_center() - p };
 
 	auto cOP = circle2{ p + 0.5 * cp, 0.5 * magnitude(cp) };
-	auto r = circle_circle_intersection(c, cOP, direct_comparison_policy{});
+	auto r = sphere_sphere_intersection(c, cOP, direct_comparison_policy{});
 	return std::make_pair(*r.IntersectionPoint0, *r.IntersectionPoint1);
 }
 
@@ -330,7 +330,6 @@ struct velocity_obstacle
 
 #include <geometrix/algorithm/intersection/moving_sphere_sphere_intersection.hpp>
 #include <geometrix/algorithm/intersection/segment_segment_intersection.hpp>
-
 
 TEST(velocity_obstacle_test_suite, test_construct)
 {

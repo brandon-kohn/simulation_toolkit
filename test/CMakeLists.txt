@@ -44,6 +44,7 @@ if(Boost_FOUND)
     # Concurrency tests.
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
         set(concurrency_test_suite
+            thread_specific_tests
             concurrency_tests
             concurrent_integral_map_tests
             thread_pool_tests
@@ -52,10 +53,6 @@ if(Boost_FOUND)
             concurrent_vector_tests
             rpmalloc_tests
             )
-
-        if(${STK_HAS_THREAD_LOCAL})
-            set(concurrency_test_suite ${concurrency_test_suite} thread_specific_tests)
-        endif()
 
         foreach(test ${concurrency_test_suite})
             add_executable(${test} ${test}.cpp)

@@ -15,18 +15,12 @@
 #include <mutex>
 #include <type_traits>
 
-#include <boost/version.hpp>
-
-#if BOOST_VERSION < 106501
-#error "Boost version 1.65.1+ is required to compile the stk::thread::thread_specific."
-#endif
-
 namespace stk { namespace thread {
 
     template <typename T>
     class thread_specific;
 
-    //! Creates a thread local object which can be scoped to an objects lifetime. Must call quiesce occasionally to reclaim memory from threads going out of scope.
+    //! Creates a thread local object which can be scoped to an objects lifetime. 
     template <typename T>
     class thread_specific
     {
@@ -211,31 +205,63 @@ namespace stk { namespace thread {
 
 }}//! stk::thread.
 
-#ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
-namespace stk { namespace thread {
-    template <typename T>
-    inline thread_specific<T>::instance_map& thread_specific<T>::hive()
-    {
-        static thread_local instance_map instance;
-        instance_map& m = instance;
-        return m;
-    }
-}}//! namespace stk::thread;
+#ifdef STK_NO_CXX11_THREAD_LOCAL
+    #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
+        namespace stk { namespace thread {
+            template <typename T>
+            inline thread_specific<T>::instance_map& thread_specific<T>::hive()
+            {
+                static std::list<std::unique_ptr<instance_map>> deleters;
+                static STK_THREAD_LOCAL_POD instance_map* instance = *deleters.emplace(new instance_map{});
+                return *instance;
+            }
+        }}//! namespace stk::thread;
 
-#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)
-#else
-//! This should be placed in a cpp file to avoid issues with singletons and the ODR.
-//! There should be only one such definition for each type T specified.
-#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)                  \
-namespace stk { namespace thread {                                  \
-template <>                                                         \
-inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
-{                                                                   \
-    static thread_local instance_map instance;                      \
-    instance_map& m = instance;                                     \
-    return m;                                                       \
-}                                                                   \
-}}                                                                  \
-/***/
-#endif
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)
+    #else
+        //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
+        //! There should be only one such definition for each type T specified.
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)                  \
+        namespace stk { namespace thread {                                  \
+        template <>                                                         \
+        inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
+        {                                                                   \
+            static std::list<std::unique_ptr<instance_map>> deleters;       \
+            static STK_THREAD_LOCAL_POD instance_map* instance =            \
+                *deleters.emplace(new instance_map{});                      \
+            return *instance;                                               \
+        }                                                                   \
+        }}                                                                  \
+        /***/
+    #endif
+#else//! thread_local keyword exists.
+    #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
+        namespace stk { namespace thread {
+            template <typename T>
+            inline thread_specific<T>::instance_map& thread_specific<T>::hive()
+            {
+                static thread_local instance_map instance;
+                instance_map& m = instance;
+                return m;
+            }
+        }}//! namespace stk::thread;
+
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)
+    #else
+        //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
+        //! There should be only one such definition for each type T specified.
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)                  \
+        namespace stk { namespace thread {                                  \
+        template <>                                                         \
+        inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
+        {                                                                   \
+            static thread_local instance_map instance;                      \
+            instance_map& m = instance;                                     \
+            return m;                                                       \
+        }                                                                   \
+        }}                                                                  \
+        /***/
+    #endif
+#endif//! STK_NO_CXX11_THREAD_LOCAL
+
 #endif //! STK_THREAD_THREAD_SPECIFIC_HPP
