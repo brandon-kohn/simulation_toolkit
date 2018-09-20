@@ -24,7 +24,26 @@
 #include <exception>
 #include <iostream>
 
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
+#include <boost/preprocessor/stringize.hpp>
+
+#pragma message(BOOST_PP_STRINGIZE( (STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int)) ))
+
+namespace stk {
+	namespace thread {
+		template <> inline thread_specific<int>::instance_map& thread_specific<int>::hive()
+		{
+			static std::list<std::unique_ptr<instance_map>> deleters; 
+			static __declspec(thread) instance_map* instance = nullptr;
+			if (!instance) 
+			{
+				deleters.emplace_back(new instance_map())->get();
+				instance = deleters.back();
+			}
+			return *instance;
+		}
+	}
+}
+//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int*);
 TEST(thread_specific_tests, thread_specific_int)

@@ -6,6 +6,9 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
   add_definitions(-DBOOST_RESULT_OF_USE_TR1_WITH_DECLTYPE_FALLBACK -DBOOST_CHRONO_HEADER_ONLY -D"BOOST_PARAMETER_MAX_ARITY=20" -D"BOOST_THREAD_VERSION=4" -DBOOST_ALL_NO_LIB)
+  if(NOT ${STK_HAS_THREAD_LOCAL})
+      add_definitions(-DSTK_NO_CXX11_THREAD_LOCAL)
+  endif()
   message("Boost found: ${Boost_INCLUDE_DIRS}")
 endif()
 
@@ -51,6 +54,7 @@ if(Boost_FOUND)
             concurrent_skip_list_tests
             hash_grid_tests
             concurrent_vector_tests
+            concurrent_list_tests
             rpmalloc_tests
             )
 

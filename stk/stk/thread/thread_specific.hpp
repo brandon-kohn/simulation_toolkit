@@ -10,6 +10,7 @@
 #define STK_THREAD_THREAD_SPECIFIC_HPP
 #pragma once
 
+#include <stk/thread/thread_local_pod.hpp>
 #include <functional>
 #include <set>
 #include <mutex>
@@ -212,7 +213,7 @@ namespace stk { namespace thread {
             inline thread_specific<T>::instance_map& thread_specific<T>::hive()
             {
                 static std::list<std::unique_ptr<instance_map>> deleters;
-                static STK_THREAD_LOCAL_POD instance_map* instance = *deleters.emplace(new instance_map{});
+                static STK_THREAD_LOCAL_POD instance_map* instance = deleters.emplace(boost::make_unique<instance_map>())->get();
                 return *instance;
             }
         }}//! namespace stk::thread;
@@ -228,7 +229,7 @@ namespace stk { namespace thread {
         {                                                                   \
             static std::list<std::unique_ptr<instance_map>> deleters;       \
             static STK_THREAD_LOCAL_POD instance_map* instance =            \
-                *deleters.emplace(new instance_map{});                      \
+                deleters.emplace(boost::make_unique<instance_map>())->get();\
             return *instance;                                               \
         }                                                                   \
         }}                                                                  \

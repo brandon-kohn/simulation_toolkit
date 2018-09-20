@@ -54,16 +54,6 @@ public:
 
     atomic_markable_ptr(atomic_markable_ptr const&) = delete;
     atomic_markable_ptr& operator=(atomic_markable_ptr const&) = delete;
-	atomic_markable_ptr(atomic_markable_ptr&& o)
-		: m_ptr(std::move(o.m_ptr)) 
-	{}
-
-	atomic_markable_ptr& operator=(atomic_markable_ptr&& o)
-	{
-		m_ptr = std::move(o.m_ptr);
-		return *this;
-	}
-
 
     std::tuple<T*, mark_type> get() const
     {
@@ -138,7 +128,7 @@ public:
         auto pPtr = m_ptr.load(order);
         return std::make_tuple(extract_ptr(pPtr), extract_mark(pPtr));
     }
-
+    
     std::tuple<T*, mark_type> exchange(T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) BOOST_NOEXCEPT
     {
         auto pPtr = combine(desiredPtr, desiredStamp);
