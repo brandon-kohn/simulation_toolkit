@@ -12,7 +12,7 @@
 
 #include <stk/thread/thread_local_pod.hpp>
 #include <functional>
-#include <set>
+#include <unordered_map>
 #include <mutex>
 #include <type_traits>
 
@@ -27,7 +27,7 @@ namespace stk { namespace thread {
     {
         using data_ptr = T*;
         using const_data_ptr = typename std::add_const<data_ptr>::type;
-        struct instance_map : std::map<thread_specific<T> const*, T>
+        struct instance_map : std::unordered_map<thread_specific<T> const*, T>
         {
             instance_map() = default;
             instance_map(const instance_map&)=delete;
@@ -136,8 +136,8 @@ namespace stk { namespace thread {
         {
 	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
             auto& m = hive();
-            auto iter = m.lower_bound(this);
-            if(iter != m.end() && iter->first == this)
+            auto iter = m.find(this);
+            if(iter != m.end())
                 return &iter->second;
 
 	        {
@@ -213,7 +213,14 @@ namespace stk { namespace thread {
             inline thread_specific<T>::instance_map& thread_specific<T>::hive()
             {
                 static std::list<std::unique_ptr<instance_map>> deleters;
-                static STK_THREAD_LOCAL_POD instance_map* instance = deleters.emplace(boost::make_unique<instance_map>())->get();
+				static std::mutex m;
+				static STK_THREAD_LOCAL_POD instance_map* instance = nullptr;
+				if (!instance) 
+				{
+					auto lk = std::unique_lock<std::mutex>{ m };
+					deleters.emplace_back(boost::make_unique<instance_map>());
+					instance = deleters.back().get();
+				}
                 return *instance;
             }
         }}//! namespace stk::thread;
@@ -227,9 +234,15 @@ namespace stk { namespace thread {
         template <>                                                         \
         inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
         {                                                                   \
-            static std::list<std::unique_ptr<instance_map>> deleters;       \
-            static STK_THREAD_LOCAL_POD instance_map* instance =            \
-                deleters.emplace(boost::make_unique<instance_map>())->get();\
+			static std::list<std::unique_ptr<instance_map>> deleters;       \
+			static std::mutex m;                                            \
+			static STK_THREAD_LOCAL_POD instance_map* instance = nullptr;   \
+			if (!instance)                                                  \
+			{                                                               \
+				auto lk = std::unique_lock<std::mutex>{ m };                \
+				deleters.emplace_back(boost::make_unique<instance_map>());  \
+				instance = deleters.back().get();                           \
+			}                                                               \
             return *instance;                                               \
         }                                                                   \
         }}                                                                  \

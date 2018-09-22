@@ -26,24 +26,7 @@
 
 #include <boost/preprocessor/stringize.hpp>
 
-#pragma message(BOOST_PP_STRINGIZE( (STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int)) ))
-
-namespace stk {
-	namespace thread {
-		template <> inline thread_specific<int>::instance_map& thread_specific<int>::hive()
-		{
-			static std::list<std::unique_ptr<instance_map>> deleters; 
-			static __declspec(thread) instance_map* instance = nullptr;
-			if (!instance) 
-			{
-				deleters.emplace_back(new instance_map())->get();
-				instance = deleters.back();
-			}
-			return *instance;
-		}
-	}
-}
-//STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int*);
 TEST(thread_specific_tests, thread_specific_int)
@@ -159,12 +142,12 @@ TEST(thread_specific_tests, thread_specific_int_two_instances)
     EXPECT_EQ(20, *sut2);
 }
 
-TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
+TEST(timing, compare_thread_specific_and_boost_tss)
 {
     using namespace stk;
     using namespace stk::thread;
     work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
-    std::size_t nRuns = 100000;
+    std::size_t nRuns = 1000000;
     {
         GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific");
         thread_specific<int> sut{ []() { return 10; } };
@@ -176,7 +159,8 @@ TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
             }
         });
     }
-    {
+/*
+	{
         GEOMETRIX_MEASURE_SCOPE_TIME("boost_tss");
         boost::thread_specific_ptr<int> sut;
         pool.parallel_apply(nRuns, [&sut](int) {
@@ -192,7 +176,7 @@ TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
     {
         GEOMETRIX_MEASURE_SCOPE_TIME("thread_local");
         pool.parallel_apply(nRuns, [](int) {
-            static thread_local int sut = 10;
+            static STK_THREAD_LOCAL_POD int sut = 10;
             for (auto i = 0; i < 10000; ++i)
             {
                 int& v = sut;
@@ -200,6 +184,6 @@ TEST(timing, DISABLED_compare_thread_specific_and_boost_tss)
             }
         });
     }
-
+*/
 }
 

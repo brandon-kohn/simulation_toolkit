@@ -30,8 +30,6 @@ namespace stk {
             std::shared_ptr<T> data;
             std::unique_ptr<node> next;
 
-            node() = default;
-
             template <typename... U>
             node(U&&... args)
                 : data(std::make_shared<T>(std::forward<U>(args)...))
