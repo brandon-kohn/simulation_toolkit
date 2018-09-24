@@ -493,7 +493,7 @@ namespace stk {
 
         mutable node_alloc_t m_alloc;
         mutable atomic_markable_ptr<node> m_head;
-        std::atomic<std::size_t> m_size;
+        std::atomic<std::size_t> m_size{0};
 
     };
 }//! namespace stk;
