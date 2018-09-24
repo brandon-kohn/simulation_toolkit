@@ -198,19 +198,19 @@ public:
     /** Default constructor for the empty object */
     interval_base_map()
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<CodomainT>));
-        BOOST_CONCEPT_ASSERT((EqualComparableConcept<CodomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<CodomainT>));
+        BOOST_CONCEPT_ASSERT((boost::EqualComparableConcept<CodomainT>));
     }
 
     /** Copy constructor */
     interval_base_map(const interval_base_map& src): _map(src._map)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<CodomainT>));
-        BOOST_CONCEPT_ASSERT((EqualComparableConcept<CodomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<CodomainT>));
+        BOOST_CONCEPT_ASSERT((boost::EqualComparableConcept<CodomainT>));
     }
 
 #   ifndef STK_ICL_NO_CXX11_RVALUE_REFERENCES
@@ -221,10 +221,10 @@ public:
     /** Move constructor */
     interval_base_map(interval_base_map&& src): _map(boost::move(src._map))
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<CodomainT>));
-        BOOST_CONCEPT_ASSERT((EqualComparableConcept<CodomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<CodomainT>));
+        BOOST_CONCEPT_ASSERT((boost::EqualComparableConcept<CodomainT>));
     }
 
     /** Move assignment operator */

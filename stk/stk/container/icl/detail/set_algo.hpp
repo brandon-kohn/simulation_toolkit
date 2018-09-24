@@ -28,7 +28,7 @@ bool common_range(IteratorT& lwb, IteratorT& upb, ObjectT& x1, const ConstObject
     // the common range of x1 and x2.
     typedef typename ConstObjectT::const_iterator ConstObject_iterator;
     // ObjectT may be const or non const. 
-    typedef typename remove_const<ObjectT>::type  PureObjectT;
+    typedef typename boost::remove_const<ObjectT>::type  PureObjectT;
 
     lwb = x1.end();
     upb = x1.end();

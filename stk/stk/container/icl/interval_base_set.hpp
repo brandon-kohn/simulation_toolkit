@@ -176,7 +176,7 @@ public:
     /** Copy constructor */
     interval_base_set(const interval_base_set& src): _set(src._set)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
     }
 
@@ -188,7 +188,7 @@ public:
     /** Move constructor */
     interval_base_set(interval_base_set&& src): _set(boost::move(src._set))
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
     }
 
