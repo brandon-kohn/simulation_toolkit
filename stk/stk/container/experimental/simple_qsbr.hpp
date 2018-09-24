@@ -70,7 +70,7 @@ namespace stk {
             reclaimer.add([=]() mutable -> void
 			{
 				std::allocator_traits<typename std::decay<Alloc>::type>::destroy(alloc, ptr); 
-				alloc.deallocate(ptr, n);
+                std::allocator_traits<typename std::decay<Alloc>::type>::deallocate(alloc, ptr, n);
 			});  
         }
     };

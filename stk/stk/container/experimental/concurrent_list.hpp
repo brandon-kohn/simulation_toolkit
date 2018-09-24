@@ -66,8 +66,6 @@ namespace stk {
     public:
 
         using value_type = T;
-        using reference = typename std::add_reference<value_type>::type;
-        using const_reference = typename std::add_const<reference>::type;
 
         concurrent_list() = default;
         concurrent_list(const Alloc& alloc)

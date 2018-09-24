@@ -30,7 +30,7 @@ namespace stk {
 
        template <typename U> struct rebind
        {
-           using ubase = typename std::allocator_traits<Alloc>::template rebind_alloc<U>::other;
+           using ubase = typename std::allocator_traits<Alloc>::template rebind_alloc<U>;
            typedef qsbr_allocator<U, MemoryReclaimer, ubase> other;
        };
 
