@@ -32,7 +32,7 @@ public:
     closed_interval() 
         : _lwb(unit_element<DomainT>::value()), _upb(identity_element<DomainT>::value()) 
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         //////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
         BOOST_STATIC_ASSERT((icl::is_discrete<DomainT>::value));
     }
@@ -43,7 +43,7 @@ public:
     explicit closed_interval(const DomainT& val)
         : _lwb(val), _upb(val)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         //////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
         BOOST_STATIC_ASSERT((!icl::is_continuous<DomainT>::value));
     }
@@ -52,7 +52,7 @@ public:
     closed_interval(const DomainT& low, const DomainT& up) :
         _lwb(low), _upb(up)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         //////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
     }
 

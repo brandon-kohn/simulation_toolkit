@@ -33,7 +33,7 @@ public:
     left_open_interval() 
         : _lwb(identity_element<DomainT>::value()), _upb(identity_element<DomainT>::value()) 
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
     }
 
@@ -43,7 +43,7 @@ public:
     explicit left_open_interval(const DomainT& val)
         : _lwb(predecessor<DomainT,domain_compare>::apply(val)), _upb(val)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
         // Only for discrete types this ctor creates an interval containing 
         // a single element only.
@@ -56,7 +56,7 @@ public:
     left_open_interval(const DomainT& low, const DomainT& up) :
         _lwb(low), _upb(up)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
         ////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
     }
 

@@ -41,8 +41,8 @@ public:
         : _lwb(identity_element<DomainT>::value()), _upb(identity_element<DomainT>::value())
         , _bounds(interval_bounds::right_open())
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
-        //////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
+        //BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
         BOOST_STATIC_ASSERT((icl::is_continuous<DomainT>::value)); 
     }
 
@@ -52,8 +52,8 @@ public:
     explicit continuous_interval(const DomainT& val)
         : _lwb(val), _upb(val), _bounds(interval_bounds::closed())
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
-        //////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
+        //BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
         BOOST_STATIC_ASSERT((icl::is_continuous<DomainT>::value));
     }
 
@@ -63,8 +63,8 @@ public:
                       continuous_interval* = 0)
         : _lwb(low), _upb(up), _bounds(bounds)
     {
-        BOOST_CONCEPT_ASSERT((DefaultConstructibleConcept<DomainT>));
-        //////BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
+        BOOST_CONCEPT_ASSERT((boost::DefaultConstructibleConcept<DomainT>));
+        //BOOST_CONCEPT_ASSERT((LessThanComparableConcept<DomainT>));
         BOOST_STATIC_ASSERT((icl::is_continuous<DomainT>::value));
     }
 

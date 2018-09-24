@@ -1459,7 +1459,7 @@ typename boost::enable_if<is_interval<Type>,
                           std::basic_ostream<CharType, CharTraits> >::type&
 operator << (std::basic_ostream<CharType, CharTraits> &stream, Type const& object)
 {
-    if(boost::icl::is_empty(object))
+    if(stk::icl::is_empty(object))
         return stream << left_bracket<Type>(object) << right_bracket<Type>(object);
     else
         return stream << left_bracket<Type>(object)
