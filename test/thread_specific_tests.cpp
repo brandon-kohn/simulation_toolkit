@@ -14,6 +14,8 @@
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+
+#define STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
 #include <stk/thread/thread_specific.hpp>
 #include <boost/smart_ptr/make_unique.hpp>
 #include <boost/thread.hpp>
@@ -26,9 +28,126 @@
 
 #include <boost/preprocessor/stringize.hpp>
 
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int*);
+#include <stk/container/unordered_map.hpp>
+
+template <typename Value>
+struct thread_specific_flat_map_policy
+{
+	template <typename Key>
+	struct map_type_generator
+	{
+		using type = boost::container::flat_map<Key, std::unique_ptr<Value>>;
+	};
+
+	template <typename Map>
+	static void initialize(Map& m)
+	{
+		m.reserve(100);
+	}
+
+	template <typename Map, typename Key>
+	static Value* find(Map& m, const Key& k)
+	{
+		auto it = m.find(k);
+		return it != m.end() ? it->second.get() : nullptr;
+	}
+
+	template <typename Map, typename Key>
+	static Value* insert(Map& m, const Key& k, Value&& v)
+	{
+		return m.insert(std::make_pair(k, boost::make_unique<Value>(std::forward<Value>(v)))).first->second.get();
+	}
+
+	template <typename Map, typename Key>
+	static void erase(Map& m, const Key& k)
+	{
+		m.erase(k);
+	}
+
+	template <typename Map>
+	static bool empty(Map& m)
+	{
+		return m.empty();
+	}
+
+	template <typename Map, typename Visitor>
+	static void for_each(Map& m, Visitor&& visitor)
+	{
+		for (auto& i : m)
+			visitor(i.first, *i.second);
+	}
+};
+
+template <typename Value, std::size_t S = 100>
+struct thread_specific_fixed_flat_map_policy
+{
+	template <typename Key>
+	struct map_type_generator
+	{
+		using type = boost::container::flat_map<Key, Value>;
+	};
+
+	template <typename Map>
+	static void initialize(Map& m)
+	{
+		m.reserve(S);
+	}
+
+	template <typename Map, typename Key>
+	static Value* find(Map& m, const Key& k)
+	{
+		auto it = m.find(k);
+		return it != m.end() ? &it->second : nullptr;
+	}
+
+	template <typename Map, typename Key>
+	static Value* insert(Map& m, const Key& k, Value&& v)
+	{
+		GEOMETRIX_ASSERT(m.size() < S);
+		return &m.insert(std::make_pair(k, std::forward<Value>(v))).first->second;
+	}
+
+	template <typename Map, typename Key>
+	static void erase(Map& m, const Key& k)
+	{
+		m.erase(k);
+	}
+
+	template <typename Map>
+	static bool empty(Map& m)
+	{
+		return m.empty();
+	}
+
+	template <typename Map, typename Visitor>
+	static void for_each(Map& m, Visitor&& visitor)
+	{
+		for (auto& i : m)
+			visitor(i.first, i.second);
+	}
+};
+
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_unordered_map_policy<int>);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_std_map_policy<int>);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_flat_map_policy<int>);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>, thread_specific_std_map_policy<std::unique_ptr<int>>);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int*, thread_specific_std_map_policy<int*>);
+
+TEST(thread_specific_tests, thread_specific_interface)
+{
+    using namespace stk;
+    using namespace stk::thread;
+	{
+		thread_specific<int> sut{ []() { return 10; } };
+
+		EXPECT_EQ(10, *sut);
+
+		*sut = 5;
+
+		EXPECT_EQ(5, *sut);
+	}
+}
+
 TEST(thread_specific_tests, thread_specific_int)
 {
     using namespace stk;
@@ -142,16 +261,40 @@ TEST(thread_specific_tests, thread_specific_int_two_instances)
     EXPECT_EQ(20, *sut2);
 }
 
-TEST(timing, compare_thread_specific_and_boost_tss)
+TEST(thread_specific_tests, fixed_map_thread_specific)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    
+	const thread_specific<int, thread_specific_fixed_flat_map_policy<int, 2>> sut1{ []() { return 10; } };
+	const thread_specific<int, thread_specific_fixed_flat_map_policy<int, 2>> sut2{ []() { return 20; } };
+
+    std::vector<std::thread> thds;
+    for (int i = 0; i < 10; ++i)
+    {
+        thds.emplace_back([i, &sut1, &sut2]()
+        {
+            int v = *sut1;
+            EXPECT_EQ(10, v);
+            v = *sut2;
+            EXPECT_EQ(20, v);
+        });
+    }
+
+    boost::for_each(thds, [](std::thread& thd) { thd.join(); });
+}
+
+TEST(timing, fixed_flat_map_thread_specific_timing)
 {
     using namespace stk;
     using namespace stk::thread;
     work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
     std::size_t nRuns = 1000000;
     {
-        GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific");
-        thread_specific<int> sut{ []() { return 10; } };
-        pool.parallel_apply(nRuns, [&sut](int) {
+        GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific_fixed_flat_map");
+        thread_specific<int, thread_specific_fixed_flat_map_policy<int, 1>> sut{ []() { return 10; } };
+        pool.parallel_apply(nRuns, [&sut](int)
+		{
             for (auto i = 0; i < 10000; ++i)
             {
                 int& v = *sut;
@@ -159,7 +302,60 @@ TEST(timing, compare_thread_specific_and_boost_tss)
             }
         });
     }
-/*
+}
+
+TEST(timing, flat_map_thread_specific_timing)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
+    std::size_t nRuns = 1000000;
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific_flat_map");
+        thread_specific<int, thread_specific_flat_map_policy<int>> sut{ []() { return 10; } };
+        pool.parallel_apply(nRuns, [&sut](int)
+		{
+            for (auto i = 0; i < 10000; ++i)
+            {
+                int& v = *sut;
+                ++v;
+            }
+        });
+    }
+}
+
+TEST(timing, compare_thread_specific_and_boost_tss)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
+    std::size_t nRuns = 1000000;
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific_unordered");
+        thread_specific<int, thread_specific_unordered_map_policy<int>> sut{ []() { return 10; } };
+        pool.parallel_apply(nRuns, [&sut](int) 
+		{
+            for (auto i = 0; i < 10000; ++i)
+            {
+                int& v = *sut;
+                ++v;
+            }
+        });
+    }
+
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific_std_map");
+        thread_specific<int, thread_specific_std_map_policy<int>> sut{ []() { return 10; } };
+        pool.parallel_apply(nRuns, [&sut](int)
+		{
+            for (auto i = 0; i < 10000; ++i)
+            {
+                int& v = *sut;
+                ++v;
+            }
+        });
+    }
+
 	{
         GEOMETRIX_MEASURE_SCOPE_TIME("boost_tss");
         boost::thread_specific_ptr<int> sut;
@@ -173,6 +369,7 @@ TEST(timing, compare_thread_specific_and_boost_tss)
             }
         });
     }
+
     {
         GEOMETRIX_MEASURE_SCOPE_TIME("thread_local");
         pool.parallel_apply(nRuns, [](int) {
@@ -184,6 +381,5 @@ TEST(timing, compare_thread_specific_and_boost_tss)
             }
         });
     }
-*/
 }
 
