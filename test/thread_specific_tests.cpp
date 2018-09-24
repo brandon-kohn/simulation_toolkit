@@ -28,8 +28,6 @@
 
 #include <boost/preprocessor/stringize.hpp>
 
-#include <stk/container/unordered_map.hpp>
-
 template <typename Value>
 struct thread_specific_flat_map_policy
 {
