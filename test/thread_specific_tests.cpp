@@ -17,6 +17,12 @@
 
 #define STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
 #include <stk/thread/thread_specific.hpp>
+
+#define STK_DEFINE_THREAD_DATA_VECTOR_INLINE
+#if(BOOST_MSVC && BOOST_MSVC < 1900)
+#define STK_NO_CXX11_THREADSAFE_LOCAL_STATICS
+#endif
+
 #include <boost/smart_ptr/make_unique.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/tss.hpp>
@@ -193,7 +199,6 @@ TEST(thread_specific_tests, thread_specific_int_ptr)
     EXPECT_EQ(down.load(), up.load());
 }
 
-
 TEST(thread_specific_tests, const_thread_specific_int)
 {
     using namespace stk;
@@ -211,6 +216,37 @@ TEST(thread_specific_tests, const_thread_specific_int)
     }
 
     boost::for_each(thds, [](std::thread& thd) { thd.join(); });
+}
+
+TEST(thread_specific_tests, thread_specific_threads_go_out_of_scope)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    std::atomic<int> up{ 0 }, down{ 0 };
+    thread_specific<int*> sut{ [&up]() { ++up; return new int(10); }, [&down](int*& p) { ++down;  delete p; } };
+    {
+        std::vector<std::thread> thds;
+        for (int i = 0; i < 10; ++i)
+        {
+            thds.emplace_back([i, &sut]()
+            {
+                **sut = i;
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                int* v = *sut;
+                EXPECT_EQ(i, *v);
+            });
+        }
+
+        boost::for_each(thds, [](std::thread& thd) { thd.join(); });
+    }
+
+	sut.for_each_thread_value([](int*& p)
+	{
+		//! There shouldn't be any.
+		ASSERT_FALSE(true);
+	});
+    EXPECT_NE(0, up.load());
+    EXPECT_EQ(down.load(), up.load());
 }
 
 TEST(thread_specific_tests, thread_specific_unique_ptr)
@@ -379,5 +415,6 @@ TEST(timing, compare_thread_specific_and_boost_tss)
             }
         });
     }
+
 }
 

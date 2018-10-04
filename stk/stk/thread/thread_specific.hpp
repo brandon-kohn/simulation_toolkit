@@ -11,6 +11,7 @@
 #pragma once
 
 #include <stk/thread/thread_local_pod.hpp>
+#include <geometrix/utility/assert.hpp>
 #include <functional>
 #include <unordered_map>
 #include <mutex>
@@ -207,9 +208,21 @@ namespace stk { namespace thread {
             return get_item() != nullptr;
         }
 
-        explicit operator bool()
+        explicit operator bool() const
         {
             return has_value_on_calling_thread();
+        }
+
+        template <typename Fn>
+        void for_each_thread_value(Fn&& fn) const
+        {
+            auto lk = std::unique_lock<std::mutex> { m_mutex };
+            for(auto pMap : m_maps)
+            {
+                auto r = map_policy::find(*pMap, this);
+                if(r)
+                    fn(*r);
+            }
         }
 
     private:
@@ -308,6 +321,7 @@ namespace stk { namespace thread {
 }}//! stk::thread.
 
 #ifdef STK_NO_CXX11_THREAD_LOCAL
+#include <stk/thread/on_thread_exit.hpp>
     #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
         namespace stk { namespace thread {
             template <typename T, typename Map>
@@ -324,6 +338,12 @@ namespace stk { namespace thread {
                 {
                     instance = new instance_map{};
                     access_hive() = instance;
+					stk::this_thread::on_thread_exit([]()
+					{
+						instance_map*& instance = access_hive();
+						delete instance;
+						instance = nullptr;
+					});
                 }
                 GEOMETRIX_ASSERT(access_hive() == instance);
                 return *instance;
@@ -349,7 +369,15 @@ namespace stk { namespace thread {
         {                                                                   \
             auto instance = access_hive();                                  \
             if (!instance)                                                  \
+            {                                                               \
                 instance = new instance_map{};                              \
+				stk::this_thread::on_thread_exit([]()                       \
+				{                                                           \
+					instance_map*& instance = access_hive();                \
+					delete instance;                                        \
+					instance = nullptr;                                     \
+				});                                                         \
+            }                                                               \
             return *instance;                                               \
         }                                                                   \
         }}                                                                  \

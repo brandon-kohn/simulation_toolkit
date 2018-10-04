@@ -36,7 +36,10 @@
 
 namespace stk { namespace thread {
 
-    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits>
+	//! Tag is used to allow customization of the type for better control over the static aspect of the threadpool thread ID/indices supplied via get.
+	struct default_threadpool_tag {};
+
+    template <typename QTraits = locked_queue_traits, typename Traits = boost_thread_traits, typename Tag = default_threadpool_tag>
     class work_stealing_thread_pool : boost::noncopyable
     {
         using thread_traits = Traits;
