@@ -14,6 +14,7 @@
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+#include <stk/thread/thread_specific_single_instance_map_policy.hpp>
 
 #define STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
 #include <stk/thread/thread_specific.hpp>
@@ -33,103 +34,6 @@
 #include <iostream>
 
 #include <boost/preprocessor/stringize.hpp>
-
-template <typename Value>
-struct thread_specific_flat_map_policy
-{
-	template <typename Key>
-	struct map_type_generator
-	{
-		using type = boost::container::flat_map<Key, std::unique_ptr<Value>>;
-	};
-
-	template <typename Map>
-	static void initialize(Map& m)
-	{
-		m.reserve(100);
-	}
-
-	template <typename Map, typename Key>
-	static Value* find(Map& m, const Key& k)
-	{
-		auto it = m.find(k);
-		return it != m.end() ? it->second.get() : nullptr;
-	}
-
-	template <typename Map, typename Key>
-	static Value* insert(Map& m, const Key& k, Value&& v)
-	{
-		return m.insert(std::make_pair(k, boost::make_unique<Value>(std::forward<Value>(v)))).first->second.get();
-	}
-
-	template <typename Map, typename Key>
-	static void erase(Map& m, const Key& k)
-	{
-		m.erase(k);
-	}
-
-	template <typename Map>
-	static bool empty(Map& m)
-	{
-		return m.empty();
-	}
-
-	template <typename Map, typename Visitor>
-	static void for_each(Map& m, Visitor&& visitor)
-	{
-		for (auto& i : m)
-			visitor(i.first, *i.second);
-	}
-};
-
-template <typename Value, std::size_t S = 100>
-struct thread_specific_fixed_flat_map_policy
-{
-	template <typename Key>
-	struct map_type_generator
-	{
-		using type = boost::container::flat_map<Key, Value>;
-	};
-
-	template <typename Map>
-	static void initialize(Map& m)
-	{
-		m.reserve(S);
-	}
-
-	template <typename Map, typename Key>
-	static Value* find(Map& m, const Key& k)
-	{
-		auto it = m.find(k);
-		return it != m.end() ? &it->second : nullptr;
-	}
-
-	template <typename Map, typename Key>
-	static Value* insert(Map& m, const Key& k, Value&& v)
-	{
-		GEOMETRIX_ASSERT(m.size() < S);
-		return &m.insert(std::make_pair(k, std::forward<Value>(v))).first->second;
-	}
-
-	template <typename Map, typename Key>
-	static void erase(Map& m, const Key& k)
-	{
-		m.erase(k);
-	}
-
-	template <typename Map>
-	static bool empty(Map& m)
-	{
-		return m.empty();
-	}
-
-	template <typename Map, typename Visitor>
-	static void for_each(Map& m, Visitor&& visitor)
-	{
-		for (auto& i : m)
-			visitor(i.first, i.second);
-	}
-};
 
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_unordered_map_policy<int>);
 STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_std_map_policy<int>);
@@ -180,6 +84,32 @@ TEST(thread_specific_tests, thread_specific_int_ptr)
     std::atomic<int> up{ 0 }, down{ 0 };
     {
         thread_specific<int*> sut{ [&up]() { ++up; return new int(10); }, [&down](int*& p) { ++down;  delete p; } };
+
+        std::vector<std::thread> thds;
+        for (int i = 0; i < 10; ++i)
+        {
+            thds.emplace_back([i, &sut]()
+            {
+                **sut = i;
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                int* v = *sut;
+                EXPECT_EQ(i, *v);
+            });
+        }
+
+        boost::for_each(thds, [](std::thread& thd) { thd.join(); });
+    }
+    EXPECT_NE(0, up.load());
+    EXPECT_EQ(down.load(), up.load());
+}
+
+TEST(thread_specific_tests, thread_specific_int_ptr_single_instance)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    std::atomic<int> up{ 0 }, down{ 0 };
+    {
+        thread_specific<int*, thread_specific_single_instance_map_policy<int*>> sut{ [&up]() { ++up; return new int(10); }, [&down](int*& p) { ++down;  delete p; } };
 
         std::vector<std::thread> thds;
         for (int i = 0; i < 10; ++i)
@@ -316,6 +246,46 @@ TEST(thread_specific_tests, fixed_map_thread_specific)
     }
 
     boost::for_each(thds, [](std::thread& thd) { thd.join(); });
+}
+
+TEST(thread_specific_tests, single_instance_thread_specific)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    
+	const thread_specific<int, thread_specific_single_instance_map_policy<int>> sut1{ []() { return 10; } };
+
+    std::vector<std::thread> thds;
+    for (int i = 0; i < 10; ++i)
+    {
+        thds.emplace_back([i, &sut1]()
+        {
+            int v = *sut1;
+            EXPECT_EQ(10, v);
+        });
+    }
+
+    boost::for_each(thds, [](std::thread& thd) { thd.join(); });
+}
+
+TEST(timing, single_instance_thread_specific_timing)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
+    std::size_t nRuns = 1000000;
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME("thread_specific_single_instance");
+		thread_specific<int, thread_specific_single_instance_map_policy<int>> sut{ []() { return 10; } };
+        pool.parallel_apply(nRuns, [&sut](int)
+		{
+            for (auto i = 0; i < 10000; ++i)
+            {
+                int& v = *sut;
+                ++v;
+            }
+        });
+    }
 }
 
 TEST(timing, fixed_flat_map_thread_specific_timing)
