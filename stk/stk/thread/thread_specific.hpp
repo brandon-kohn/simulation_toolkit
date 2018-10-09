@@ -6,8 +6,6 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-#ifndef STK_THREAD_THREAD_SPECIFIC_HPP
-#define STK_THREAD_THREAD_SPECIFIC_HPP
 #pragma once
 
 #include <stk/thread/thread_local_pod.hpp>
@@ -208,14 +206,18 @@ namespace stk { namespace thread {
 		}
 	};
 
+	struct default_thread_specific_tag{};
+
     //! Creates a thread local object which can be scoped to an objects lifetime.
-    template <typename T, typename MapPolicy = thread_specific_std_map_policy<T>>
+	//! NOTE: thread_specific instances should either outlive the threads who access them, or should go out of scope when not being accessed by any threads.
+	//! Violations of either condition are undefined behavior.
+    template <typename T, typename MapPolicy = thread_specific_std_map_policy<T>, typename Tag = default_thread_specific_tag>
     class thread_specific
     {
         using data_ptr = T*;
         using const_data_ptr = typename std::add_const<data_ptr>::type;
         using map_policy = MapPolicy;
-        struct instance_map : map_policy::template map_type_generator<thread_specific<T, MapPolicy> const*>::type
+        struct instance_map : map_policy::template map_type_generator<thread_specific<T, MapPolicy, Tag> const*>::type
         {
             instance_map()
             {
@@ -228,7 +230,7 @@ namespace stk { namespace thread {
             instance_map& operator=(instance_map&&)=delete;
             ~instance_map()
             {
-                map_policy::for_each(*this, [this](thread_specific<T, map_policy> const* key, T& v)
+                map_policy::for_each(*this, [this](thread_specific<T, map_policy, Tag> const* key, T& v)
                 {
                     if (key->m_deinitializer)
                         key->m_deinitializer(v);
@@ -422,14 +424,14 @@ namespace stk { namespace thread {
 #include <stk/thread/on_thread_exit.hpp>
     #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
         namespace stk { namespace thread {
-            template <typename T, typename Map>
-            inline typename thread_specific<T, Map>::instance_map*& thread_specific<T, Map>::access_hive()
+            template <typename T, typename Map, typename Tag>
+            inline typename thread_specific<T, Map, Tag>::instance_map*& thread_specific<T, Map, Tag>::access_hive()
             {
                 static STK_THREAD_LOCAL_POD instance_map* instance = nullptr;
                 return instance;
             }
-            template <typename T, typename Map>
-            inline typename thread_specific<T, Map>::instance_map& thread_specific<T, Map>::hive()
+            template <typename T, typename Map, typename Tag>
+            inline typename thread_specific<T, Map, Tag>::instance_map& thread_specific<T, Map, Tag>::hive()
             {
                 auto instance = access_hive();
                 if (!instance)
@@ -448,22 +450,22 @@ namespace stk { namespace thread {
             }
         }}//! namespace stk::thread;
 
-        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map)
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)
     #else
         //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
         //! There should be only one such definition for each type T specified.
-        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map)             \
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)        \
         namespace stk { namespace thread {                                  \
         template <>                                                         \
-        inline typename thread_specific<T, Map>::instance_map*&             \
-        thread_specific<T, Map>::access_hive()                              \
+        inline typename thread_specific<T, Map, Tag>::instance_map*&        \
+        thread_specific<T, Map, Tag>::access_hive()                         \
         {                                                                   \
             static STK_THREAD_LOCAL_POD instance_map* instance = nullptr;   \
             return instance;                                                \
         }                                                                   \
         template <>                                                         \
-        inline thread_specific<T,Map>::instance_map&                        \
-        thread_specific<T,Map>::hive()                                      \
+        inline thread_specific<T,Map,Tag>::instance_map&                    \
+        thread_specific<T,Map,Tag>::hive()                                  \
         {                                                                   \
             auto instance = access_hive();                                  \
             if (!instance)                                                  \
@@ -486,8 +488,8 @@ namespace stk { namespace thread {
 #else//! thread_local keyword exists.
     #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
         namespace stk { namespace thread {
-            template <typename T, typename Map>
-            inline typename thread_specific<T, Map>::instance_map& thread_specific<T, Map>::hive()
+            template <typename T, typename Map, typename Tag>
+            inline typename thread_specific<T, Map, Tag>::instance_map& thread_specific<T, Map, Tag>::hive()
             {
                 static thread_local instance_map instance;
                 instance_map& m = instance;
@@ -495,15 +497,15 @@ namespace stk { namespace thread {
             }
         }}//! namespace stk::thread;
 
-        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map)
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)
     #else
         //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
         //! There should be only one such definition for each type T specified.
-        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map)             \
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)        \
         namespace stk { namespace thread {                                  \
         template <>                                                         \
-        inline thread_specific<T, Map>::instance_map&                       \
-        thread_specific<T, Map>::hive()                                     \
+        inline thread_specific<T, Map, Tag>::instance_map&                  \
+        thread_specific<T, Map, Tag>::hive()                                \
         {                                                                   \
             static thread_local instance_map instance;                      \
             instance_map& m = instance;                                     \
@@ -513,5 +515,3 @@ namespace stk { namespace thread {
         /***/
     #endif
 #endif//! STK_NO_CXX11_THREAD_LOCAL
-
-#endif //! STK_THREAD_THREAD_SPECIFIC_HPP

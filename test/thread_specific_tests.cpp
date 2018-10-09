@@ -15,6 +15,7 @@
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
 #include <stk/thread/thread_specific_single_instance_map_policy.hpp>
+#include <stk/container/type_storage_pod.hpp>
 
 #define STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
 #include <stk/thread/thread_specific.hpp>
@@ -35,11 +36,11 @@
 
 #include <boost/preprocessor/stringize.hpp>
 
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_unordered_map_policy<int>);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_std_map_policy<int>);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_flat_map_policy<int>);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>, thread_specific_std_map_policy<std::unique_ptr<int>>);
-STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int*, thread_specific_std_map_policy<int*>);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_unordered_map_policy<int>, default_thread_specific_tag);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_std_map_policy<int>, default_thread_specific_tag);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int, thread_specific_flat_map_policy<int>, default_thread_specific_tag);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(std::unique_ptr<int>, thread_specific_std_map_policy<std::unique_ptr<int>>, default_thread_specific_tag);
+STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(int*, thread_specific_std_map_policy<int*>, default_thread_specific_tag);
 
 TEST(thread_specific_tests, thread_specific_interface)
 {
@@ -175,6 +176,41 @@ TEST(thread_specific_tests, thread_specific_threads_go_out_of_scope)
 		//! There shouldn't be any.
 		ASSERT_FALSE(true);
 	});
+    EXPECT_NE(0, up.load());
+    EXPECT_EQ(down.load(), up.load());
+}
+
+TEST(thread_specific_tests, thread_specific_tss_go_out_of_scope)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    std::atomic<int> up{ 0 }, down{ 0 };
+	std::mutex cmtx;
+	std::condition_variable cnd;
+	std::vector<std::thread> thds;
+	std::atomic<int> gate = 0;
+    {
+		thread_specific<int*> sut{ [&up]() { ++up; return new int(10); }, [&down](int*& p) { ++down;  delete p; } };
+        for (int i = 0; i < 10; ++i)
+        {
+            thds.emplace_back([i, &gate, &sut]()
+            {
+                **sut = i;
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                int* v = *sut;
+                EXPECT_EQ(i, *v);
+				++gate;
+				while (gate != 0);
+
+				int q = 0;
+            });
+        }
+
+		while (gate != 10);
+    }
+
+	gate.store(0);
+	boost::for_each(thds, [](std::thread& thd) { thd.join(); });
     EXPECT_NE(0, up.load());
     EXPECT_EQ(down.load(), up.load());
 }
