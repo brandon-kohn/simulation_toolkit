@@ -188,7 +188,7 @@ TEST(thread_specific_tests, thread_specific_tss_go_out_of_scope)
 	std::mutex cmtx;
 	std::condition_variable cnd;
 	std::vector<std::thread> thds;
-	std::atomic<int> gate = 0;
+	std::atomic<int> gate{ 0 };
     {
 		thread_specific<int*> sut{ [&up]() { ++up; return new int(10); }, [&down](int*& p) { ++down;  delete p; } };
         for (int i = 0; i < 10; ++i)
