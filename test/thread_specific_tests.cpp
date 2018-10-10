@@ -201,8 +201,6 @@ TEST(thread_specific_tests, thread_specific_tss_go_out_of_scope)
                 EXPECT_EQ(i, *v);
 				++gate;
 				while (gate != 0);
-
-				int q = 0;
             });
         }
 
