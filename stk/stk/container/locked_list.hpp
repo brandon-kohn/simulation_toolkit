@@ -30,12 +30,9 @@ namespace stk {
             std::shared_ptr<T> data;
             std::unique_ptr<node> next;
 
-            node()
-                : next()
-            {}
-
-            node(T const& value)
-                : data(std::make_shared<T>(value))
+            template <typename... U>
+            node(U&&... args)
+                : data(std::make_shared<T>(std::forward<U>(args)...))
             {}
         };
 
@@ -62,11 +59,79 @@ namespace stk {
             new_node->next = std::move(head.next);
             head.next = std::move(new_node);
         }
-        
+
+        void push_front(T&& value)
+        {
+            auto new_node = boost::make_unique<node>(std::forward<T>(value));
+            std::unique_lock<mutex_type> lk{ head.m };
+			GEOMETRIX_ASSERT(lk.owns_lock());
+			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
+            new_node->next = std::move(head.next);
+            head.next = std::move(new_node);
+        }
+       
+        template <typename... Args>
+        void emplace_front(Args&&... args)
+        {
+            auto new_node = boost::make_unique<node>(std::forward<Args>(args)...);
+            std::unique_lock<mutex_type> lk{ head.m };
+			GEOMETRIX_ASSERT(lk.owns_lock());
+			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
+            new_node->next = std::move(head.next);
+            head.next = std::move(new_node);
+        }
+
         //! O(n)
         void push_back(T const& value)
         {
             auto new_node = boost::make_unique<node>(value);
+            std::unique_lock<mutex_type> lk{ head.m };
+			GEOMETRIX_ASSERT(lk.owns_lock());
+			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
+            node* next = nullptr;
+            auto current = &head;
+            while (next = current->next.get())
+            {
+                std::unique_lock<mutex_type> next_lk{ next->m };
+				GEOMETRIX_ASSERT(lk.owns_lock());
+                lk.unlock();
+                current = next;
+                lk = std::move(next_lk);
+            }
+
+			GEOMETRIX_ASSERT(lk.owns_lock());
+			GEOMETRIX_ASSERT(lk.mutex() == &current->m);
+			GEOMETRIX_ASSERT(current->next == nullptr);
+            current->next = std::move(new_node);
+        }
+
+        void push_back(T&& value)
+        {
+            auto new_node = boost::make_unique<node>(std::forward<T>(value));
+            std::unique_lock<mutex_type> lk{ head.m };
+			GEOMETRIX_ASSERT(lk.owns_lock());
+			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
+            node* next = nullptr;
+            auto current = &head;
+            while (next = current->next.get())
+            {
+                std::unique_lock<mutex_type> next_lk{ next->m };
+				GEOMETRIX_ASSERT(lk.owns_lock());
+                lk.unlock();
+                current = next;
+                lk = std::move(next_lk);
+            }
+
+			GEOMETRIX_ASSERT(lk.owns_lock());
+			GEOMETRIX_ASSERT(lk.mutex() == &current->m);
+			GEOMETRIX_ASSERT(current->next == nullptr);
+            current->next = std::move(new_node);
+        }
+
+        template <typename... Args>
+        void emplace_back(Args&&... args)
+        {
+            auto new_node = boost::make_unique<node>(std::forward<Args>(args)...);
             std::unique_lock<mutex_type> lk{ head.m };
 			GEOMETRIX_ASSERT(lk.owns_lock());
 			GEOMETRIX_ASSERT(lk.mutex() == &head.m);

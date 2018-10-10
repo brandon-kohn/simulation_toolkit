@@ -1,12 +1,15 @@
 cmake_minimum_required(VERSION 3.1.0)
- 
+
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost 1.61.0 COMPONENTS thread system)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
   add_definitions(-DBOOST_RESULT_OF_USE_TR1_WITH_DECLTYPE_FALLBACK -DBOOST_CHRONO_HEADER_ONLY -D"BOOST_PARAMETER_MAX_ARITY=20" -D"BOOST_THREAD_VERSION=4" -DBOOST_ALL_NO_LIB)
-  message("Boost found: ${Boost_INCLUDE_DIRS}")  
+  if(NOT ${STK_HAS_THREAD_LOCAL})
+      add_definitions(-DSTK_NO_CXX11_THREAD_LOCAL)
+  endif()
+  message("Boost found: ${Boost_INCLUDE_DIRS}")
 endif()
 
 set(CMAKE_CXX_STANDARD 11)
@@ -21,6 +24,7 @@ endif()
 
 if(Boost_FOUND)
     set(tests
+        vector_compare_tests
         fixed_point_tests
         rtree_cache_tests
         temporary_vertex_graph_adaptor_tests
@@ -29,6 +33,7 @@ if(Boost_FOUND)
         transformer_tests
         clipper_tests
         timing_tests
+        color_tests
        )
 
     foreach(test ${tests})
@@ -42,18 +47,16 @@ if(Boost_FOUND)
     # Concurrency tests.
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
         set(concurrency_test_suite
+            thread_specific_tests
             concurrency_tests
             concurrent_integral_map_tests
             thread_pool_tests
             concurrent_skip_list_tests
             hash_grid_tests
             concurrent_vector_tests
+            concurrent_list_tests
             rpmalloc_tests
             )
-
-        if(${STK_HAS_THREAD_LOCAL})
-            set(concurrency_test_suite ${concurrency_test_suite} thread_specific_tests)
-        endif()    
 
         foreach(test ${concurrency_test_suite})
             add_executable(${test} ${test}.cpp)
@@ -74,7 +77,7 @@ if(Boost_FOUND)
         endif()
         add_library(shared_module1 SHARED shared_module1.cpp)
         target_link_libraries(shared_module1 gtest ${Boost_LIBRARIES})
-        if(NOT MSVC) 
+        if(NOT MSVC)
             add_test(NAME shared_module1_test COMMAND local_gtest_runner shared_module1)
             set_tests_properties( shared_module1_test PROPERTIES ENVIRONMENT "PATH=${CMAKE_CURRENT_BINARY_DIR};$ENV{PATH}" )
         endif()
@@ -82,7 +85,7 @@ if(Boost_FOUND)
         add_library(shared_module2 SHARED shared_module2.cpp)
         target_link_libraries(shared_module2 gtest shared_module1 ${Boost_LIBRARIES})
 
-        if(NOT MSVC) 
+        if(NOT MSVC)
             add_test(NAME shared_module2_test COMMAND local_gtest_runner shared_module2)
             set_tests_properties( shared_module2_test PROPERTIES ENVIRONMENT "PATH=${CMAKE_CURRENT_BINARY_DIR};$ENV{PATH}" )
         endif()

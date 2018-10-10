@@ -35,19 +35,19 @@ namespace stk { namespace detail {
 
     }//! namespace detail;
 
-	//! The erase policy specifies ownership semantics of the pointers to Data held by the map.
-	template<typename Data, typename OnErasePolicy = std::default_delete<Data>>
+    //! The erase policy specifies ownership semantics of the pointers to Data held by the map.
+    template<typename Data, typename OnErasePolicy = std::default_delete<Data>, typename MemoryReclamationPolicy = junction::DefaultMemoryReclamationPolicy>
     class concurrent_integral_map
     {
     public:
 
-		static_assert(std::is_default_constructible<OnErasePolicy>::value, "The OnErasePolicy of concurrent_integral_map must be default constructible and ideally stateless.");
+        static_assert(std::is_default_constructible<OnErasePolicy>::value, "The OnErasePolicy of concurrent_integral_map must be default constructible and ideally stateless.");
 
-		using erase_policy = OnErasePolicy;
+        using erase_policy = OnErasePolicy;
         using data_ptr = Data*;
-        using map_type = junction::ConcurrentMap_Leapfrog<std::uint64_t, data_ptr, stk::detail::uint64_key_traits, stk::detail::pointer_value_traits<Data>>;
+        using map_type = junction::ConcurrentMap_Leapfrog<std::uint64_t, data_ptr, stk::detail::uint64_key_traits, stk::detail::pointer_value_traits<Data>, MemoryReclamationPolicy>;
 
-		concurrent_integral_map() = default;
+        concurrent_integral_map() = default;
 
         ~concurrent_integral_map()
         {
@@ -57,13 +57,13 @@ namespace stk { namespace detail {
         data_ptr find(std::uint64_t k) const
         {
             auto iter = m_map.find(k);
-			if(iter.isValid())
-			{
-				GEOMETRIX_ASSERT(iter.getValue() != (data_ptr)stk::detail::pointer_value_traits<Data>::Redirect);
-				return iter.getValue();
-			}
+            if(iter.isValid())
+            {
+                GEOMETRIX_ASSERT(iter.getValue() != (data_ptr)stk::detail::pointer_value_traits<Data>::Redirect);
+                return iter.getValue();
+            }
 
-			return nullptr;
+            return nullptr;
         }
 
         template <typename Deleter>
@@ -71,53 +71,53 @@ namespace stk { namespace detail {
         {
             auto mutator = m_map.insertOrFind(k);
             auto result = mutator.getValue();
-			bool wasInserted = false;
-			if (result == nullptr)
-			{
-				result = pData.release();
-				auto oldData = mutator.exchangeValue(result);
-				if (oldData)
-					junction::DefaultQSBR().enqueue<erase_policy>(oldData);
+            bool wasInserted = false;
+            if (result == nullptr)
+            {
+                result = pData.release();
+                auto oldData = mutator.exchangeValue(result);
+                if (oldData)
+                    m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(oldData);
 
-				//! If a new value has been put into the key which isn't result.. get it.
-				wasInserted = oldData != result;
-				if (!wasInserted)
-					result = mutator.getValue();
-			}
+                //! If a new value has been put into the key which isn't result.. get it.
+                wasInserted = oldData != result;
+                if (!wasInserted)
+                    result = mutator.getValue();
+            }
 
             return std::make_pair(result, wasInserted);
         }
 
-		template <typename... Args>
-		std::pair<data_ptr, bool> emplace(std::uint64_t k, Args&&... a) 
-		{
-			auto mutator = m_map.insertOrFind(k);
-			auto result = mutator.getValue();
-			bool wasInserted = false;
-			if (result == nullptr)
-			{
-				result = new Data(a...);
-				auto oldData = mutator.exchangeValue(result);
-				if (oldData)
-					junction::DefaultQSBR().enqueue<erase_policy>(oldData);
-
-				//! If a new value has been put into the key which isn't result.. get it.
-				wasInserted = oldData != result;
-				if (!wasInserted)
-					result = mutator.getValue();
-			}
-
-			return std::make_pair(result, wasInserted);
-		}
-
-		void erase(std::uint64_t k)
+        template <typename... Args>
+        std::pair<data_ptr, bool> emplace(std::uint64_t k, Args&&... a) 
         {
-			auto iter = m_map.find(k);
+            auto mutator = m_map.insertOrFind(k);
+            auto result = mutator.getValue();
+            bool wasInserted = false;
+            if (result == nullptr)
+            {
+                result = new Data(a...);
+                auto oldData = mutator.exchangeValue(result);
+                if (oldData)
+                    m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(oldData);
+
+                //! If a new value has been put into the key which isn't result.. get it.
+                wasInserted = oldData != result;
+                if (!wasInserted)
+                    result = mutator.getValue();
+            }
+
+            return std::make_pair(result, wasInserted);
+        }
+
+        void erase(std::uint64_t k)
+        {
+            auto iter = m_map.find(k);
             if (iter.isValid())
             {
-				auto pValue = iter.eraseValue();
-				if (pValue != (data_ptr)stk::detail::pointer_value_traits<Data>::NullValue)
-					junction::DefaultQSBR().enqueue<erase_policy>(pValue);
+                auto pValue = iter.eraseValue();
+                if (pValue != (data_ptr)stk::detail::pointer_value_traits<Data>::NullValue)
+                    m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(pValue);
             }
         }
 
@@ -141,16 +141,16 @@ namespace stk { namespace detail {
             while(it.isValid())
             {
                 auto pValue = it.getValue();
-				erase_policy()(pValue);
+                erase_policy()(pValue);
                 m_map.erase(it.getKey());
                 it.next();
             };
         }
 
-		static void quiesce()
-		{
-			junction::DefaultQSBR().flush();
-		}
+        void quiesce()
+        {
+            m_map.getMemoryReclaimer().quiesce();
+        }
 
     private:
 

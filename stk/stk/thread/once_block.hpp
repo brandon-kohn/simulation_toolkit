@@ -6,7 +6,7 @@
 #include <boost/preprocessor/cat.hpp>
 
 //! \def STK_ONCE_BLOCK()
-//! \brief This macro can be used to define the entry to a block which will only be run once even in the context of multiple threads.
+//! \brief This macro can be used to define the entry to a block which will only be run once even in the context of multiple threads. Note: Requires thread-safe local statics.
 #define STK_ONCE_BLOCK()                                                          \
     static std::atomic_bool BOOST_PP_CAT(stk_once_block_sentinel,__LINE__)(false);\
     bool BOOST_PP_CAT(stk_once_block_expected,__LINE__) = false;                  \

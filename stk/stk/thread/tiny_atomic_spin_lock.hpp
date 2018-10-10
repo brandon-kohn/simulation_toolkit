@@ -10,6 +10,7 @@
 #define STK_THREAD_TINY_ATOMIC_SPIN_LOCK_HPP
 
 #include <stk/thread/spin_lock_wait_strategies.hpp>
+#include <geometrix/utility/assert.hpp>
 #include <atomic>
 #include <cstdint>
 

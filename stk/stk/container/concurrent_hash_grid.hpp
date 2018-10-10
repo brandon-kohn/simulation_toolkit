@@ -30,7 +30,7 @@ namespace stk {
     {
         typedef std::uint64_t Key;
         typedef turf::util::BestFit<std::uint64_t>::Unsigned Hash;
-		static const Key NullKey = UINT64_MAX;// (std::numeric_limits<Key>::max)();
+        static const Key NullKey = UINT64_MAX;// (std::numeric_limits<Key>::max)();
         static const Hash NullHash = Hash(NullKey);
         static Hash hash(Key key)
         {
@@ -51,7 +51,33 @@ namespace stk {
         static const IntType Redirect = 1;
     };
 
-    template<typename Data, typename GridTraits>
+    namespace detail {
+    template <typename T>
+    struct DefaultDataAllocator
+    {
+        T* construct()
+        {
+            return new T;
+        }
+
+        void destroy(T* t)
+        {
+            delete t;
+        }
+
+        T* operator()()
+        {
+            return construct();
+        }
+
+        void operator()(T* t)
+        {
+            destroy(t);
+        }
+    };
+    }//! namespace detail;
+
+    template<typename Data, typename GridTraits, typename DataAllocator = detail::DefaultDataAllocator<Data>, typename MemoryReclamationPolicy = junction::QSBRMemoryReclamationPolicy>
     class concurrent_hash_grid_2d
     {
     public:
@@ -59,11 +85,12 @@ namespace stk {
         typedef Data* data_ptr;
         typedef GridTraits traits_type;
         typedef stk::compressed_integer_pair key_type;
-        typedef junction::ConcurrentMap_Leapfrog<std::uint64_t, Data*, stk::compressed_integer_pair_key_traits, stk::pointer_value_traits<Data>> grid_type;
+        typedef junction::ConcurrentMap_Leapfrog<std::uint64_t, Data*, stk::compressed_integer_pair_key_traits, stk::pointer_value_traits<Data>, MemoryReclamationPolicy> grid_type;
 
-        concurrent_hash_grid_2d( const GridTraits& traits )
+        concurrent_hash_grid_2d( const GridTraits& traits, const DataAllocator& dataAlloc = DataAllocator(), const MemoryReclamationPolicy& reclaimer = MemoryReclamationPolicy() )
             : m_gridTraits(traits)
-            , m_grid()
+            , m_dataAlloc(dataAlloc)
+            , m_grid(reclaimer)
         {}
 
         ~concurrent_hash_grid_2d()
@@ -106,15 +133,15 @@ namespace stk {
             auto result = mutator.getValue();
             if (result == nullptr)
             {
-				result = new Data{};
-				auto oldData = mutator.exchangeValue(result);
-				if (oldData)
-					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(oldData);
+                result = m_dataAlloc.construct();
+                auto oldData = mutator.exchangeValue(result);
+                if (oldData)//! Either oldData is the old value or if result wasn't inserted oldData == result. So it's memory is handled.
+                    m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, oldData);
 
-				//! If a new value has been put into the key which isn't result.. get it.
-				bool wasInserted = oldData != result;
-				if (!wasInserted)
-					result = mutator.getValue();
+                //! If a new value has been put into the key which isn't result.. get it.
+                bool wasInserted = oldData != result;
+                if (!wasInserted)
+                    result = mutator.getValue();
             }
 
             GEOMETRIX_ASSERT(result != nullptr);
@@ -137,8 +164,8 @@ namespace stk {
             if (iter.isValid())
             {
                 auto pValue = iter.eraseValue();
-				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
+                if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
+                    m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
             }
         }
 
@@ -148,21 +175,36 @@ namespace stk {
             while(it.isValid())
             {
                 auto pValue = m_grid.erase(it.getKey());
-				if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
-					junction::DefaultQSBR().enqueue<std::default_delete<Data>>(pValue);
+                if(pValue != (data_ptr)pointer_value_traits<Data>::NullValue)
+                    m_grid.getMemoryReclaimer().reclaim_via_callable(m_dataAlloc, pValue);
                 it.next();
             };
         }
 
-        //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
-        static void quiesce()
+        //! Visit each key and its associated value. Their values are copies of the underlying data in the grid.
+        template <typename Fn>
+        void for_each(Fn&& fn) const
         {
-            junction::DefaultQSBR().flush();
+            auto it = typename grid_type::Iterator(m_grid);
+            while(it.isValid())
+            {
+                auto uKey = it.getKey();
+                auto pKey = reinterpret_cast<compressed_integer_pair*>(&uKey);
+                fn(*pKey, *it.getValue());
+                it.next();
+            }
+        }
+
+        //! This should be called when the grid is not being modified to allow threads to reclaim memory from deletions.
+        void quiesce()
+        {
+            m_grid.getMemoryReclaimer().quiesce();
         }
 
     private:
 
         traits_type m_gridTraits;
+        mutable DataAllocator m_dataAlloc;
         mutable grid_type m_grid;
 
     };

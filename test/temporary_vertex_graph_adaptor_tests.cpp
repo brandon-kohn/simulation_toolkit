@@ -9,6 +9,7 @@
 
 #include <stk/geometry/geometry_kernel.hpp>
 #include <stk/graph/temporary_vertex_graph_adaptor.hpp>
+#include <geometrix/algorithm/euclidean_distance.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>

@@ -18,6 +18,7 @@
 
 #include "primitive/point.hpp"
 #include "primitive/segment.hpp"
+#include "primitive/capsule.hpp"
 #include "primitive/polygon.hpp"
 #include "primitive/polyline.hpp"
 #include "primitive/polygon_with_holes.hpp"

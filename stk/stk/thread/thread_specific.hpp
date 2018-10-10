@@ -6,47 +6,236 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-#ifndef STK_THREAD_THREAD_SPECIFIC_HPP
-#define STK_THREAD_THREAD_SPECIFIC_HPP
 #pragma once
 
+#include <stk/thread/thread_local_pod.hpp>
+#include <geometrix/utility/assert.hpp>
 #include <functional>
-#include <set>
+#include <unordered_map>
 #include <mutex>
 #include <type_traits>
 
-#include <boost/version.hpp>
-
-#if BOOST_VERSION < 106501
-#error "Boost version 1.65.1+ is required to compile the stk::thread::thread_specific."
-#endif
-
 namespace stk { namespace thread {
 
-    template <typename T>
-    class thread_specific;
+    template <typename Value>
+    struct thread_specific_unordered_map_policy
+    {
+        template <typename Key>
+        struct map_type_generator
+        {
+            using type = std::unordered_map<Key, Value>;
+        };
 
-    //! Creates a thread local object which can be scoped to an objects lifetime. Must call quiesce occasionally to reclaim memory from threads going out of scope.
-    template <typename T>
+        template <typename Map>
+        static void initialize(Map& m)
+        {}
+
+        template <typename Map, typename Key>
+        static Value* find(Map& m, const Key& k)
+        {
+            auto it = m.find(k);
+            return it != m.end() ? &it->second : nullptr;
+        }
+
+        template <typename Map, typename Key>
+        static Value* insert(Map& m, const Key& k, Value&& v)
+        {
+            return &m.insert(std::make_pair(k, std::forward<Value>(v))).first->second;
+        }
+
+        template <typename Map, typename Key>
+        static void erase(Map& m, const Key& k)
+        {
+            m.erase(k);
+        }
+
+        template <typename Map>
+        static bool empty(Map& m)
+        {
+            return m.empty();
+        }
+
+        template <typename Map, typename Visitor>
+        static void for_each(Map& m, Visitor&& visitor)
+        {
+            for (auto& i : m)
+                visitor(i.first, i.second);
+        }
+    };
+
+    template <typename Value>
+    struct thread_specific_std_map_policy
+    {
+        template <typename Key>
+        struct map_type_generator
+        {
+            using type = std::map<Key, Value>;
+        };
+
+        template <typename Map>
+        static void initialize(Map& m)
+        {}
+
+        template <typename Map, typename Key>
+        static Value* find(Map& m, const Key& k)
+        {
+            auto it = m.find(k);
+            return it != m.end() ? &it->second : nullptr;
+        }
+
+        template <typename Map, typename Key>
+        static Value* insert(Map& m, const Key& k, Value&& v)
+        {
+            return &m.insert(std::make_pair(k, std::forward<Value>(v))).first->second;
+        }
+
+        template <typename Map, typename Key>
+        static void erase(Map& m, const Key& k)
+        {
+            m.erase(k);
+        }
+
+        template <typename Map>
+        static bool empty(Map& m)
+        {
+            return m.empty();
+        }
+
+        template <typename Map, typename Visitor>
+        static void for_each(Map& m, Visitor&& visitor)
+        {
+            for (auto& i : m)
+                visitor(i.first, i.second);
+        }
+    };
+
+	template <typename Value>
+	struct thread_specific_flat_map_policy
+	{
+		template <typename Key>
+		struct map_type_generator
+		{
+			using type = boost::container::flat_map<Key, std::unique_ptr<Value>>;
+		};
+
+		template <typename Map>
+		static void initialize(Map& m)
+		{
+			m.reserve(100);
+		}
+
+		template <typename Map, typename Key>
+		static Value* find(Map& m, const Key& k)
+		{
+			auto it = m.find(k);
+			return it != m.end() ? it->second.get() : nullptr;
+		}
+
+		template <typename Map, typename Key>
+		static Value* insert(Map& m, const Key& k, Value&& v)
+		{
+			return m.insert(std::make_pair(k, boost::make_unique<Value>(std::forward<Value>(v)))).first->second.get();
+		}
+
+		template <typename Map, typename Key>
+		static void erase(Map& m, const Key& k)
+		{
+			m.erase(k);
+		}
+
+		template <typename Map>
+		static bool empty(Map& m)
+		{
+			return m.empty();
+		}
+
+		template <typename Map, typename Visitor>
+		static void for_each(Map& m, Visitor&& visitor)
+		{
+			for (auto& i : m)
+				visitor(i.first, *i.second);
+		}
+	};
+
+	template <typename Value, std::size_t S = 100>
+	struct thread_specific_fixed_flat_map_policy
+	{
+		template <typename Key>
+		struct map_type_generator
+		{
+			using type = boost::container::flat_map<Key, Value>;
+		};
+
+		template <typename Map>
+		static void initialize(Map& m)
+		{
+			m.reserve(S);
+		}
+
+		template <typename Map, typename Key>
+		static Value* find(Map& m, const Key& k)
+		{
+			auto it = m.find(k);
+			return it != m.end() ? &it->second : nullptr;
+		}
+
+		template <typename Map, typename Key>
+		static Value* insert(Map& m, const Key& k, Value&& v)
+		{
+			GEOMETRIX_ASSERT(m.size() < S);
+			return &m.insert(std::make_pair(k, std::forward<Value>(v))).first->second;
+		}
+
+		template <typename Map, typename Key>
+		static void erase(Map& m, const Key& k)
+		{
+			m.erase(k);
+		}
+
+		template <typename Map>
+		static bool empty(Map& m)
+		{
+			return m.empty();
+		}
+
+		template <typename Map, typename Visitor>
+		static void for_each(Map& m, Visitor&& visitor)
+		{
+			for (auto& i : m)
+				visitor(i.first, i.second);
+		}
+	};
+
+	struct default_thread_specific_tag{};
+
+    //! Creates a thread local object which can be scoped to an objects lifetime.
+	//! NOTE: thread_specific instances should either outlive the threads who access them, or should go out of scope when not being accessed by any threads.
+	//! Violations of either condition are undefined behavior.
+    template <typename T, typename MapPolicy = thread_specific_std_map_policy<T>, typename Tag = default_thread_specific_tag>
     class thread_specific
     {
         using data_ptr = T*;
         using const_data_ptr = typename std::add_const<data_ptr>::type;
-        struct instance_map : std::map<thread_specific<T> const*, T>
+        using map_policy = MapPolicy;
+        struct instance_map : map_policy::template map_type_generator<thread_specific<T, MapPolicy, Tag> const*>::type
         {
-            instance_map() = default;
+            instance_map()
+            {
+                map_policy::initialize(*this);
+            }
+
             instance_map(const instance_map&)=delete;
             instance_map& operator=(const instance_map&)=delete;
             instance_map(instance_map&&)=delete;
             instance_map& operator=(instance_map&&)=delete;
             ~instance_map()
             {
-                for (auto& i : *this)
+                map_policy::for_each(*this, [this](thread_specific<T, map_policy, Tag> const* key, T& v)
                 {
-                    if (i.first->m_deinitializer)
-                        i.first->m_deinitializer(i.second);
-                    i.first->remove_instance_map(this);
-                }
+                    if (key->m_deinitializer)
+                        key->m_deinitializer(v);
+                    key->remove_instance_map(this);
+                });
             }
         };
         friend struct instance_map;
@@ -64,7 +253,7 @@ namespace stk { namespace thread {
         ~thread_specific()
         {
 #ifndef NDEBUG
-	        m_isBeingDestructed = true;
+            m_isBeingDestructed = true;
 #endif
             destroy();
         }
@@ -119,47 +308,55 @@ namespace stk { namespace thread {
             return get_item() != nullptr;
         }
 
-        explicit operator bool()
+        explicit operator bool() const
         {
             return has_value_on_calling_thread();
+        }
+
+        template <typename Fn>
+        void for_each_thread_value(Fn&& fn) const
+        {
+            auto lk = std::unique_lock<std::mutex> { m_mutex };
+            for(auto pMap : m_maps)
+            {
+                auto r = map_policy::find(*pMap, this);
+                if(r)
+                    fn(*r);
+            }
         }
 
     private:
 
         data_ptr get_item() const
         {
-	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
+            GEOMETRIX_ASSERT(!m_isBeingDestructed);
             auto& m = hive();
-            auto iter = m.find(this);
-            if (iter != m.end())
-                return &iter->second;
-
-            return nullptr;
+            return map_policy::find(m,this);
         }
 
         data_ptr get_or_add_item () const
         {
-	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
+            GEOMETRIX_ASSERT(!m_isBeingDestructed);
             auto& m = hive();
-            auto iter = m.lower_bound(this);
-            if(iter != m.end() && iter->first == this)
-                return &iter->second;
 
-	        {
-		        auto lk = std::unique_lock<std::mutex> { m_mutex };
+            auto r = map_policy::find(m,this);
+            if (r)
+                return r;
+
+            {
+                auto lk = std::unique_lock<std::mutex> { m_mutex };
                 m_maps.insert(&m);
-	        }
-            iter = m.insert(iter, std::make_pair(this, m_initializer()));
-            GEOMETRIX_ASSERT(iter != m.end());
-            return &iter->second;
+            }
+
+            return map_policy::insert(m, this, m_initializer());
         }
 
-	    void remove_instance_map(instance_map* pMap) const
-	    {
-	        GEOMETRIX_ASSERT(!m_isBeingDestructed);
-		    auto lk = std::unique_lock<std::mutex> { m_mutex };
-		    m_maps.erase(pMap);
-	    }
+        void remove_instance_map(instance_map* pMap) const
+        {
+            GEOMETRIX_ASSERT(!m_isBeingDestructed);
+            auto lk = std::unique_lock<std::mutex> { m_mutex };
+            m_maps.erase(pMap);
+        }
 
         void destroy()
         {
@@ -167,75 +364,154 @@ namespace stk { namespace thread {
             auto key = this;
             if (!m_deinitializer)
             {
-                m.erase(key);
-	            auto lk = std::unique_lock<std::mutex> { m_mutex };
-	            for(auto pMap : m_maps)
-                {
-                    pMap->erase(key);
-                }
+                map_policy::erase(m, key);
+                auto lk = std::unique_lock<std::mutex> { m_mutex };
+                for(auto pMap : m_maps)
+                    map_policy::erase(*pMap, key);
             }
             else
             {
-                auto it = m.find(key);
-                if (it != m.end())
+                auto r = map_policy::find(m, key);
+                if (r)
                 {
-                    m_deinitializer(it->second);
-                    m.erase(it);
+                    m_deinitializer(*r);
+                    map_policy::erase(m, key);
                 }
-	            
-	            auto lk = std::unique_lock<std::mutex> { m_mutex };
-	            for(auto pMap : m_maps)
+
+                auto lk = std::unique_lock<std::mutex> { m_mutex };
+                for(auto pMap : m_maps)
                 {
-                    auto it = pMap->find(key);
-                    if (it != pMap->end())
+                    auto r = map_policy::find(*pMap, key);
+                    if (r)
                     {
-                        m_deinitializer(it->second);
-                        pMap->erase(it);
+                        m_deinitializer(*r);
+                        map_policy::erase(*pMap, key);
                     }
                 }
             }
 
-            GEOMETRIX_ASSERT(m.find(this) == m.end());
+            GEOMETRIX_ASSERT(!map_policy::find(m, this));
+
+#ifdef STK_NO_CXX11_THREAD_LOCAL
+            if(map_policy::empty(m))
+                destroy_hive(&m);
+#endif
         }
+
+#ifdef STK_NO_CXX11_THREAD_LOCAL
+        static instance_map*& access_hive();
+        static void destroy_hive(instance_map* pMap)
+        {
+            delete pMap;
+            access_hive() = nullptr;
+        }
+#endif
 
         std::function<T()> m_initializer;
         std::function<void(T&)> m_deinitializer;
-	    
-	    mutable std::mutex m_mutex;
-	    mutable std::set<instance_map*> m_maps;
+
+        mutable std::mutex m_mutex;
+        mutable std::set<instance_map*> m_maps;
 #ifndef NDEBUG
-	    std::atomic<bool> m_isBeingDestructed { false };
+        std::atomic<bool> m_isBeingDestructed { false };
 #endif
 
     };
 
 }}//! stk::thread.
 
-#ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
-namespace stk { namespace thread {
-    template <typename T>
-    inline thread_specific<T>::instance_map& thread_specific<T>::hive()
-    {
-        static thread_local instance_map instance;
-        instance_map& m = instance;
-        return m;
-    }
-}}//! namespace stk::thread;
+#ifdef STK_NO_CXX11_THREAD_LOCAL
+#include <stk/thread/on_thread_exit.hpp>
+    #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
+        namespace stk { namespace thread {
+            template <typename T, typename Map, typename Tag>
+            inline typename thread_specific<T, Map, Tag>::instance_map*& thread_specific<T, Map, Tag>::access_hive()
+            {
+                static STK_THREAD_LOCAL_POD instance_map* instance = nullptr;
+                return instance;
+            }
+            template <typename T, typename Map, typename Tag>
+            inline typename thread_specific<T, Map, Tag>::instance_map& thread_specific<T, Map, Tag>::hive()
+            {
+                auto instance = access_hive();
+                if (!instance)
+                {
+                    instance = new instance_map{};
+                    access_hive() = instance;
+					stk::this_thread::on_thread_exit([]()
+					{
+						instance_map*& instance = access_hive();
+						delete instance;
+						instance = nullptr;
+					});
+                }
+                GEOMETRIX_ASSERT(access_hive() == instance);
+                return *instance;
+            }
+        }}//! namespace stk::thread;
 
-#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)
-#else
-//! This should be placed in a cpp file to avoid issues with singletons and the ODR.
-//! There should be only one such definition for each type T specified.
-#define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T)                  \
-namespace stk { namespace thread {                                  \
-template <>                                                         \
-inline thread_specific<T>::instance_map& thread_specific<T>::hive() \
-{                                                                   \
-    static thread_local instance_map instance;                      \
-    instance_map& m = instance;                                     \
-    return m;                                                       \
-}                                                                   \
-}}                                                                  \
-/***/
-#endif
-#endif //! STK_THREAD_THREAD_SPECIFIC_HPP
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)
+    #else
+        //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
+        //! There should be only one such definition for each type T specified.
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)        \
+        namespace stk { namespace thread {                                  \
+        template <>                                                         \
+        inline typename thread_specific<T, Map, Tag>::instance_map*&        \
+        thread_specific<T, Map, Tag>::access_hive()                         \
+        {                                                                   \
+            static STK_THREAD_LOCAL_POD instance_map* instance = nullptr;   \
+            return instance;                                                \
+        }                                                                   \
+        template <>                                                         \
+        inline thread_specific<T,Map,Tag>::instance_map&                    \
+        thread_specific<T,Map,Tag>::hive()                                  \
+        {                                                                   \
+            auto instance = access_hive();                                  \
+            if (!instance)                                                  \
+            {                                                               \
+                instance = new instance_map{};                              \
+                access_hive() = instance;                                   \
+				stk::this_thread::on_thread_exit([]()                       \
+				{                                                           \
+					instance_map*& instance = access_hive();                \
+					delete instance;                                        \
+					instance = nullptr;                                     \
+				});                                                         \
+            }                                                               \
+            GEOMETRIX_ASSERT(access_hive() == instance);                    \
+            return *instance;                                               \
+        }                                                                   \
+        }}                                                                  \
+        /***/
+    #endif
+#else//! thread_local keyword exists.
+    #ifdef STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
+        namespace stk { namespace thread {
+            template <typename T, typename Map, typename Tag>
+            inline typename thread_specific<T, Map, Tag>::instance_map& thread_specific<T, Map, Tag>::hive()
+            {
+                static thread_local instance_map instance;
+                instance_map& m = instance;
+                return m;
+            }
+        }}//! namespace stk::thread;
+
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)
+    #else
+        //! This should be placed in a cpp file to avoid issues with singletons and the ODR.
+        //! There should be only one such definition for each type T specified.
+        #define STK_THREAD_SPECIFIC_INSTANCE_DEFINITION(T, Map, Tag)        \
+        namespace stk { namespace thread {                                  \
+        template <>                                                         \
+        inline thread_specific<T, Map, Tag>::instance_map&                  \
+        thread_specific<T, Map, Tag>::hive()                                \
+        {                                                                   \
+            static thread_local instance_map instance;                      \
+            instance_map& m = instance;                                     \
+            return m;                                                       \
+        }                                                                   \
+        }}                                                                  \
+        /***/
+    #endif
+#endif//! STK_NO_CXX11_THREAD_LOCAL
