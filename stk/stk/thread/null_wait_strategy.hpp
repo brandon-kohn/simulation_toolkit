@@ -8,6 +8,15 @@
 //
 #pragma once
 
-#include <stk/thread/null_wait_strategy.hpp>
-#include <stk/thread/boost_yield_wait_strategies.hpp>
+namespace stk {	namespace thread {
+
+	struct null_wait_strategy 
+	{
+		void operator()()
+		{
+		
+		}
+	};
+
+}}//! namespace stk::thread;
 

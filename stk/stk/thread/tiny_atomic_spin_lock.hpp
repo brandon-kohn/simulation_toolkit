@@ -6,10 +6,9 @@
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-#ifndef STK_THREAD_TINY_ATOMIC_SPIN_LOCK_HPP
-#define STK_THREAD_TINY_ATOMIC_SPIN_LOCK_HPP
+#pragma once
 
-#include <stk/thread/spin_lock_wait_strategies.hpp>
+#include <stk/thread/null_wait_strategy.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <atomic>
 #include <cstdint>
@@ -61,4 +60,3 @@ namespace stk { namespace thread {
 
 }}//! namespace stk::thread;
 
-#endif//! STK_THREAD_TINY_ATOMIC_SPIN_LOCK_HPP 
