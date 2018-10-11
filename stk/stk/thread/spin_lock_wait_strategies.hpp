@@ -27,10 +27,11 @@ namespace stk {	namespace thread {
 	{
 		void operator()()
 		{
-		    unsigned int count{ 0 };
 			if (++count > N)
 				boost::this_thread::yield();
 		}
+
+		unsigned int count{ 0 };
 	};
 
 	struct boost_thread_yield_wait
