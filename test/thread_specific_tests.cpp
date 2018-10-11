@@ -14,7 +14,10 @@
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
-#include <stk/thread/thread_specific_single_instance_map_policy.hpp>
+#include <stk/thread/thread_specific/thread_specific_single_instance_map_policy.hpp>
+#include <stk/thread/thread_specific/thread_specific_unordered_map_policy.hpp>
+#include <stk/thread/thread_specific/thread_specific_flat_map_policy.hpp>
+#include <stk/thread/thread_specific/thread_specific_fixed_flat_map_policy.hpp>
 #include <stk/container/type_storage_pod.hpp>
 
 #define STK_DEFINE_THREAD_SPECIFIC_HIVE_INLINE
