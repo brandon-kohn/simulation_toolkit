@@ -22,6 +22,7 @@
 #include <stk/thread/thread_pool.hpp>
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
+#include <stk/thread/boost_yield_wait_strategies.hpp>
 #include <stk/random/xorshift1024starphi_generator.hpp>
 #include <stk/geometry/geometry_kernel.hpp>
 #include <boost/thread/futures/wait_for_all.hpp>
