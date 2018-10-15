@@ -17,11 +17,11 @@
 
 namespace stk { namespace thread {
 
-	struct default_thread_specific_tag{};
+    struct default_thread_specific_tag{};
 
     //! Creates a thread local object which can be scoped to an objects lifetime.
-	//! NOTE: thread_specific instances should either outlive the threads who access them, or should go out of scope when not being accessed by any threads.
-	//! Violations of either condition are undefined behavior.
+    //! NOTE: thread_specific instances should either outlive the threads who access them, or should go out of scope when not being accessed by any threads.
+    //! Violations of either condition are undefined behavior.
     template <typename T, typename MapPolicy = thread_specific_std_map_policy<T>, typename Tag = default_thread_specific_tag>
     class thread_specific
     {
@@ -249,12 +249,12 @@ namespace stk { namespace thread {
                 {
                     instance = new instance_map{};
                     access_hive() = instance;
-					stk::this_thread::on_thread_exit([]()
-					{
-						instance_map*& instance = access_hive();
-						delete instance;
-						instance = nullptr;
-					});
+                    stk::this_thread::on_thread_exit([]()
+                    {
+                        instance_map*& instance = access_hive();
+                        delete instance;
+                        instance = nullptr;
+                    });
                 }
                 GEOMETRIX_ASSERT(access_hive() == instance);
                 return *instance;
@@ -283,12 +283,12 @@ namespace stk { namespace thread {
             {                                                               \
                 instance = new instance_map{};                              \
                 access_hive() = instance;                                   \
-				stk::this_thread::on_thread_exit([]()                       \
-				{                                                           \
-					instance_map*& instance = access_hive();                \
-					delete instance;                                        \
-					instance = nullptr;                                     \
-				});                                                         \
+                stk::this_thread::on_thread_exit([]()                       \
+                {                                                           \
+                    instance_map*& instance = access_hive();                \
+                    delete instance;                                        \
+                    instance = nullptr;                                     \
+                });                                                         \
             }                                                               \
             GEOMETRIX_ASSERT(access_hive() == instance);                    \
             return *instance;                                               \
