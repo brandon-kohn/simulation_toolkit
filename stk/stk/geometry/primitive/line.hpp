@@ -20,7 +20,7 @@
 
 namespace stk { 
 
-using line2 = geometrix::line<point2, dimensionless2>;
+using line2 = geometrix::line<point2>;
 
 }//! namespace stk;
 
