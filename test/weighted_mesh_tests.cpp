@@ -13,6 +13,7 @@
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/dynamic_bitset.hpp>
+#include <exception>
 
 using solid_bsp2 = geometrix::solid_leaf_bsp_tree<stk::segment2>;
 
@@ -22,11 +23,11 @@ namespace stk {
 	{
 		using namespace geometrix;
 		if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
-			throw std::exception("polygon not simple");
+			throw std::invalid_argument("polygon not simple");
 
 		for (const auto& hole : polygon.get_holes()) {
 			if (!is_polygon_simple(hole, make_tolerance_policy())) 
-				throw std::exception("polygon not simple");
+				throw std::invalid_argument("polygon not simple");
 		}
 
 		std::vector<p2t::Point*> polygon_, memory;
