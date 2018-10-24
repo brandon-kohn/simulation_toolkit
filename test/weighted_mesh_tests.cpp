@@ -225,7 +225,7 @@ TEST(weighted_mesh_test_suite, start)
 	auto p = areas[0][0];
 	d = bsp.get_min_distance_to_solid(p, idx, cmp);
 	cp = point_segment_closest_point(p, segs[idx]);
-	EXPECT_EQ(1, idx);
+	EXPECT_EQ(25, idx);
 	EXPECT_TRUE(cmp.equals(d, 0.0 * units::si::meters));
 	EXPECT_TRUE(numeric_sequence_equals(p, cp, cmp));
 }
