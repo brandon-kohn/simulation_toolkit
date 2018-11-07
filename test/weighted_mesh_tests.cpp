@@ -20,7 +20,7 @@ using solid_bsp2 = geometrix::solid_leaf_bsp_tree<stk::segment2>;
 
 namespace stk {
 
-    inline mesh2 generate_mesh( const stk::polygon_with_holes2& polygon, std::vector<stk::point2>& steinerPoints )
+    inline mesh2 generate_mesh( const stk::polygon_with_holes2& polygon, const std::vector<stk::point2>& steinerPoints )
     {
         using namespace geometrix;
         if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
