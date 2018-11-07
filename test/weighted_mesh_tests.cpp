@@ -7,6 +7,7 @@
 #include <geometrix/algorithm/hyperplane_partition_policies.hpp>
 #include <geometrix/algorithm/solid_leaf_bsp_tree.hpp>
 #include <geometrix/algorithm/distance/point_segment_closest_point.hpp>
+#include <geometrix/algorithm/point_in_polygon.hpp>
 #include <stk/geometry/geometry_kernel.hpp>
 #include <stk/geometry/space_partition/rtree_triangle_cache.ipp>
 #include <stk/utility/scope_exit.hpp>
@@ -82,11 +83,120 @@ namespace stk {
             }
         }
 
-        return mesh2( points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder() );
+        return mesh2( points, iArray, make_tolerance_policy(), mesh2::weight_policy(), stk::rtree_triangle_cache_builder() );
     }
 
+	struct triangle_area_distance_weight_policy
+	{
+		using weight_type = double;
+		using normalized_type = double;
+
+		triangle_area_distance_weight_policy(solid_bsp2* pBSP, const stk::units::length& distanceSaturation, double attractionStrength)
+			: pBSP(pBSP)
+			, distanceSaturation(distanceSaturation * distanceSaturation)
+			, attractionStrength(attractionStrength)
+		{}
+
+		template <typename Triangle>
+		weight_type get_weight(Triangle&& trig) const
+		{
+			using namespace geometrix;
+			using std::exp;
+
+			auto area = get_area(std::forward<Triangle>(trig));
+			std::size_t idx;
+			auto distanceSqrd = pBSP->get_min_distance_sqrd_to_solid(get_centroid(trig), idx, make_tolerance_policy());
+			auto d2 = std::max(distanceSqrd.value(), distanceSaturation.value());
+			double f = area.value() * exp(-attractionStrength * d2);
+			return f;
+		}
+
+		normalized_type normalize(const weight_type& a, const weight_type& total)
+		{
+			return a / total;
+		}
+
+		weight_type initial_weight() const
+		{
+			return weight_type{};
+		}
+
+		solid_bsp2* pBSP{ nullptr };
+		stk::units::area distanceSaturation{ 1.0 * stk::units::si::square_meters };
+		double attractionStrength{ 1.0 };
+		
+	};
+
+	template <typename WeightPolicy>
+    inline geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, WeightPolicy>> generate_weighted_mesh( const stk::polygon_with_holes2& polygon, std::vector<stk::point2>& steinerPoints, WeightPolicy&& weightPolicy)
+    {
+        using namespace geometrix;
+        if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
+            throw std::invalid_argument("polygon not simple");
+
+        for (const auto& hole : polygon.get_holes()) {
+            if (!is_polygon_simple(hole, make_tolerance_policy()))
+                throw std::invalid_argument("polygon not simple");
+        }
+
+        std::vector<p2t::Point*> polygon_, memory;
+        STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
+
+        for( const auto& p : polygon.get_outer() ){
+            polygon_.push_back( new p2t::Point( get<0>( p ).value(), get<1>( p ).value() ) );
+            memory.push_back( polygon_.back() );
+        }
+
+        p2t::CDT cdt( polygon_ );
+
+        //! Add the holes
+        for( const auto& hole : polygon.get_holes() ){
+            std::vector<p2t::Point*> hole_;
+            for( const auto& p : hole ) {
+                auto p_ = new p2t::Point( get<0>( p ).value(), get<1>( p ).value() );
+                hole_.push_back( p_ );
+                memory.push_back( p_ );
+            }
+
+            cdt.AddHole( hole_ );
+        }
+
+        //! Add the points
+        for (const auto& p : steinerPoints) {
+            auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
+            memory.push_back(p_);
+            cdt.AddPoint(p_);
+        }
+
+        std::map<p2t::Point*, std::size_t> indices;
+        auto& cdtPoints = cdt.GetPoints();
+        for( std::size_t i = 0; i < cdtPoints.size(); ++i )
+            indices[cdtPoints[i]] = i;
+
+        cdt.Triangulate();
+
+        std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
+        std::vector<std::size_t> iArray;
+        polygon2 points( indices.size() );
+        for( const auto& item : indices ){
+            geometrix::assign( points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
+        }
+
+        for( auto* triangle : triangles ){
+            for( int i = 0; i < 3; ++i ){
+                auto* p = triangle->GetPoint( i );
+                auto it = indices.find( p );
+                GEOMETRIX_ASSERT( it != indices.end() );
+                iArray.push_back( it->second );
+            }
+        }
+
+        return geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, WeightPolicy>>( points, iArray, make_tolerance_policy(), std::forward<WeightPolicy>(weightPolicy), stk::rtree_triangle_cache_builder() );
+    }
+
+	/*
     template <typename Polygon, typename Points>
-    mesh2 generate_mesh(const Polygon& polygon, const Points& steinerPoints)
+    inline mesh2 generate_mesh(const Polygon& polygon, const Points& steinerPoints)
     {
         using namespace geometrix;
         if (polygon.empty() || !is_polygon_simple(polygon, make_tolerance_policy()))
@@ -134,10 +244,11 @@ namespace stk {
             }
         }
 
-        return mesh2(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder());
+        return mesh2(points, iArray, make_tolerance_policy(), mesh2::weight_policy(), stk::rtree_triangle_cache_builder());
     }
+	*/
 
-    polygon2 get_outer_polygon(point2 ll, point2 ur, units::length offset)
+    inline polygon2 get_outer_polygon(point2 ll, point2 ur, units::length offset)
     {
         using namespace geometrix;
 
@@ -146,6 +257,41 @@ namespace stk {
 
         return { ll, point2{ get<0>(ur), get<1>(ll) }, ur, point2{ get<0>(ll), get<1>(ur) } };
     }
+
+	inline std::vector<point2> generate_fine_steiner_points(const polygon_with_holes2& pgon, const stk::units::length& cell, const solid_bsp2& bsp)
+	{
+		using namespace geometrix;
+		std::set<point2> results;
+
+		auto cmp = make_tolerance_policy();
+		auto obounds = get_bounds(pgon.get_outer(), cmp);
+		auto grid = grid_traits<stk::units::length>(obounds, cell);
+		auto mesh = generate_mesh(pgon, std::vector<point2>{});
+
+		for (auto q = 0UL; q < mesh.get_number_triangles(); ++q)
+		{
+			auto& trig = mesh.get_triangle_vertices(q);
+
+			stk::units::length xmin, xmax, ymin, ymax;
+			std::tie(xmin, xmax, ymin, ymax) = get_bounds(trig, cmp);
+
+			std::uint32_t imin = grid.get_x_index(xmin), imax = grid.get_x_index(xmax), jmin = grid.get_y_index(ymin), jmax = grid.get_y_index(ymax);
+			for (auto j = jmin; j <= jmax; ++j)
+			{
+				for (auto i = imin; i <= imax; ++i)
+				{
+					auto c = grid.get_cell_centroid(i, j);
+					std::size_t idx;
+					auto d2 = bsp.get_min_distance_sqrd_to_solid(c, idx, cmp);
+					if (d2 > 1.0 * stk::units::si::square_meters && point_in_triangle(c, trig[0], trig[1], trig[2], cmp))
+						results.insert(c);
+				}
+			}
+		}
+
+		return std::vector<point2>(results.begin(), results.end());
+	}
+
 }//! namespace stk;
 
 TEST(weighted_mesh_test_suite, start)
@@ -172,7 +318,7 @@ TEST(weighted_mesh_test_suite, start)
     point2 ll = { std::get<e_xmin>(bounds), std::get<e_ymin>(bounds) };
     point2 ur = { std::get<e_xmax>(bounds), std::get<e_ymax>(bounds) };
 
-    auto outer = get_outer_polygon(ll, ur, 5.0 * units::si::meters);
+    auto outer = get_outer_polygon(ll, ur, 10.0 * units::si::meters);
 
     bounds = get_bounds(outer, cmp);
     ll = { std::get<e_xmin>(bounds), std::get<e_ymin>(bounds) };
@@ -183,24 +329,16 @@ TEST(weighted_mesh_test_suite, start)
 
     auto poly = polygon_with_holes2{outer, holes};
     auto segs = polygon_with_holes_as_segment_range<segment2>(poly);
+	auto holeSegs = polygon_as_segment_range<segment2>(areas[0]);
     auto partitionPolicy = partition_policies::autopartition_policy();
-    auto bsp = solid_bsp2{ segs, partitionPolicy, cmp };
+    auto holebsp = solid_bsp2{ holeSegs, partitionPolicy, cmp };
 
-    auto grid = grid_traits<units::length>{ll[0], ur[0], ll[1], ur[1], 1.0 * units::si::meters };
+	stk::units::length granularity = 4.0 * units::si::meters;
+	stk::units::length distSaturation = 1.0 * units::si::meters;
+	double attractionStrength = 0.1;
+	std::vector<point2> spoints = generate_fine_steiner_points(poly, granularity, holebsp);
 
-    std::vector<point2> spoints;
-    spoints.reserve(grid.get_width() * grid.get_height());
-    for (auto i = 0; i < grid.get_width(); ++i)
-    {
-        for (auto j = 0; j < grid.get_height(); ++j)
-        {
-            auto p = grid.get_cell_centroid(i, j);
-            if (bsp.point_in_solid_space(p, cmp) == point_in_solid_classification::in_empty_space)
-                spoints.push_back(p);
-        }
-    }
-
-    auto mesh = generate_mesh(poly, spoints);
+    auto mesh = generate_weighted_mesh(poly, spoints, triangle_area_distance_weight_policy(&holebsp, distSaturation, attractionStrength));
 
     std::vector<polygon2> trigs;
     for(auto i = 0; i < mesh.get_number_triangles(); ++i)
@@ -210,6 +348,7 @@ TEST(weighted_mesh_test_suite, start)
     }
 
     std::size_t idx;
+    auto bsp = solid_bsp2{ segs, partitionPolicy, cmp };
     auto d = bsp.get_min_distance_to_solid(ll, idx, cmp);
     auto cp = point_segment_closest_point(ll, segs[idx]);
     EXPECT_EQ(0, idx);
@@ -228,4 +367,45 @@ TEST(weighted_mesh_test_suite, start)
     EXPECT_EQ(25, idx);
     EXPECT_TRUE(cmp.equals(d, 0.0 * units::si::meters));
     EXPECT_TRUE(numeric_sequence_equals(p, cp, cmp));
+
+	std::vector<circle2> rs;
+    random_real_generator<> rnd;
+
+	for (auto i = 0; i < 500; ++i)
+		rs.emplace_back(mesh.get_random_position(rnd(), rnd(), rnd()), 0.1 * units::si::meters);
+
+
+    EXPECT_EQ(25, idx);
+}
+
+bool in_diametral_circle(stk::point2 const& p, stk::point2 const& o, stk::point2 const& d)
+{
+	using namespace geometrix;
+	//! If the angle between OP and DP is obtuse, then P is inside the diametral circle of OD.
+	//! two vectors have obtuse angle if dot product is negative.
+	auto dp = dot_product(o - p, d - p);
+	return dp < constants::zero<decltype(dp)>();
+}
+
+TEST(weighted_mesh_test_suite, diametral_lens)
+{
+	using namespace stk;
+
+	EXPECT_TRUE(in_diametral_circle({0.0* units::si::meters, 0.0* units::si::meters}, {0.5 * units::si::meters, -1.0 * units::si::meters}, {0.5 * units::si::meters, 1.0 * units::si::meters}));
+	EXPECT_TRUE(in_diametral_circle({-0.4* units::si::meters, 0.0* units::si::meters}, {0.5 * units::si::meters, -1.0 * units::si::meters}, {0.5 * units::si::meters, 1.0 * units::si::meters}));
+	EXPECT_FALSE(in_diametral_circle({-1.0* units::si::meters, 0.0* units::si::meters}, {0.5 * units::si::meters, -1.0 * units::si::meters}, {0.5 * units::si::meters, 1.0 * units::si::meters}));
+	EXPECT_FALSE(in_diametral_circle({1.5* units::si::meters, 0.0* units::si::meters}, {0.5 * units::si::meters, -1.0 * units::si::meters}, {0.5 * units::si::meters, 1.0 * units::si::meters}));
+}
+
+bool in_diametral_lens(stk::units::angle const& theta, stk::point2 const& o, stk::point2 const& d, const stk::point2& p)
+{
+	using namespace geometrix;
+	using std::cos;
+
+	stk::vector2 op = o - p;
+	stk::vector2 dp = d - p;
+	auto dt = dot_product(op, dp);
+	auto cos_theta = cos(theta);
+	auto v2_cos_theta2_1 = 2.0 * cos_theta * cos_theta - 1.0;
+	return (dt * dt) >= (v2_cos_theta2_1 * v2_cos_theta2_1 * magnitude_sqrd(op) * magnitude_sqrd(dp));
 }

@@ -67,6 +67,11 @@ TEST(fixed_point_suite, division_fixed_1_3)
 	EXPECT_EQ(0.333, sut1 / sut3);
 }
 
+TEST(fixed_point_suite, division_fixed_1_3_rvalue)
+{
+	EXPECT_EQ(0.333, fixed_point3(1.0) / fixed_point3(3.0));
+}
+
 #include <boost/icl/interval_set.hpp>
 #include <geometrix/numeric/constants.hpp>
 #include <geometrix/numeric/boost_units_quantity.hpp>
