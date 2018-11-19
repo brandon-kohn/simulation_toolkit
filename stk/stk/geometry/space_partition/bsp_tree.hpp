@@ -15,10 +15,13 @@
 
 #include <stk/geometry/primitive/segment.hpp>
 #include <geometrix/algorithm/node_bsp_tree_2d.hpp>
+#include <geometrix/algorithm/solid_leaf_bsp_tree.hpp>
 
 namespace stk {
 
 using bsp_tree2 = geometrix::node_bsp_tree_2d<segment2>;
+using node_bsp2 = geometrix::node_bsp_tree_2d<segment2>;
+using solid_bsp2 = geometrix::solid_leaf_bsp_tree<stk::segment2>;
 
 }//! namespace stk;
 
