@@ -39,8 +39,8 @@ int main(int argc, char* argv[])
     try
     {
 		//! Try purposely leaking the lib to avoid unload issues with google test?
-        boost::dll::shared_library* pLib = new boost::dll::shared_library(dllpath, boost::dll::load_mode::append_decorations);
-        auto tests = pLib->get<int(int*,char**)>("RUN_GOOGLE_TESTS");//boost::dll::import<int(int*, char**)>(dllpath, "RUN_GOOGLE_TESTS", boost::dll::load_mode::append_decorations);
+        //boost::dll::shared_library* pLib = new boost::dll::shared_library(dllpath, boost::dll::load_mode::append_decorations);
+        auto tests = /*pLib->get<int(int*,char**)>("RUN_GOOGLE_TESTS");*/boost::dll::import<int(int*, char**)>(dllpath, "RUN_GOOGLE_TESTS", boost::dll::load_mode::append_decorations);
 
         std::cout << "Running Tests in " << dllpath << std::endl;
         boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(timeout);
