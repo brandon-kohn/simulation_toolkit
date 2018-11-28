@@ -48,6 +48,8 @@ int main(int argc, char* argv[])
         {
             std::cout << "Warning: tests may have exceeded timeout of " << timeout << " ms. This may indicate a test with an infinite loop.\nTry running again with a longer timeout using the -t option." << std::endl;
         }
+
+        std::exit(0);
     }
     catch(...)
     {
