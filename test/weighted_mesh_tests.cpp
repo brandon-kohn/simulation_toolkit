@@ -16,8 +16,6 @@
 #include <boost/dynamic_bitset.hpp>
 #include <exception>
 
-using solid_bsp2 = geometrix::solid_leaf_bsp_tree<stk::segment2>;
-
 namespace stk {
 
     inline mesh2 generate_mesh( const stk::polygon_with_holes2& polygon, const std::vector<stk::point2>& steinerPoints )
@@ -83,7 +81,7 @@ namespace stk {
             }
         }
 
-        return mesh2( points, iArray, make_tolerance_policy(), mesh2::weight_policy(), stk::rtree_triangle_cache_builder() );
+        return mesh2( points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder() );
     }
 
 	struct triangle_area_distance_weight_policy
@@ -191,7 +189,7 @@ namespace stk {
             }
         }
 
-        return geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, WeightPolicy>>( points, iArray, make_tolerance_policy(), std::forward<WeightPolicy>(weightPolicy), stk::rtree_triangle_cache_builder() );
+        return geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, WeightPolicy>>( points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), std::forward<WeightPolicy>(weightPolicy) );
     }
 
 	/*
