@@ -141,5 +141,43 @@ namespace stk {
         clip.Execute(ClipperLib::ctIntersection, ptree);
         return to_polygons_with_holes(ptree, scale);
     }
+
+    inline std::vector<polygon_with_holes2> clipper_offset(const polygon2& pgon, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::Path boundary;
+
+        for (const auto& p : pgon)
+            boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+
+        ClipperLib::ClipperOffset co;
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+        ClipperLib::PolyTree ptree;
+        co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
+
+    inline std::vector<polygon_with_holes2> clipper_offset(const polygon_with_holes2& pgon, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::ClipperOffset co;
+        
+		ClipperLib::Path boundary;
+        for (const auto& p : pgon.get_outer())
+            boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+
+		for (auto const& hole : pgon.get_holes())
+		{
+			boundary.clear();
+			for (const auto& p : hole)
+				boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+			co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+		}
+
+        ClipperLib::PolyTree ptree;
+        co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
 }//! namespace stk;
 
