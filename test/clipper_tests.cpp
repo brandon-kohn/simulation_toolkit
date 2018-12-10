@@ -93,7 +93,8 @@ TEST(ClipperSuite, TestStkInterface)
 	auto scale = 1000UL;
 	std::vector<polygon_with_holes2> newHoles;
 	auto unn = clipper_union(holes, scale);
-	for (auto const& h : unn) {
+	for (auto const& h : unn)
+	{
 		auto r = clipper_offset(h, 0.1 * units::si::meters, scale);
 		GEOMETRIX_ASSERT(r.size() == 1);
 		newHoles.insert(newHoles.end(), r.begin(), r.end());
