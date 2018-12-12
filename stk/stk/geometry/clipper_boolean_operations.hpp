@@ -31,7 +31,8 @@ namespace stk {
     {
         to_clipper(clip, a.get_outer(), type, scale);
         for (const auto& hole : a.get_holes())
-            to_clipper(clip, hole, (ClipperLib::PolyType)!type, scale);
+            //to_clipper(clip, hole, (ClipperLib::PolyType)!type, scale);
+            to_clipper(clip, hole, type, scale);
     }
 
     template <typename T>

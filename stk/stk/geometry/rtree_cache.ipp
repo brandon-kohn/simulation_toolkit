@@ -97,16 +97,32 @@ namespace stk {
 	inline boost::optional<Data> rtree_cache<Data, CacheTraits>::find(const point2& p, const SelectionPolicy& selector, const units::length& offset /*= 0.0001 * units::si::meters*/) const
 	{
 		vector2 v = { offset, offset };
-		auto results = find_indices(aabb2{ p - v, p + v });
+		return find(aabb2{ p - v, p + v }, selector);
+	}
+	
+    template <typename Data, typename CacheTraits /*= rtree_cache_traits<Data> */>
+    template <typename SelectionPolicy>
+    inline boost::optional<Data> rtree_cache<Data, CacheTraits>::find(const aabb2& region, const SelectionPolicy& selector) const
+    {
+		vector2 v = { offset, offset };
+		auto results = find_indices(region);
 
-		for (const auto& index : results) {
-			if (selector(mData[index], p)) {
+		for (const auto& index : results) 
+			if (selector(mData[index], p)) 
 				return mData[index];
-			}
-		}
 
 		return boost::none;
 	}
+
+    template <typename Data, typename CacheTraits /*= rtree_cache_traits<Data> */>
+    template <typename Visitor>
+    inline void rtree_cache<Data, CacheTraits>::for_each(const aabb2& region, Visitor&& v) const
+    {
+		auto results = find_indices(region);
+
+		for (const auto& index : results) 
+			v(mData[index]);
+    }
 
 	template <typename Data, typename CacheTraits>
 	inline std::vector<Data> rtree_cache<Data, CacheTraits>::find(const aabb2& r) const

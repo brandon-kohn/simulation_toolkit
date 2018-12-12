@@ -57,7 +57,15 @@ public:
     
     template <typename SelectionPolicy>
     boost::optional<Data> find(const point2& p, const SelectionPolicy& selector, const units::length& offset = 0.0001 * units::si::meters) const;
+
+    template <typename SelectionPolicy>
+    boost::optional<Data> find(const aabb2& region, const SelectionPolicy& selector) const;
+
+    template <typename Visitor>
+    void for_each(const aabb2& region, Visitor&& v) const;
+
     std::vector<Data> find(const aabb2& region) const;
+
     data_index_set_t find_indices(const aabb2& region) const;
 
 private:

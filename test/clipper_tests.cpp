@@ -103,3 +103,35 @@ TEST(ClipperSuite, TestStkInterface)
 	auto results = clipper_difference(outer, newHoles, scale);
 	results.size();
 }
+
+TEST(clipper_test_suite, testDifferencePgonWithHole)
+{
+	using namespace stk;
+
+	auto outer = polygon2{
+		  { -1.0 * boost::units::si::meters, -1.0 * boost::units::si::meters}
+		, { 1.0 * boost::units::si::meters, -1.0 * boost::units::si::meters}
+		, { 1.0 * boost::units::si::meters, 1.0 * boost::units::si::meters}
+		, { -1.0 * boost::units::si::meters, 1.0 * boost::units::si::meters}
+	};
+
+	auto outer2 = polygon2{
+		  { -0.75 * boost::units::si::meters, -0.75 * boost::units::si::meters}
+		, { 0.75 * boost::units::si::meters, -0.75 * boost::units::si::meters}
+		, { 0.75 * boost::units::si::meters, 0.75 * boost::units::si::meters}
+		, { -0.75 * boost::units::si::meters, 0.75 * boost::units::si::meters}
+	};
+
+	auto hole2 = polygon2{
+		  { -0.5 * boost::units::si::meters, -0.5 * boost::units::si::meters}
+		, { -0.5 * boost::units::si::meters, 0.5 * boost::units::si::meters}
+		, { 0.5 * boost::units::si::meters, 0.5 * boost::units::si::meters}
+		, { 0.5 * boost::units::si::meters, -0.5 * boost::units::si::meters}
+	};
+
+	auto pgon2 = polygon_with_holes2{ outer2, {hole2} };
+
+	auto r = clipper_difference(outer, pgon2, 1000UL);
+
+	r.size();
+}
