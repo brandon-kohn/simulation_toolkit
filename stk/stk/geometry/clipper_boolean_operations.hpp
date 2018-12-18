@@ -11,6 +11,7 @@
 #include <clipper/clipper.hpp>
 #include <stk/geometry/primitive/point.hpp>
 #include <stk/geometry/primitive/polygon.hpp>
+#include <stk/geometry/primitive/polyline.hpp>
 #include <stk/geometry/primitive/polygon_with_holes.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
@@ -33,6 +34,18 @@ namespace stk {
         for (const auto& hole : a.get_holes())
             //to_clipper(clip, hole, (ClipperLib::PolyType)!type, scale);
             to_clipper(clip, hole, type, scale);
+    }
+
+	//! Add a polyline to clipper. NOTE: Must be a subject type.
+    inline void to_clipper(ClipperLib::Clipper& clip, const polyline2& a, ClipperLib::PolyType type, unsigned int scale)
+    {
+        ClipperLib::Path path;
+		GEOMETRIX_ASSERT(type == ClipperLib::ptSubject);
+
+        for (const auto& p : a)
+            path << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+
+        clip.AddPath(path, ClipperLib::ptSubject, false);
     }
 
     template <typename T>
@@ -85,6 +98,24 @@ namespace stk {
         return results;
     }
 
+    inline std::vector<polyline2> to_polylines(ClipperLib::PolyTree &ptree, unsigned int scale)
+    {
+        std::vector<polyline2> results;
+		results.reserve(ptree.Total());
+		for (auto i = 0; i < ptree.ChildCount(); ++i) 
+		{
+			if (ptree.Childs[i]->IsOpen()) 
+			{
+				polyline2 pline;
+				for (const auto& p : ptree.Childs[i]->Contour)
+					pline.emplace_back((p.X / static_cast<double>(scale)) * units::si::meters, (p.Y / static_cast<double>(scale)) * units::si::meters);
+				results.emplace_back(std::move(pline));
+			}
+		}
+
+        return results;
+    }
+
     template <typename Geometry1, typename Geometry2>
     inline std::vector<polygon_with_holes2> clipper_union(Geometry1&& a, Geometry2&& b, unsigned int scale)
     {
@@ -120,7 +151,7 @@ namespace stk {
         return to_polygons_with_holes(ptree, scale);
     }
 
-    template <typename Geometry1, typename Geometry2>
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
     inline std::vector<polygon_with_holes2> clipper_intersection(Geometry1&& a, Geometry2&& b, unsigned int scale)
     {
         ClipperLib::Clipper clip;
@@ -141,6 +172,18 @@ namespace stk {
         ClipperLib::PolyTree ptree;
         clip.Execute(ClipperLib::ctIntersection, ptree);
         return to_polygons_with_holes(ptree, scale);
+    }
+
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polyline2> clipper_intersection(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        to_clipper(clip, a, ClipperLib::ptSubject, scale);
+        to_clipper(clip, b, ClipperLib::ptClip, scale);
+
+        ClipperLib::PolyTree ptree;
+		clip.Execute(ClipperLib::ctIntersection, ptree);
+        return to_polylines(ptree, scale);
     }
 
     inline std::vector<polygon_with_holes2> clipper_offset(const polygon2& pgon, const units::length& offset, unsigned int scale)
