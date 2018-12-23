@@ -293,7 +293,6 @@ namespace stk {
 }//! namespace stk;
 
 
-#include <geometrix/algorithm/triangle_complex.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 TEST(weighted_mesh_test_suite, start)
 {
@@ -344,23 +343,11 @@ TEST(weighted_mesh_test_suite, start)
     auto mesh = generate_weighted_mesh(poly, spoints, triangle_area_distance_weight_policy(&holebsp, distSaturation, attractionStrength));
 
     std::vector<polygon2> trigs;
-	triangle_complex<point2, tolerance_policy> cmplx;
 	auto const& adjMatrx = mesh.get_adjacency_matrix();
     for(auto i = 0; i < mesh.get_number_triangles(); ++i)
     {
         auto& trig = mesh.get_triangle_vertices(i);
         trigs.push_back(polygon2({trig[0], trig[1], trig[2]}));
-		cmplx.add_triangle(trig[0], trig[1], trig[2]);
-
-		auto const& ti = mesh.get_triangle_indices(i);
-		if (adjMatrx[i][0] == static_cast<std::size_t>(-1)) 
-			cmplx.set_constraint(trig[0], trig[1], true);
-
-		if (adjMatrx[i][1] == static_cast<std::size_t>(-1)) 
-			cmplx.set_constraint(trig[1], trig[2], true);
-
-		if (adjMatrx[i][2] == static_cast<std::size_t>(-1)) 
-			cmplx.set_constraint(trig[2], trig[0], true);
     }
 
     std::size_t idx;
