@@ -10,6 +10,10 @@
 
 #include <stk/units/boost_units.hpp>
 
+#include <geometrix/primitive/segment.hpp>
+#include <geometrix/primitive/polyline.hpp>
+#include <geometrix/primitive/polygon.hpp>
+#include <geometrix/algorithm/grid_traits.hpp>
 #include <geometrix/algorithm/hash_grid_2d.hpp>
 #include <geometrix/algorithm/fast_voxel_grid_traversal.hpp>
 
@@ -26,39 +30,39 @@ namespace stk {
             : m_grid(g)
         {}
 
-        template <typename Visitor>
-        void for_each_cell(const segment2& s, Visitor&& v)
+        template <typename Visitor, typename NumberComparisonPolicy>
+        void for_each_cell(const segment2& s, Visitor&& v, const NumberComparisonPolicy& cmp)
         {
             auto fn = [&v, this](std::uint32_t i, std::uint32_t j)
             {
                 auto& cell = m_grid.get_cell(i,j);
                 v(cell);
             };
-	        geometrix::fast_voxel_grid_traversal(m_grid.get_traits(), s, fn, make_tolerance_policy());
+	        geometrix::fast_voxel_grid_traversal(m_grid.get_traits(), s, fn, cmp);
         }
         
-        template <typename Visitor>
-        void for_each_cell(const polygon2& p, Visitor&& v)
+        template <typename Visitor, typename NumberComparisonPolicy>
+        void for_each_cell_on_border(const polygon2& p, Visitor&& v, const NumberComparisonPolicy& cmp)
         {
             auto fn = [&v, this](std::uint32_t i, std::uint32_t j)
             {
                 auto& cell = m_grid.get_cell(i,j);
                 v(cell);
             };
-            for(std::size_t i = 0, j = 1; i < s.size(); ++i, ++j %= size)  
-	            geometrix::fast_voxel_grid_traversal(m_grid.get_traits(), segment2{p[i], p[j]}, fn, make_tolerance_policy());
+            for(std::size_t i = 0, j = 1; i < p.size(); ++i, ++j %= p.size())  
+	            geometrix::fast_voxel_grid_traversal(m_grid.get_traits(), segment2{p[i], p[j]}, fn, cmp);
         }
         
-        template <typename Visitor>
-        void for_each_cell(const polyline2& p, Visitor&& v)
+        template <typename Visitor, typename NumberComparisonPolicy>
+        void for_each_cell(const polyline2& p, Visitor&& v, const NumberComparisonPolicy& cmp)
         {
             auto fn = [&v, this](std::uint32_t i, std::uint32_t j)
             {
                 auto& cell = m_grid.get_cell(i,j);
                 v(cell);
             };
-            for(std::size_t i = 0, j = 1; j < s.size(); i = j++)  
-	            geometrix::fast_voxel_grid_traversal(m_grid.get_traits(), segment2{p[i], p[j]}, fn, make_tolerance_policy());
+            for(std::size_t i = 0, j = 1; j < p.size(); i = j++)  
+	            geometrix::fast_voxel_grid_traversal(m_grid.get_traits(), segment2{p[i], p[j]}, fn, cmp);
         }
 
     private:
@@ -69,4 +73,3 @@ namespace stk {
 
 }//! namespace stk;
 
-#endif//STK_MESH_HPP
