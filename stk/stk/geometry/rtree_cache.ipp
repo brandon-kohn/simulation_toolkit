@@ -104,11 +104,10 @@ namespace stk {
     template <typename SelectionPolicy>
     inline boost::optional<Data> rtree_cache<Data, CacheTraits>::find(const aabb2& region, const SelectionPolicy& selector) const
     {
-		vector2 v = { offset, offset };
 		auto results = find_indices(region);
 
 		for (const auto& index : results) 
-			if (selector(mData[index], p)) 
+			if (selector(mData[index])) 
 				return mData[index];
 
 		return boost::none;
