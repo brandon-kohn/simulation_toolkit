@@ -113,7 +113,7 @@ namespace stk {
         {
             using namespace stk;
             using namespace geometrix;
-            std::vector<point2> spoints = generate_fine_steiner_points(boundary, granularity, bsp);
+            std::vector<point2> spoints = generate_fine_steiner_points(boundary, granularity, attractiveBSP);
             m_mesh = generate_weighted_mesh(boundary, spoints, triangle_area_distance_weight_policy(&attractiveBSP, distanceSaturation, attractionFactor));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
