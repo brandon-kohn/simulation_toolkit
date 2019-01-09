@@ -24,6 +24,7 @@ endif()
 
 if(Boost_FOUND)
     set(tests
+        biased_position_generator_tests
         weighted_mesh_tests
         vector_compare_tests
         fixed_point_tests
