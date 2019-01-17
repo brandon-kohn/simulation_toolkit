@@ -30,7 +30,8 @@ PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE NO
 OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
 MODIFICATIONS.
 */
-//! stk interface:
+//! stk interface Based on Root V4 TH1F.
+//! For internal use only. Not for distribution.
 //! Copyright © 2015
 //! Brandon Kohn 
 //
@@ -191,6 +192,7 @@ public:
     void        sumw2();
     Statistic   get_variance() const;
     Statistic   get_effective_counts() const;
+	std::pair<double, double> ks_test(histogram_1d<T, Statistic, AxisType> const& o) const;
 
     template <typename U, typename S2, typename A2>
     bool operator == (const histogram_1d<U, S2, A2>& rhs) const;

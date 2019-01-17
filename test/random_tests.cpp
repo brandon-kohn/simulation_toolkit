@@ -40,106 +40,6 @@ inline double normal_pdf(double z)
 	return invsqrt2pi * std::exp(-0.5 * z * z);
 }
 
-inline double box_muller_transform_x(double u0, double u1)
-{
-	auto z0 = std::sqrt(-2.0 * std::log(u0)) * std::cos(geometrix::constants::two_pi<double>() * u1);
-	return z0;
-}
-
-inline double polar_box_muller_transform_x(double u0, double u1)
-{
-	auto z0 = std::sqrt(-2.0 * std::log(u0)) * std::cos(geometrix::constants::two_pi<double>() * u1);
-	return z0;
-}
-
-inline double inv_box_muller_transform_x(double z0, double z1)
-{
-	auto u0 = std::exp(-0.5 * (z0 * z0 + z1 * z1));
-	return u0;
-}
-
-inline double inv_box_muller_transform_y(double z0, double z1)
-{
-	auto u1 = geometrix::constants::half_pi<double>() * std::atan2(z1, z0);
-	return u1;
-}
-
-inline std::pair<double, double> box_muller_transform(double u0, double u1)
-{
-	auto z0 = std::sqrt(-2.0 * std::log(u0)) * std::cos(geometrix::constants::two_pi<double>() * u1);
-	auto z1 = std::sqrt(-2.0 * std::log(u0)) * std::sin(geometrix::constants::two_pi<double>() * u1);
-	return { z0, z1 };
-}
-
-template <typename Gen, typename Real>
-inline Real box_muller_normal_trunc(Gen&& gen, Real a, Real b)
-{
-	GEOMETRIX_ASSERT(a < b);
-	auto ua = inv_box_muller_transform_x(a, 0.0);
-	auto ub = inv_box_muller_transform_x(b, 0.0);
-	auto umin = (std::min)(ua, ub);
-	std::uniform_real_distribution<> U(umin, 1.0);
-	auto aNeg = std::signbit(a);
-	auto bNeg = std::signbit(b);
-	if (aNeg && bNeg) 
-	{
-		std::uniform_real_distribution<> V(0.25, 0.5);
-		while (true) 
-		{
-			auto u = U(gen);
-			auto v = V(gen);
-			auto r = box_muller_transform_x(u, v);
-			if (r >= a && r <= b)
-				return r;
-		}
-	} 
-	else if (!aNeg && !bNeg) 
-	{
-		std::uniform_real_distribution<> V(0.0, 0.25);
-		while (true) 
-		{
-			auto u = U(gen);
-			auto v = V(gen);
-			auto r = box_muller_transform_x(u, v);
-			if (r >= a && r <= b)
-				return r;
-		}
-	}
-	else
-	{
-		std::uniform_real_distribution<> V(0.0, 0.5);
-		while (true) 
-		{
-			auto u = U(gen);
-			auto v = V(gen);
-			auto r = box_muller_transform_x(u, v);
-			if (r >= a && r <= b)
-				return r;
-		}
-	}
-}
-
-//! From Simulation from the Normal Distribution Truncated to an Interval in the Tail, Botev, Zdravko and L'Ecuyer, Pierre.
-//! And Fast simulation of truncated Gaussian distributions, Nicolas Chopin
-template <typename Real>
-inline bool is_standard_normal(Real m, Real s)
-{
-	using namespace geometrix;
-	return m == constants::zero<Real>() && s == constants::one<Real>();
-}
-
-template <typename Real>
-inline Real scale_to_standard_normal(Real x, Real m, Real s)
-{
-	return (x - m) / s;
-}
-
-template <typename Real>
-inline Real scale_to_general_normal(Real x, Real m, Real s)
-{
-	return x * s + m;
-}
-
 template <typename Generator>
 double normal_trunc_reject(Generator&& gen, double a, double b)
 {
@@ -257,90 +157,103 @@ inline void write_hist(std::ostream& os, const stk::histogram_1d<T>& hist)
 }
 
 auto nruns = 1000000ULL;
-TEST(truncated_normal_test_suite, chopin_test)
+
+struct ks_test_fixture : ::testing::TestWithParam<std::pair<double, double>>{};
+
+TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 {
-	stk::histogram_1d<double> hist(100, -3.1, 3.1);
-	stk::truncated_normal_distribution<> dist(-4.0, -3.0);
+	double l, h;
+	std::tie(l, h) = GetParam();
+	stk::histogram_1d<double> chist(1000, l - .1*l, h + .1*h);
+	stk::histogram_1d<double> nhist(1000, l - .1*l, h + .1*h);
+	stk::truncated_normal_distribution<> cdist(l, h);
 
 	std::mt19937 gen(42UL);
-	for (auto i = 0ULL; i < nruns; ++i)
-	{
-		auto v = dist(gen);
-		hist.fill(v);
+	for (auto i = 0ULL; i < nruns; ++i) {
+		{
+			auto v = normal_trunc_reject(gen, l, h);
+			nhist.fill(v);
+		}
+		{
+			auto v = cdist(gen);
+			chist.fill(v);
+		}
 	}
 
-	hist.scale(1.0 / hist.integral());
+	chist.scale(1.0 / chist.integral());
+	nhist.scale(1.0 / nhist.integral());
 
-	std::ofstream ofs("e:/data_chopin.csv");
-	write_hist(ofs, hist);
-	EXPECT_TRUE(true);
-}
-/*
-TEST(truncated_normal_test_suite, measure_acceptance_simple_rejection)
-{
-	auto proposals = 0ULL;
-	auto rejected = 0ULL;
-	std::mt19937 gen{ 42U };
-	auto sampler = [&](double a, double b)
+#define STK_EXPORT_HISTS
+#ifdef STK_EXPORT_HISTS
 	{
-		std::normal_distribution<> N;
-		while (true) 
-		{
-			auto r = N(gen);
-			++proposals;
-			if (r >= a && r <= b) 
-				return r;
-			++rejected;
-		}
-	};
-
-	for (auto i = 0ULL; i < nruns; ++i)
-		sampler(2., 3.);
-
-	auto acceptance = 1.0 - (static_cast<double>(rejected) / proposals);
-
-}
-TEST(truncated_normal_test_suite, measure_acceptance)
-{
-	auto proposals = 0ULL;
-	auto rejected = 0ULL;
-	std::mt19937 gen{ 42U };
-	auto sampler = [&](double a, double b)
+		std::stringstream nname;
+		nname << "e:/data_chopin" << l << "_" << h << ".csv";
+		std::ofstream ofs(nname.str());
+		write_hist(ofs, chist);
+	}
 	{
-		auto ua = inv_box_muller_transform_x(a, 0.0);
-		auto ub = inv_box_muller_transform_x(b, 0.0);
-		std::uniform_real_distribution<> V(0.0, 0.5);
-		auto umin = (std::min)(ua, ub);
-		std::uniform_real_distribution<> U(umin, 1.0);
-		while (true) 
-		{
-			auto u = U(gen);
-			auto v = V(gen);
-			auto r = box_muller_transform_x(u, v);
-			++proposals;
-			if (r >= a && r <= b) 
-				return r;
-			++rejected;
-		}
-	};
+		std::stringstream nname;
+		nname << "e:/data_control" << l << "_" << h << ".csv";
+		std::ofstream ofs(nname.str());
+		write_hist(ofs, nhist);
+	}
+#endif
 
-	for (auto i = 0ULL; i < nruns; ++i)
-		sampler(2., 3.);
-
-	auto acceptance = 1.0 - (static_cast<double>(rejected) / proposals);
-
+	double d, p;
+	std::tie(d, p) = chist.ks_test(nhist);
+	EXPECT_GT(p, 0.99);
 }
-*/
+
+INSTANTIATE_TEST_CASE_P(validate_chopin, ks_test_fixture, ::testing::Values(
+    std::make_pair(-3., 2.)
+  , std::make_pair(-4., 4.)
+  , std::make_pair(-9.0, -2.0)
+  , std::make_pair(2.0, 9.0)
+  , std::make_pair(-0.48, 0.1)
+  , std::make_pair(-0.1, 0.48)
+  //! Slow test below
+  //, std::make_pair(3.49, 100.0)
+  //, std::make_pair(-100.0, -3.49)
+));
+
+struct time_chopin_fixture : ::testing::TestWithParam<std::pair<double, double>>{};
+TEST_P(time_chopin_fixture, truncated_chopin)
+{
+	double l, h;
+	std::tie(l, h) = GetParam();
+	stk::truncated_normal_distribution<> cdist(l, h);
+
+	std::vector<double> r(nruns);
+	std::mt19937 gen(42UL);
+	for (auto i = 0ULL; i < nruns; ++i) 
+	{
+		r[i] = cdist(gen);
+	}
+
+	EXPECT_TRUE(!r.empty());
+}
+
+INSTANTIATE_TEST_CASE_P(time_chopin, time_chopin_fixture, ::testing::Values(
+    std::make_pair(-3., 2.)
+  , std::make_pair(-4., 4.)
+  , std::make_pair(-9.0, -2.0)
+  , std::make_pair(2.0, 9.0)
+  , std::make_pair(-0.48, 0.1)
+  , std::make_pair(-0.1, 0.48)
+  //! Slow test below
+  , std::make_pair(3.49, 100.0)
+  , std::make_pair(-100.0, -3.49)
+));
 
 TEST(truncated_normal_test_suite, brute_normal_distribution)
 {
-	stk::histogram_1d<double> hist(100, -3.1, 3.1);
+	stk::histogram_1d<double> hist(1000, -9.1, -1.8);
 	std::normal_distribution<> dist;
 
 	std::mt19937 gen(42UL);
 	for (auto i = 0ULL; i < nruns; ++i)
 	{
-		auto v = normal_trunc_reject(gen, -4.0, -3.0);// -0.46, 0.84);
+		auto v = normal_trunc_reject(gen, -9.0, -2.0);// -0.46, 0.84);
 		hist.fill(v);
 	}
 
@@ -350,45 +263,6 @@ TEST(truncated_normal_test_suite, brute_normal_distribution)
 	write_hist(ofs, hist);
 	EXPECT_TRUE(true);
 }
-
-/*
-TEST(truncated_normal_test_suite, brute_hueristic_box_muller)
-{
-	stk::histogram_1d<double> hist(100, -3.1, 3.1);
-	std::uniform_real_distribution<> dist;
-
-	std::mt19937 gen(42UL);
-	for (auto i = 0ULL; i < nruns; ++i)
-	{
-		auto v = box_muller_normal_trunc(gen, -3.0, -2.9);// -0.46, 0.84);
-		hist.fill(v);
-	}
-
-	hist.scale(1.0 / hist.integral());
-
-	std::ofstream ofs("e:/data.csv");
-	write_hist(ofs, hist);
-	EXPECT_TRUE(true);
-}
-
-TEST(truncated_normal_test_suite, brute_hueristic_box_muller_full)
-{
-	stk::histogram_1d<double> hist(100, -3.0, 3.0);
-	std::uniform_real_distribution<> dist;
-
-	std::mt19937 gen(42UL);
-	for (auto i = 0ULL; i < nruns; ++i) {
-		auto v = box_muller_normal_trunc(gen, -3., 3.);
-		hist.fill(v);
-	}
-
-	hist.scale(1.0 / hist.integral());
-
-	std::ofstream ofs("e:/data_full.csv");
-	write_hist(ofs, hist);
-	EXPECT_TRUE(true);
-}
-*/
 
 TEST(truncated_normal_test_suite, brute_hueristic_uniform)
 {
@@ -443,3 +317,4 @@ TEST(truncated_normal_test_suite, brute_hueristic_timing)
 
 	EXPECT_TRUE(sum > 0.0);
 }
+

@@ -30,7 +30,8 @@ PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE NO
 OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
 MODIFICATIONS.
 */
-//! stk interface:
+//! stk interface Based on Root V4 TH1F.
+//! For internal use only. Not for distribution.
 //! Copyright © 2015
 //! Brandon Kohn 
 //
@@ -41,7 +42,9 @@ MODIFICATIONS.
 /////////////////////////////////////////////////////////////////////////////
 #pragma once
 
+#include <geometrix/utility/assert.hpp>
 #include <stk/sim/histogram_1d.hpp>
+#include <algorithm>
 
 namespace stk {
 
@@ -1283,6 +1286,162 @@ inline Statistic histogram_1d<T, Statistic, AxisType>::get_integral() const
 	}
 	else
 		return compute_integral();
+}
+
+namespace {
+	inline double probks(double alam)
+	{
+		const double EPS1 = 0.001;
+		const double EPS2 = 1.0e-8;
+		int j;
+		double a2, fac = 2.0, sum = 0.0, term, termbf = 0.0;
+		a2 = -2.0*alam*alam;
+		for (j = 1; j <= 100; ++j)
+		{
+			term = fac * std::exp(a2*j*j);
+			sum += term;
+			if (std::abs(term) <= EPS1 * termbf || std::abs(term) <= EPS2 * sum) 
+				return sum;
+			fac = -fac;//! Alternating signs in sum.
+			termbf = std::abs(term);
+		}
+		return 1.0;//! Get here only by failing to converge.
+	}
+}
+
+/*
+//! From numerical recipes.
+template <typename T, typename Statistic, typename AxisType>
+inline std::pair<double, double> histogram_1d<T, Statistic, AxisType>::ks_test(histogram_1d<T, Statistic, AxisType> const& o) const
+{
+	unsigned long j1 = 1, j2 = 1;
+	double d1, d2, dt, en1, en2, en, fn1 = 0.0, fn2 = 0.0;
+
+	std::vector<double> data1(get_number_bins(), 0.0);
+	for (int i = 1; i <= get_number_bins(); ++i)
+		data1[i - 1] = get_bin_content(i);
+	std::vector<double> data2(o.get_number_bins(), 0.0);
+	for (int i = 1; i <= o.get_number_bins(); ++i)
+		data2[i - 1] = o.get_bin_content(i);
+
+	std::sort(data1.begin(), data1.end());
+	std::sort(data2.begin(), data2.end());
+	en1 = data1.size();
+	en2 = data2.size();
+	auto d = 0.0;
+	while (j1 <= data1.size() && j2 <= data2.size())
+	{
+		if ((d1 = data1[j1-1]) <= (d2 = data2[j2-1])) fn1 = j1++ / en1; //! Next step is in data1.
+		if (d2 <= d1) fn2 = j2++ / en2;//! Next step is in data2.
+		if ((dt = std::abs(fn2 - fn1)) > d) d = dt;
+	}
+	en = std::sqrt(en1*en2 / (en1 + en2));
+	auto prob = probks((en + 0.12 + 0.11 / en)*(d));//! Compute significance.
+
+	return { d, prob };
+}
+*/
+
+//! From numerical recipes.
+template <typename T, typename Statistic, typename AxisType>
+inline std::pair<double, double> histogram_1d<T, Statistic, AxisType>::ks_test(histogram_1d<T, Statistic, AxisType> const& o) const
+{
+	double prob = 0;
+	auto ncx1 = get_number_bins();
+	auto ncx2 = o.get_number_bins();
+
+	if(ncx1 != ncx2)
+	{
+		GEOMETRIX_ASSERT(false);
+		return { std::numeric_limits<double>::infinity(), 0.0 };
+	}
+
+	// Check consistency in channel edges
+	double difprec = 1e-5;
+	double diff1 = std::abs(get_xmin() - o.get_xmin());
+	double diff2 = std::abs(get_xmax() - o.get_xmax());
+	if (diff1 > difprec || diff2 > difprec) 
+	{
+		GEOMETRIX_ASSERT(false);
+		return { std::numeric_limits<double>::infinity(), 0.0 };
+	}
+
+	auto afunc1 = false;
+	auto afunc2 = false;
+	double sum1 = 0, sum2 = 0;
+	double ew1, ew2, w1 = 0, w2 = 0;
+	int bin;
+	int ifirst = 1;
+	int ilast = ncx1;
+	for (bin = ifirst; bin <= ilast; bin++) 
+	{
+		sum1 += o.get_bin_content(bin);
+		sum2 += o.get_bin_content(bin);
+		ew1 = get_bin_error(bin);
+		ew2 = o.get_bin_error(bin);
+		w1 += ew1 * ew1;
+		w2 += ew2 * ew2;
+	}
+
+	if (sum1 == 0 || sum2 == 0)
+	{
+		GEOMETRIX_ASSERT(false);
+		return { std::numeric_limits<double>::infinity(), 0.0 };
+	}
+
+	// calculate the effective entries.
+	// the case when errors are zero (w1 == 0 or w2 ==0) are equivalent to
+	// compare to a function. In that case the rescaling is done only on sqrt(esum2) or sqrt(esum1)
+	double esum1 = 0, esum2 = 0;
+	if (w1 > 0)
+		esum1 = sum1 * sum1 / w1;
+	else
+		afunc1 = true;    // use later for calculating z
+
+	if (w2 > 0)
+		esum2 = sum2 * sum2 / w2;
+	else
+		afunc2 = true;    // use later for calculating z
+
+	if (afunc2 && afunc1) 
+	{
+		GEOMETRIX_ASSERT(false);
+		return { std::numeric_limits<double>::infinity(), 0.0 };
+	}
+
+	double s1 = 1 / sum1;
+	double s2 = 1 / sum2;
+
+	// Find largest difference for Kolmogorov Test
+	double dfmax = 0, rsum1 = 0, rsum2 = 0;
+
+	for (bin = ifirst; bin <= ilast; ++bin) 
+	{
+		rsum1 += s1 * get_bin_content(bin);
+		rsum2 += s2 * o.get_bin_content(bin);
+		dfmax = (std::max)(dfmax, std::abs(rsum1 - rsum2));
+	}
+
+	// Get Kolmogorov probability
+	double z, prb1 = 0, prb2 = 0, prb3 = 0;
+
+	// case this is exact (has zero errors)
+	if (afunc1)
+		z = dfmax * std::sqrt(esum2);
+	// case o has zero errors
+	else if (afunc2)
+		z = dfmax * std::sqrt(esum1);
+	else
+		// for comparison between two data sets
+		z = dfmax * std::sqrt(esum1*esum2 / (esum1 + esum2));
+
+	prob = probks(z);
+
+	// This numerical error condition should never occur
+	GEOMETRIX_ASSERT(std::abs(rsum1 - 1.0) <= 0.002);
+	GEOMETRIX_ASSERT(std::abs(rsum2 - 1.0) <= 0.002);
+
+	return { dfmax, prob };
 }
 
 }//! namespace stk;
