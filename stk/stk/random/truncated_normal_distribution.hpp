@@ -2,9 +2,7 @@
 
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/numeric/constants.hpp>
-#include <geometrix/utility/scope_timer.ipp>
 #include <boost/math/distributions/normal.hpp>
-#include <stk/geometry/tolerance_policy.hpp>
 #include <random>
 #include <cmath>
 
@@ -274,20 +272,37 @@ namespace stk {
                     while (true)
                     {
                         auto i = idist(gen);
-                        if (i+1 == x.size())//! rightmost region
-                        {
-                            GEOMETRIX_ASSERT(x.back() < b);
-							T r;
-							if (devroye_normal_trunc_single_step(std::forward<Generator>(gen), U, x.back(), b, r))
-								return r;
-							else
-								continue;
+						if(BOOST_LIKELY(i > ia + 1 && (i < ib - 1 || (ib == x.size() - 1 && i != ib))))
+						{
+							GEOMETRIX_ASSERT(!(i <= ia + 1 || (i >= ib - 1 && b < xmax)) && i != x.size() - 1);
+                            auto u = U(gen);
+                            auto yi = u * y[i];
+							if (yi <= y_(i))//! occurs with high probability
+							{
+#ifdef STK_DEBUG_TRUNCATED_DIST
+								++sReturns.general_0;
+								G0hist.fill(x[i] + u * d(i));
+#endif
+								return x[i] + u * d(i);
+							}
+                            else
+                            {
+                                auto v = U(gen);
+                                auto xi = x[i] + dx(i) * v;
+								if (yi < normal_pdf(xi)) 
+								{
+#ifdef STK_DEBUG_TRUNCATED_DIST
+									++sReturns.general_1;
+									G1hist.fill(xi);
+#endif
+									return xi;
+								}
+                            }
                         }
-
-						//! If it's on the two boundary need to check if result is within bounds.
-                        if (i <= ia + 1 || (i >= ib - 1 && b < xmax))//! two extreme/boundary regions
-                        {
-							GEOMETRIX_ASSERT(i+1 != x.size());
+						//! If it's on the two boundary need to check if result is within bounds (except when b is not inside the arrays.)
+                        else if(i+1 != x.size()) //! two extreme/boundary regions
+						{
+							GEOMETRIX_ASSERT(i <= ia + 1 || (i >= ib - 1 && b < xmax));
                             auto u = U(gen);
                             auto xi = x[i] + dx(i) * u;
                             if (xi >= a && xi <= b) 
@@ -306,29 +321,19 @@ namespace stk {
                         }
                         else
                         {
-                            auto u = U(gen);
-                            auto yi = u * y[i];
-							if (yi <= y_(i))//! occurs with high probability
+							GEOMETRIX_ASSERT(i + 1 == x.size());//! rightmost region
+                            GEOMETRIX_ASSERT(x.back() < b);
+							T r;
+							if (devroye_normal_trunc_single_step(std::forward<Generator>(gen), U, x.back(), b, r)) 
 							{
 #ifdef STK_DEBUG_TRUNCATED_DIST
-								++sReturns.general_0;
-								G0hist.fill(x[i] + u * d(i));
+								++sReturns.rightmost;
+								Rhist.fill(r);
 #endif
-								return x[i] + u * d(i);
+								return r;
 							}
-                            else 
-                            {
-                                auto v = U(gen);
-                                auto xi = x[i] + dx(i) * v;
-								if (yi < normal_pdf(xi)) 
-								{
-#ifdef STK_DEBUG_TRUNCATED_DIST
-									++sReturns.general_1;
-									G1hist.fill(xi);
-#endif
-									return xi;
-								}
-                            }
+							else
+								continue;
                         }
                     }
                 }
@@ -387,8 +392,8 @@ namespace stk {
 					}
 				}
 				
-				GEOMETRIX_ASSERT(make_tolerance_policy().equals(q, 0.5));
-				GEOMETRIX_ASSERT(make_tolerance_policy().equals(xmax, x.back()));
+				//GEOMETRIX_ASSERT(make_tolerance_policy().equals(q, 0.5));
+				//GEOMETRIX_ASSERT(make_tolerance_policy().equals(xmax, x.back()));
 
 				//! Clip to bounds.
                 auto h = std::numeric_limits<T>::infinity();
@@ -449,7 +454,7 @@ namespace stk {
                     }
                 }
 
-                GEOMETRIX_ASSERT(stk::make_tolerance_policy().equals(0.0, x[j[ioffset]]));
+                //GEOMETRIX_ASSERT(stk::make_tolerance_policy().equals(0.0, x[j[ioffset]]));
             }
 
             std::uint32_t get_i(T x) const

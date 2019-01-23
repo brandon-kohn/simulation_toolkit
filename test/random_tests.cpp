@@ -141,7 +141,7 @@ inline Real uniform_normal_trunc(Gen&& gen, UniformRealDist&& U, Real a, Real b)
 }
 
 #include <stk/geometry/geometry_kernel.hpp>
-#include <stk/sim/histogram_1d.ipp>
+#include <stk/sim/histogram_1d.hpp>
 #include <fstream>
 
 template <typename T>
@@ -150,13 +150,20 @@ inline void write_hist(std::ostream& os, const stk::histogram_1d<T>& hist)
 	os << "x, y\n";
 	for (std::size_t i = 0; i < hist.get_number_bins(); ++i)
 	{
-		os << hist.get_bin_center(i+1) << "," << hist.get_bin_content(i+1) << "\n";
+		os << hist.get_bin_center(i) << "," << hist.get_bin_weight(i) << "\n";
 	}
 
 	os << std::endl;
 }
 
-auto nruns = 1000000ULL;
+void write_vector(std::ostream& os, const std::vector<double>& v)
+{
+    auto first = reinterpret_cast<const char*>(&v[0]);
+	auto last = first + v.size() * sizeof(double);
+    std::copy(first, last, std::ostream_iterator<char>{os});
+}
+
+std::size_t nruns = 1000000ULL;
 
 struct ks_test_fixture : ::testing::TestWithParam<std::pair<double, double>>{};
 
@@ -164,24 +171,29 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 {
 	double l, h;
 	std::tie(l, h) = GetParam();
-	stk::histogram_1d<double> chist(1000, l - .1*l, h + .1*h);
-	stk::histogram_1d<double> nhist(1000, l - .1*l, h + .1*h);
+	auto portion = 1e-3;
+	auto nbins = 1000UL;
+	std::size_t nruns = 100000000ULL;
+	stk::histogram_1d<double> chist(nbins, l - portion * std::abs(l), h + portion * std::abs(h));
+	stk::histogram_1d<double> nhist(nbins, l - portion * std::abs(l), h + portion * std::abs(h));
 	stk::truncated_normal_distribution<> cdist(l, h);
+	std::vector<double> ndata(nruns);
+	std::vector<double> cdata(nruns);
 
 	std::mt19937 gen(42UL);
 	for (auto i = 0ULL; i < nruns; ++i) {
 		{
 			auto v = normal_trunc_reject(gen, l, h);
 			nhist.fill(v);
+			ndata[i] = v;
 		}
 		{
 			auto v = cdist(gen);
 			chist.fill(v);
+			cdata[i] = v;
+			//chist.fill(v);
 		}
 	}
-
-	chist.scale(1.0 / chist.integral());
-	nhist.scale(1.0 / nhist.integral());
 
 #define STK_EXPORT_HISTS
 #ifdef STK_EXPORT_HISTS
@@ -193,14 +205,26 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 	}
 	{
 		std::stringstream nname;
+		nname << "e:/data_chopin" << l << "_" << h << ".dat";
+		std::ofstream ofs(nname.str(), std::ios::out | std::ios::binary);
+		write_vector(ofs, cdata);
+	}
+	{
+		std::stringstream nname;
 		nname << "e:/data_control" << l << "_" << h << ".csv";
 		std::ofstream ofs(nname.str());
 		write_hist(ofs, nhist);
 	}
+	{
+		std::stringstream nname;
+		nname << "e:/data_control" << l << "_" << h << ".dat";
+		std::ofstream ofs(nname.str(), std::ios::out | std::ios::binary);
+		write_vector(ofs, ndata);
+	}
 #endif
 
 	double d, p;
-	std::tie(d, p) = chist.ks_test(nhist);
+	std::tie(d, p) = nhist.chi_squared_test(chist);
 	EXPECT_GT(p, 0.99);
 }
 
@@ -216,12 +240,14 @@ INSTANTIATE_TEST_CASE_P(validate_chopin, ks_test_fixture, ::testing::Values(
   //, std::make_pair(-100.0, -3.49)
 ));
 
+
 struct time_chopin_fixture : ::testing::TestWithParam<std::pair<double, double>>{};
 TEST_P(time_chopin_fixture, truncated_chopin)
 {
 	double l, h;
 	std::tie(l, h) = GetParam();
 	stk::truncated_normal_distribution<> cdist(l, h);
+	nruns = 10000000;
 
 	std::vector<double> r(nruns);
 	std::mt19937 gen(42UL);
@@ -262,6 +288,22 @@ TEST(truncated_normal_test_suite, brute_normal_distribution)
 	std::ofstream ofs("e:/data_control.csv");
 	write_hist(ofs, hist);
 	EXPECT_TRUE(true);
+}
+
+TEST(truncated_normal_test_suite, general_chopin_test)
+{
+	std::mt19937 gen(42UL);
+	auto a = 1.0;
+	auto b = 1.5;
+	auto m = 1.4;
+	auto s = 0.25;
+	stk::truncated_normal_distribution<> cdist(a, b, m, s);
+
+	for (auto i = 0ULL; i < nruns; ++i)
+	{
+		auto v = cdist(gen);
+		EXPECT_TRUE(v >= 1.0 && v <= 1.5);
+	}
 }
 
 TEST(truncated_normal_test_suite, brute_hueristic_uniform)
