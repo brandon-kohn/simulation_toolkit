@@ -166,14 +166,17 @@ void write_vector(std::ostream& os, const std::vector<double>& v)
 std::size_t nruns = 1000000ULL;
 
 struct ks_test_fixture : ::testing::TestWithParam<std::pair<double, double>>{};
-
 TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 {
 	double l, h;
 	std::tie(l, h) = GetParam();
-	auto portion = 1e-3;
+	auto portion = 0.0;// 1e-3;
 	auto nbins = 1000UL;
-	std::size_t nruns = 100000000ULL;
+#ifdef NDEBUG
+	std::size_t nruns = 10000000ULL;
+#else
+	std::size_t nruns = 1000000ULL;
+#endif
 	stk::histogram_1d<double> chist(nbins, l - portion * std::abs(l), h + portion * std::abs(h));
 	stk::histogram_1d<double> nhist(nbins, l - portion * std::abs(l), h + portion * std::abs(h));
 	stk::truncated_normal_distribution<> cdist(l, h);
@@ -191,7 +194,6 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 			auto v = cdist(gen);
 			chist.fill(v);
 			cdata[i] = v;
-			//chist.fill(v);
 		}
 	}
 
@@ -225,14 +227,15 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 
 	double d, p;
 	std::tie(d, p) = nhist.chi_squared_test(chist);
-	EXPECT_GT(p, 0.99);
+	GTEST_MESSAGE("Test: ") << l << "_" << h << " Chi2: " << d << " P-value: " << p;
+	EXPECT_GT(p, 0.01);
 }
 
 INSTANTIATE_TEST_CASE_P(validate_chopin, ks_test_fixture, ::testing::Values(
-    std::make_pair(-3., 2.)
-  , std::make_pair(-4., 4.)
-  , std::make_pair(-9.0, -2.0)
-  , std::make_pair(2.0, 9.0)
+    std::make_pair(-4., 4.)
+  , std::make_pair(-3., 2.)
+  , std::make_pair(-3.0, -2.0)
+  , std::make_pair(2.0, 3.0)
   , std::make_pair(-0.48, 0.1)
   , std::make_pair(-0.1, 0.48)
   //! Slow test below

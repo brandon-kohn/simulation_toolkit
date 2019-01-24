@@ -220,8 +220,9 @@ public:
 	}
 
 	//! Test to decide if this histogram and histogram o were filled from the same distribution.
-	//! Returns a pair containing {chi2, chi2prob} where chi2prob is the result of the Chi-Squared Probability Function gamma_p(0.5*ndf, 0.5*chi2).
-	//! chi2prob is the probability that both histograms are drawn from the same distribution.
+	//! Returns a pair containing {chi2, p_value} where p_value is the result: 1 - Chi-Squared Probability Function gamma_p(0.5*ndf, 0.5*chi2).
+	//! If p_value is less than some threshold, then the null hypothesis that the two histograms come from the same distribution is improbable.
+	//! NOTE: This implementation assumes unweighted counts in the bins of both histograms. This means the weights are whole numbers.
 	std::pair<T, double> chi_squared_test(histogram_1d<T> const& o, std::size_t dfThresh = 1000) const
 	{
 		using std::abs;
@@ -237,17 +238,28 @@ public:
 		auto chi2 = 0.0;
 		auto sum0 = 0.0;
 		auto sum1 = 0.0;
+
+		//! First sum the weights for all the events.
+		for (auto i = 0UL; i < nbins; ++i)
+		{
+			sum0 += get_bin_weight(i);
+			sum1 += get_bin_weight(i);
+		}
+		
+		//! Histograms should not be empty.
+		GEOMETRIX_ASSERT(sum0 != 0 && sum1 != 0);
+		if (sum0 == 0 || sum1 == 0)
+			return { std::numeric_limits<double>::infinity(), 0.0 };
+
 		auto numDegreeFreedom = nbins - 1;
 		for (auto i = 0UL; i < nbins; ++i)
 		{
 			auto h0 = get_bin_weight(i);
 			auto h1 = o.get_bin_weight(i);
-			if (h0 != 0 || h1 != 0) 				
+			if (static_cast<int>(h0) != 0 || static_cast<int>(h1) != 0)
 			{
-				sum0 += h0;
-				sum1 += h1;
-				auto dh = h0 - h1;
-				chi2 += dh * dh / (h0 + h1 + 1e-10);
+				auto dh = sum1 * h0 - sum0 * h1;
+				chi2 += dh * dh / (h0 + h1);
 			}
 			else
 			{
@@ -256,22 +268,19 @@ public:
 			}
 		}
 
-		//! Histograms should not be empty.
-		GEOMETRIX_ASSERT(sum0 != 0 && sum1 != 0);
-		if (sum0 == 0 || sum1 == 0)
-			return { std::numeric_limits<double>::infinity(), 0.0 };
+		chi2 /= sum0 * sum1;
 
 		auto p = 0.0;
 		if (numDegreeFreedom < dfThresh)
 		{
 			boost::math::chi_squared_distribution<> ch2dist(numDegreeFreedom);
 			auto gammap = boost::math::cdf(ch2dist, chi2);
-			return { chi2, gammap };
+			return { chi2, 1.0 - gammap };
 		}
 		
 		boost::math::normal_distribution<> approxDist(numDegreeFreedom, sqrt(2.0 * numDegreeFreedom));
-		auto approx = boost::math::cdf(approxDist, chi2);
-		return { chi2, approx };
+		auto approxGammaP= boost::math::cdf(approxDist, chi2);
+		return { chi2, 1.0 - approxGammaP };
 	}
 
 private:

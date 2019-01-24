@@ -52,6 +52,15 @@ namespace stk {
         }
 
 		template <typename T>
+		inline T inv_normal_pdf(T y)
+		{
+			using std::log;
+			using std::sqrt;
+            auto invsqrt2pi = 0.3989422804;
+			return sqrt(2.0 * log(y / invsqrt2pi));
+		}
+
+		template <typename T>
 		inline T normal_quantile(T proportion)
 		{
 			boost::math::normal_distribution<T> dist;
@@ -108,8 +117,12 @@ namespace stk {
                 auto v = U(gen);
                 auto x = -log(constants::one<Real>() - q * u);
                 auto e = -log(v);
-                if (x*x <= K * e)
-                    return a + x / a;
+				if (x*x <= K * e) 
+				{
+					auto r = a + x / a;
+					GEOMETRIX_ASSERT(r >= a && r <= b);
+					return r;
+				}
             }
         }
         
@@ -131,6 +144,7 @@ namespace stk {
 			if (x*x <= K * e) 
 			{
 				r = a + x / a;
+				GEOMETRIX_ASSERT(r >= a && r <= b);
 				return true;
 			}
 			return false;
@@ -240,35 +254,15 @@ namespace stk {
 					};
 					static returns sReturns{};
 					auto pReturns = &sReturns;
-					static stk::histogram_1d<T> Rhist(1000, a, b);
-					static stk::histogram_1d<T> Bhist(1000, a, b);
-					static stk::histogram_1d<T> G0hist(1000, a, b);
-					static stk::histogram_1d<T> G1hist(1000, a, b);
 					if (sReturns.calls++ % 10000 == 0) 
 					{
-						auto write_hist = [](std::string name, const stk::histogram_1d<T>& hist)
-						{
-							std::ofstream os(name);
-							os << "x, y\n";
-							for (std::size_t i = 0; i < hist.get_number_bins(); ++i) {
-								os << hist.get_bin_center(i + 1) << "," << hist.get_bin_content(i + 1) << "\n";
-							}
-
-							os << std::endl;
-						};
-						write_hist("e:/RHist.csv", Rhist);
-						write_hist("e:/BHist.csv", Bhist);
-						write_hist("e:/G0Hist.csv", G0hist);
-						write_hist("e:/G1Hist.csv", G1hist);
 						std::ofstream ofs("e:/truncdata.txt");
 						ofs << "R: " << sReturns.rightmost << std::endl;
 						ofs << "B: " << sReturns.boundary << std::endl;
 						ofs << "G0: " << sReturns.general_0 << std::endl;
 						ofs << "G1: " << sReturns.general_1 << std::endl;
 					}
-
 #endif
-
                     while (true)
                     {
                         auto i = idist(gen);
@@ -281,7 +275,6 @@ namespace stk {
 							{
 #ifdef STK_DEBUG_TRUNCATED_DIST
 								++sReturns.general_0;
-								G0hist.fill(x[i] + u * d(i));
 #endif
 								return x[i] + u * d(i);
 							}
@@ -293,7 +286,6 @@ namespace stk {
 								{
 #ifdef STK_DEBUG_TRUNCATED_DIST
 									++sReturns.general_1;
-									G1hist.fill(xi);
 #endif
 									return xi;
 								}
@@ -313,7 +305,6 @@ namespace stk {
 								{
 #ifdef STK_DEBUG_TRUNCATED_DIST
 									++sReturns.boundary;
-									Bhist.fill(xi);
 #endif
 									return xi;
 								}
@@ -328,7 +319,6 @@ namespace stk {
 							{
 #ifdef STK_DEBUG_TRUNCATED_DIST
 								++sReturns.rightmost;
-								Rhist.fill(r);
 #endif
 								return r;
 							}
@@ -357,11 +347,10 @@ namespace stk {
             
             void generate_tables()
             {
-				T ltailClip = -2.0;
+				T ltailClip = -2.0;//! Paper uses -2 as the lower bound and N-20 for upper... I just use the natural upper from the area splits instead.
 				x.resize(num_splits);
 				y.resize(num_splits - 1);
 				
-				//! Find the extreme value and calculate from the max value to the turning point (dy/dx == 0 bin). Then mirror around 0 for the other side.
 				//! Split into equal areas.
 				auto ai = 1.0 / (2.0 * N + 2);
 				auto ar = ai;
@@ -370,30 +359,33 @@ namespace stk {
 				boost::math::normal_distribution<T> dist;
 				xmin = boost::math::quantile(dist, ar);
 				xmax = -xmin;
-	            auto q = al;
+	            auto q = 0.5;
 				auto xi = xmin;
 				x[0] = xi;
+				x[N] = T{};
+				y[N] = normal_pdf(0.0);
+				y[N-1] = normal_pdf(0.0);
 				x[x.size() - 1] = xmax;
-				for (auto i = 1UL; i <= N; ++i)
+				for (auto index = 1UL; index < N; ++index)
 				{
+					auto i = N + index;
+					auto ri = N - index;
 					q = al + i * ai;
-					xi = boost::math::quantile(dist, q);
+				
+					auto yi_ = normal_pdf(x[i - 1]);
+					xi = x[i - 1] + ai / yi_;
 					x[i] = xi;
-					x[x.size() - 1 - i] = -xi;
+					x[ri] = -xi;
 
 					auto yi = normal_pdf(xi);
-					auto yi_ = normal_pdf(x[i - 1]);
-					y[i-1] = std::max(yi, yi_);
-					y[y.size() - i] = y[i - 1];//! NOTE: y.size() - 1 - (i + 1) == y.size() - i.
-					if (i == 1) 
-					{
-						yl_ = std::min(yi, yi_);
-						yr_ = yl_;
-					}
+					y[i] = yi;
+					y[ri-1] = yi;
 				}
 				
-				//GEOMETRIX_ASSERT(make_tolerance_policy().equals(q, 0.5));
-				//GEOMETRIX_ASSERT(make_tolerance_policy().equals(xmax, x.back()));
+				GEOMETRIX_ASSERT(make_tolerance_policy().equals(q + 2.0 * ai, 1.0));
+				GEOMETRIX_ASSERT(make_tolerance_policy().equals(xmax, x.back()));
+				yr_ = normal_pdf(xmax);
+				yl_ = yr_;
 
 				//! Clip to bounds.
                 auto h = std::numeric_limits<T>::infinity();
@@ -413,6 +405,7 @@ namespace stk {
 					}
 				}
 
+				//! Build the h interval minimum for the j-array indirections.
 				auto nOffset = N - clip;
 				for (auto i = 1UL; i < x.size(); ++i)
 				{
@@ -454,13 +447,13 @@ namespace stk {
                     }
                 }
 
-                //GEOMETRIX_ASSERT(stk::make_tolerance_policy().equals(0.0, x[j[ioffset]]));
+                GEOMETRIX_ASSERT(stk::make_tolerance_policy().equals(0.0, x[j[ioffset]]));
             }
 
             std::uint32_t get_i(T x) const
             {
-                auto i = ioffset + std::floor(x * inv_h);
-                GEOMETRIX_ASSERT(i < j.size());
+                std::ptrdiff_t i = ioffset + std::floor(x * inv_h);
+                GEOMETRIX_ASSERT(i >= 0 && i < j.size());
                 return i;
             }
 
@@ -616,7 +609,7 @@ namespace stk {
     private:
 #endif
 
-		static const std::uint16_t num_splits = 2050;
+		static const std::uint16_t num_splits = 2050;//! This value should be tuned for size and passing any chi-squared tests.
 	    static detail::truncated_normal_helper<T, num_splits>& get_helper()
         {
 			using namespace detail;
