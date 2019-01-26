@@ -173,7 +173,7 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 	auto portion = 0.0;// 1e-3;
 	auto nbins = 1000UL;
 #ifdef NDEBUG
-	std::size_t nruns = 10000000ULL;
+	std::size_t nruns = 1000000ULL;
 #else
 	std::size_t nruns = 1000000ULL;
 #endif
@@ -199,7 +199,7 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 		}
 	}
 
-#define STK_EXPORT_HISTS
+//#define STK_EXPORT_HISTS
 #ifdef STK_EXPORT_HISTS
 	{
 		std::stringstream nname;
@@ -252,7 +252,7 @@ TEST_P(time_chopin_fixture, truncated_chopin)
 	double l, h;
 	std::tie(l, h) = GetParam();
 	stk::truncated_normal_distribution<> cdist(l, h);
-	nruns = 10000000;
+	auto nruns = 1000000UL;
 
 	std::vector<double> r(nruns);
 	std::mt19937 gen(42UL);
