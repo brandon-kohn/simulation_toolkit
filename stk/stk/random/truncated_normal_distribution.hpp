@@ -5,6 +5,8 @@
 #include <boost/math/distributions/normal.hpp>
 #include <random>
 #include <cmath>
+#include <istream>
+#include <ostream>
 
 namespace stk {
 
@@ -90,6 +92,9 @@ namespace stk {
 	    T mean() const { return m_parameters.mean(); }
 
 	    T stddev() const { return m_parameters.sigma(); }
+	   
+        //! alias
+        T sigma() const { return m_parameters.sigma(); }
 
 	    param_type param() const { return m_parameters; }
 
