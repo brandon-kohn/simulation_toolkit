@@ -6,489 +6,7 @@
 #include <random>
 #include <cmath>
 
-//#define STK_DEBUG_TRUNCATED_DIST
-
-//! From Simulation from the Normal Distribution Truncated to an Interval in the Tail, Botev, Zdravko and L'Ecuyer, Pierre.
-//! And Fast simulation of truncated Gaussian distributions, Nicolas Chopin
 namespace stk {
-
-    namespace detail {
-
-		template <typename T>
-        inline T erf(T z0, T z1)
-        {
-            return boost::math::erf(z1) - boost::math::erf(z0);
-        }
-
-		//! Get the cdf in the range [z0, z1].
-		template <typename T>
-        inline T normal_cdf(T z0, T z1)
-        {
-            const auto invsqrt2 = 0.70710678118;
-            return 0.5 * (boost::math::erf(z1 * invsqrt2) - boost::math::erf(z0 * invsqrt2));
-        }
-
-        //! integral of normal dist from [-inf, x].
-		template <typename T>
-        inline T normal_cdf(T x, T m, T s)
-        {
-            const auto invsqrt2 = 0.70710678118;
-            return 0.5 * (1.0 + boost::math::erf(invsqrt2*(x - m) / s));
-        }
-
-		template <typename T>
-        inline T normal_cdf(T z)
-        {
-            const auto invsqrt2 = 0.70710678118;
-            return 0.5 * (1.0 + boost::math::erf(invsqrt2*z));
-        }
-
-		template <typename T>
-        inline T normal_pdf(T z)
-        {
-			using std::exp;
-            auto invsqrt2pi = 0.3989422804;
-            return invsqrt2pi * exp(-0.5 * z * z);
-        }
-
-		template <typename T>
-		inline T inv_normal_pdf(T y)
-		{
-			using std::log;
-			using std::sqrt;
-            auto invsqrt2pi = 0.3989422804;
-			return sqrt(2.0 * log(y / invsqrt2pi));
-		}
-
-		template <typename T>
-		inline T normal_quantile(T proportion)
-		{
-			boost::math::normal_distribution<T> dist;
-			return boost::math::quantile(dist, proportion);
-		}
-
-        template <typename Real>
-        inline bool is_standard_normal(Real m, Real s)
-        {
-            using namespace geometrix;
-            return m == constants::zero<Real>() && s == constants::one<Real>();
-        }
-
-        template <typename Real>
-        inline Real scale_to_standard_normal(Real x, Real m, Real s)
-        {
-            return (x - m) / s;
-        }
-
-        template <typename Real>
-        inline Real scale_to_general_normal(Real x, Real m, Real s)
-        {
-            return x * s + m;
-        }
-
-        template <typename Generator, typename T>
-        inline T normal_trunc_reject(Generator&& gen, T a, T b)
-        {
-            std::normal_distribution<T> N;
-            while (true) 
-            {
-                auto r = N(gen);
-                if (r >= a && r <= b)
-                    return r;
-            }
-        }
-
-        template <typename Gen, typename Real>
-        inline Real devroye_normal_trunc(Gen&& gen, Real a, Real b)
-        {
-            GEOMETRIX_ASSERT(a < b);
-            using namespace geometrix;
-            using std::sqrt;
-            using std::log;
-            using std::exp;
-
-            std::uniform_real_distribution<Real> U;
-
-            auto K = a * a * constants::two<Real>();
-            auto q = constants::one<Real>() - exp(-(b - a)*a);
-            while(true)
-            {
-                auto u = U(gen);
-                auto v = U(gen);
-                auto x = -log(constants::one<Real>() - q * u);
-                auto e = -log(v);
-				if (x*x <= K * e) 
-				{
-					auto r = a + x / a;
-					GEOMETRIX_ASSERT(r >= a && r <= b);
-					return r;
-				}
-            }
-        }
-        
-		template <typename Gen, typename UniformDist, typename Real>
-        inline bool devroye_normal_trunc_single_step(Gen&& gen, UniformDist&& U, Real a, Real b, Real& r)
-        {
-            GEOMETRIX_ASSERT(a < b);
-            using namespace geometrix;
-            using std::sqrt;
-            using std::log;
-            using std::exp;
-
-            auto K = a * a * constants::two<Real>();
-            auto q = constants::one<Real>() - exp(-(b - a)*a);
-            auto u = U(gen);
-            auto v = U(gen);
-            auto x = -log(constants::one<Real>() - q * u);
-            auto e = -log(v);
-			if (x*x <= K * e) 
-			{
-				r = a + x / a;
-				GEOMETRIX_ASSERT(r >= a && r <= b);
-				return true;
-			}
-			return false;
-        }
-
-        template <typename Gen, typename UniformRealDist, typename Real>
-        inline Real rayleigh_normal_trunc(Gen&& gen, UniformRealDist&& U, Real a, Real b)
-        {
-            GEOMETRIX_ASSERT(a < b);
-            using namespace geometrix;
-            using std::sqrt;
-            using std::log;
-            using std::exp;
-
-            auto c = a * a * constants::one_half<Real>();
-            auto b2 = b * b;
-            auto q = constants::one<Real>() - exp(c - b2 * constants::one_half<Real>());
-            while(true)
-            {
-                auto u = U(gen);
-                auto v = U(gen);
-                auto x = c - log(constants::one<Real>() - q * u);
-                if (v*v*x <= a) 
-                {
-                    auto two_x = constants::two<Real>() * x;
-                    return sqrt(two_x);
-                }
-            }
-        }
-
-        template <typename Gen, typename UniformRealDist, typename Real>
-        inline Real rayleigh_normal_reject(Gen&& gen, UniformRealDist&& U, Real a, Real b)
-        {
-            GEOMETRIX_ASSERT(a < b);
-            using namespace geometrix;
-            using std::sqrt;
-            using std::log;
-
-            auto c = a * a * constants::one_half<Real>();
-            auto b2 = b * b;
-            while(true)
-            {
-                auto u = U(gen);
-                auto v = U(gen);
-                auto x = c - log(u);
-                auto two_x = constants::two<Real>() * x;
-                if (v*v*x <= a && two_x <= b2)
-                    return sqrt(two_x);
-            }
-        }
-
-        template <typename Gen, typename UniformRealDist, typename Real>
-        inline Real uniform_normal_trunc(Gen&& gen, UniformRealDist&& U, Real a, Real b)
-        {
-            GEOMETRIX_ASSERT(a < b);
-            using namespace geometrix;
-            using std::log;
-
-            auto a2 = a * a;
-            while(true)
-            {
-                auto u = U(gen);
-                auto v = U(gen);
-                auto x = a + (b - a)*u;
-                if (constants::two<Real>() * log(v) <= a2 - x * x)
-                    return x;
-            }
-        }
-
-        template <typename T, unsigned int N>
-        struct truncated_normal_helper
-        {
-            static const unsigned int num_splits = 2 * N + 1;
-
-            truncated_normal_helper()
-            {
-                generate_tables();
-            }
-
-            //! This assumes a and b are limits in a standard normal distribution (i.e. mean = 0 and sigma = 1).
-            template <typename Generator>
-            T operator()(Generator&& gen, T a, T b) const
-            {
-				using std::abs;
-                GEOMETRIX_ASSERT(a < b);
-
-                //! In the general case, run the Chopin algorithm.
-                if(a >= xmin && a <= xmax)
-                {
-                    auto ia = j[get_i(a)];
-                    auto ib = b < xmax ? j[get_i(b)] : x.size() - 1;
-
-                    if(abs((int)(ib - ia)) < 5)
-                        return devroye_normal_trunc(std::forward<Generator>(gen), a, b);
-
-                    GEOMETRIX_ASSERT(ia < ib);
-                    std::uniform_int_distribution<std::uint32_t> idist(ia, ib);
-                    std::uniform_real_distribution<> U;
-#ifdef STK_DEBUG_TRUNCATED_DIST
-					struct returns
-					{
-						std::size_t calls = 0;
-						std::size_t rightmost = 0;
-						std::size_t boundary = 0;
-						std::size_t general_0 = 0;
-						std::size_t general_1 = 0;
-					};
-					static returns sReturns{};
-					auto pReturns = &sReturns;
-					if (sReturns.calls++ % 10000 == 0) 
-					{
-						std::ofstream ofs("e:/truncdata.txt");
-						ofs << "R: " << sReturns.rightmost << std::endl;
-						ofs << "B: " << sReturns.boundary << std::endl;
-						ofs << "G0: " << sReturns.general_0 << std::endl;
-						ofs << "G1: " << sReturns.general_1 << std::endl;
-					}
-#endif
-                    while (true)
-                    {
-                        auto i = idist(gen);
-						if(BOOST_LIKELY(i > ia + 1 && (i < ib - 1 || (ib == x.size() - 1 && i != ib))))
-						{
-							GEOMETRIX_ASSERT(!(i <= ia + 1 || (i >= ib - 1 && b < xmax)) && i != x.size() - 1);
-                            auto u = U(gen);
-                            auto yi = u * y[i];
-							if (yi <= y_(i))//! occurs with high probability
-							{
-#ifdef STK_DEBUG_TRUNCATED_DIST
-								++sReturns.general_0;
-#endif
-								return x[i] + u * d(i);
-							}
-                            else
-                            {
-                                auto v = U(gen);
-                                auto xi = x[i] + dx(i) * v;
-								if (yi < normal_pdf(xi)) 
-								{
-#ifdef STK_DEBUG_TRUNCATED_DIST
-									++sReturns.general_1;
-#endif
-									return xi;
-								}
-                            }
-                        }
-						//! If it's on the two boundary need to check if result is within bounds (except when b is not inside the arrays.)
-                        else if(i+1 != x.size()) //! two extreme/boundary regions
-						{
-							GEOMETRIX_ASSERT(i <= ia + 1 || (i >= ib - 1 && b < xmax));
-                            auto u = U(gen);
-                            auto xi = x[i] + dx(i) * u;
-                            if (xi >= a && xi <= b) 
-                            {
-                                auto v = U(gen);
-                                auto yi = y[i] * v;
-								if (yi < y_(i) || yi <= normal_pdf(xi)) 
-								{
-#ifdef STK_DEBUG_TRUNCATED_DIST
-									++sReturns.boundary;
-#endif
-									return xi;
-								}
-                            }
-                        }
-                        else
-                        {
-							GEOMETRIX_ASSERT(i + 1 == x.size());//! rightmost region
-                            GEOMETRIX_ASSERT(x.back() < b);
-							T r;
-							if (devroye_normal_trunc_single_step(std::forward<Generator>(gen), U, x.back(), b, r)) 
-							{
-#ifdef STK_DEBUG_TRUNCATED_DIST
-								++sReturns.rightmost;
-#endif
-								return r;
-							}
-							else
-								continue;
-                        }
-                    }
-                }
-               
-				//! If abs(a) > abs(b), then try reversing to run in the larger range provided by xmax.
-				if (abs(a) > abs(b))
-					return -(*this)(std::forward<Generator>(gen), -b, -a);
-
-                //! Use the direct normal with rejection out of the bounds for a < xmin.
-                if (a < xmin)
-                    return normal_trunc_reject(std::forward<Generator>(gen), a, b);
-               
-                //! For a > xmax use the Devroye with exponential proposal and truncation.
-                GEOMETRIX_ASSERT(a > xmax);
-                return devroye_normal_trunc(std::forward<Generator>(gen), a, b);
-            }
-
-#ifndef STK_DEBUG_TRUNCATED_DIST
-        private:
-#endif
-            
-            void generate_tables()
-            {
-				T ltailClip = -2.0;//! Paper uses -2 as the lower bound and N-20 for upper... I just use the natural upper from the area splits instead.
-				x.resize(num_splits);
-				y.resize(num_splits - 1);
-				
-				//! Split into equal areas.
-				auto ai = 1.0 / (2.0 * N + 2);
-				auto ar = ai;
-				auto al = ai;
-
-				boost::math::normal_distribution<T> dist;
-				xmin = boost::math::quantile(dist, ar);
-				xmax = -xmin;
-	            auto q = 0.5;
-				auto xi = xmin;
-				x[0] = xi;
-				x[N] = T{};
-				y[N] = normal_pdf(0.0);
-				y[N-1] = normal_pdf(0.0);
-				x[x.size() - 1] = xmax;
-				for (auto index = 1UL; index < N; ++index)
-				{
-					auto i = N + index;
-					auto ri = N - index;
-					q = al + i * ai;
-				
-					auto yi_ = normal_pdf(x[i - 1]);
-					xi = x[i - 1] + ai / yi_;
-					x[i] = xi;
-					x[ri] = -xi;
-
-					auto yi = normal_pdf(xi);
-					y[i] = yi;
-					y[ri-1] = yi;
-				}
-				
-				GEOMETRIX_ASSERT(make_tolerance_policy().equals(q + 2.0 * ai, 1.0));
-				GEOMETRIX_ASSERT(make_tolerance_policy().equals(xmax, x.back()));
-				yr_ = normal_pdf(xmax);
-				yl_ = yr_;
-
-				//! Clip to bounds.
-                auto h = std::numeric_limits<T>::infinity();
-				auto clip = 0UL;
-				for (auto i = 1UL; i <= N; ++i)
-				{
-					if (x[i + 1] > ltailClip)
-					{
-						xmin = x[i];
-						clip = i;
-						auto yi = normal_pdf(x[i]);
-						auto yi_ = normal_pdf(x[i+1]);
-						yl_ = std::min(yi, yi_);
-						x.erase(x.begin(), x.begin() + i);
-						y.erase(y.begin(), y.begin() + i);
-						break;
-					}
-				}
-
-				//! Build the h interval minimum for the j-array indirections.
-				auto nOffset = N - clip;
-				for (auto i = 1UL; i < x.size(); ++i)
-				{
-					auto hi = x[i] - x[i - 1];
-					if (hi < h)
-						h = hi;
-				}
-
-                inv_h = 1.0 / h;
-                auto nk = std::ceil((xmax - xmin) * inv_h);
-                auto find_max = [&](std::size_t is, T kh)
-                {
-                    auto maxi = 0;
-                    for (auto i = is; i < x.size(); ++i)
-                    {
-                        if (x[i] <= kh)
-                            maxi = i;
-                        else
-                            break;
-                    }
-
-                    return maxi;
-                };
-
-                auto last = 0UL;
-				auto k = 0UL;
-                for(auto kh = xmin;kh <= xmax;++k,kh = xmin + k*h)
-                {
-                    j.emplace_back(find_max(last, kh));
-                    last = j.back();
-                }
-
-                for (k = 0UL; k < j.size(); ++k) 			
-                {
-                    if (j[k] == nOffset)
-                    {
-                        ioffset = k;
-                        break;
-                    }
-                }
-
-                GEOMETRIX_ASSERT(stk::make_tolerance_policy().equals(0.0, x[j[ioffset]]));
-            }
-
-            std::uint32_t get_i(T x) const
-            {
-                std::ptrdiff_t i = ioffset + std::floor(x * inv_h);
-                GEOMETRIX_ASSERT(i >= 0 && i < j.size());
-                return i;
-            }
-
-            T y_(std::uint32_t i) const
-            {
-                if (i > 0 && (i + 1 < y.size())) 
-                {
-					auto i0 = j[ioffset];
-                    return i < i0 ? y[i - 1] : y[i + 1];
-                }
-
-				return i ? yr_ : yl_;
-            }
-
-            T dx(std::uint32_t i) const
-            {
-                GEOMETRIX_ASSERT(i < x.size() - 1);
-                return x[i + 1] - x[i];
-            }
-            
-            T d(std::uint32_t i) const
-            {
-                return dx(i) * y[i] / y_(i);
-            }
-
-            T xmin, xmax;
-            T inv_h;
-            T yr_;
-            T yl_;
-            std::uint16_t ioffset;
-            std::vector<std::uint16_t> j;
-            std::vector<T> x;
-            std::vector<T> y;
-        };
-    }//! namespace detail;
 
     template<typename T = double>
 	class truncated_normal_distribution
@@ -506,9 +24,13 @@ namespace stk {
                 , m_sigma(sigma)
                 , m_min(lower)
                 , m_max(upper)
-            {}
+            {
+                boost::math::normal_distribution<T> dist(mean, sigma);
+                m_min_quantile = boost::math::cdf(dist, m_min);
+                m_max_quantile = boost::math::cdf(dist, m_max);
+            }
 
-            bool operator ==(const param_type& rhs) const
+			bool operator ==(const param_type& rhs) const
             {	
                 return m_mean == m_right.m_mean && m_sigma == m_right.m_sigma;
             }
@@ -522,18 +44,38 @@ namespace stk {
             T sigma() const { return m_sigma; }
             T lower() const { return m_min; }
             T upper() const { return m_max; }
+            T lower_quantile() const { return m_min_quantile; }
+            T upper_quantile() const { return m_max_quantile; }
             
-            bool is_standard_normal() const { return detail::is_standard_normal(m_mean, m_sigma); }
-            T scale_to_general(T x) const { return detail::scale_to_general_normal(x, m_mean, m_sigma); }
-            T standard_normal_lower() const { return detail::scale_to_standard_normal(m_min, m_mean, m_sigma); }
-            T standard_normal_upper() const { return detail::scale_to_standard_normal(m_max, m_mean, m_sigma); }
+            bool is_standard_normal() const { return is_standard_normal(m_mean, m_sigma); }
+            T scale_to_general(T x) const { return scale_to_general_normal(x, m_mean, m_sigma); }
+            T standard_normal_lower() const { return scale_to_standard_normal(m_min, m_mean, m_sigma); }
+            T standard_normal_upper() const { return scale_to_standard_normal(m_max, m_mean, m_sigma); }
 
         private:
+
+			static bool is_standard_normal(T m, T s)
+			{
+				using namespace geometrix;
+				return m == constants::zero<T>() && s == constants::one<T>();
+			}
+
+			static T scale_to_standard_normal(T x, T m, T s)
+			{
+				return (x - m) / s;
+			}
+
+			static T scale_to_general_normal(T x, T m, T s)
+			{
+				return x * s + m;
+			}
 
             T m_mean;
             T m_sigma;
             T m_min;
             T m_max;
+            T m_min_quantile;
+            T m_max_quantile;
 
 		};
 
@@ -562,17 +104,19 @@ namespace stk {
     	template<typename Engine>
 		result_type operator()(Engine& e) 
         {
-            if(!m_parameters.is_standard_normal())
-                return m_parameters.scale_to_general(get_helper()(e, m_parameters.standard_normal_lower(), m_parameters.standard_normal_upper()));
-		    return get_helper()(e, m_parameters.lower(), m_parameters.upper());
+			return this->operator()(e, m_parameters);
 		}
 
 	    template<typename Engine>
 		result_type operator()(Engine& e, const param_type& params)
 		{
-            if(!m_parameters.is_standard_normal())
-                return params.scale_to_general(get_helper()(e, params.standard_normal_lower(), params.standard_normal_upper()));
-		    return get_helper()(e, params.lower(), params.upper());
+            std::uniform_real_distribution<T> U(params.lower_quantile(), params.upper_quantile());
+            auto u = U(e);
+			boost::math::normal_distribution<T> dist;
+            auto r = boost::math::quantile(dist, u);
+			if (m_parameters.is_standard_normal())
+				return r;
+			return params.scale_to_general(r);
 		}
 
 	    template<typename CharT, typename Traits>
@@ -585,7 +129,7 @@ namespace stk {
             str >> sigma;
             str >> a;
             str >> b;
-            m_parameters.init(mean, sigma, a, b);
+            m_parameters = param_type(mean, sigma, a, b);
             return str;
 		}
 
@@ -598,24 +142,6 @@ namespace stk {
             str << m_parameters.m_max;
 		    return str;
 		}
-
-		//! Convenience method to generate the singleton helper in a single thread context. This makes subsequent calls thread safe.
-		void make_thread_safe() const
-		{
-			get_helper();
-		}
-
-#ifndef STK_DEBUG_TRUNCATED_DIST
-    private:
-#endif
-
-		static const std::uint16_t num_splits = 2050;//! This value should be tuned for size and passing any chi-squared tests.
-	    static detail::truncated_normal_helper<T, num_splits>& get_helper()
-        {
-			using namespace detail;
-            static auto instance = truncated_normal_helper<T, num_splits>();
-            return instance;
-        }
 
     private:
 

@@ -187,11 +187,13 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 	for (auto i = 0ULL; i < nruns; ++i) {
 		{
 			auto v = normal_trunc_reject(gen, l, h);
+			GEOMETRIX_ASSERT(v >= l && v <= h);
 			nhist.fill(v);
 			ndata[i] = v;
 		}
 		{
 			auto v = cdist(gen);
+			GEOMETRIX_ASSERT(v >= l && v <= h);
 			chist.fill(v);
 			cdata[i] = v;
 		}
