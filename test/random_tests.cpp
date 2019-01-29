@@ -230,7 +230,7 @@ TEST_P(ks_test_fixture, compare_truncated_dist_against_normal_sampler)
 	double d, p;
 	std::tie(d, p) = nhist.chi_squared_test(chist);
 	GTEST_MESSAGE("Test: ") << l << "_" << h << " Chi2: " << d << " P-value: " << p;
-	EXPECT_GT(p, 0.01);
+	EXPECT_GT(p, 0.05);
 }
 
 INSTANTIATE_TEST_CASE_P(validate_chopin, ks_test_fixture, ::testing::Values(
@@ -365,3 +365,45 @@ TEST(truncated_normal_test_suite, brute_hueristic_timing)
 	EXPECT_TRUE(sum > 0.0);
 }
 
+#include <stk/random/xoroshiro128plus_generator.hpp>
+TEST(xoroshiro128plus_generator_test_suite, construct)
+{
+	auto sut = stk::xoroshiro128plus_generator{};
+	auto v = sut();
+}
+
+#include <stk/random/xorshift1024starphi_generator.hpp>
+TEST(xorshift1024starphi_test_suite, construct)
+{
+	auto sut = stk::xorshift1024starphi_generator{};
+	auto v = sut();
+	auto l = -4.0;
+	auto h = 4.0;
+	stk::histogram_1d<double> chist(1000, l, h);
+	stk::histogram_1d<double> nhist(1000, l, h);
+	stk::truncated_normal_distribution<> cdist(l, h);
+
+	std::size_t nruns = 10000000ULL;
+	auto gen = stk::xoroshiro128plus_generator{};
+	for (auto i = 0ULL; i < nruns; ++i) 
+	{
+		auto v = cdist(gen);
+		GEOMETRIX_ASSERT(v >= l && v <= h);
+		chist.fill(v);
+
+		v = normal_trunc_reject(gen, l, h);
+		GEOMETRIX_ASSERT(v >= l && v <= h);
+		nhist.fill(v);
+	}
+
+#if defined(STK_EXPORT_HISTS)
+	std::stringstream nname;
+	nname << "e:/data_xoshiro_chopin" << l << "_" << h << ".csv";
+	std::ofstream ofs(nname.str());
+	write_hist(ofs, chist);
+#endif
+	double d, p;
+	std::tie(d, p) = nhist.chi_squared_test(chist);
+	GTEST_MESSAGE("Test: ") << l << "_" << h << " Chi2: " << d << " P-value: " << p;
+	EXPECT_GT(p, 0.05);
+}

@@ -37,9 +37,11 @@ namespace stk {
     {
     public:
 
-        xorshift128plus_generator(std::uint64_t seed = 42)
+        static const std::uint64_t default_seed = 42ULL;
+
+        xorshift128plus_generator(std::uint64_t seed = default_seed)
         {
-            seed(seed);
+            this->seed(seed);
         }
 
         using result_type = std::uint64_t;
@@ -61,8 +63,11 @@ namespace stk {
         
         void seed(std::uint64_t seed = 42)
         {
+            std::uint32_t temp[4];
             std::seed_seq seq{seed};
-            seq.generate(m_state.begin(), m_state.end());
+            seq.generate(temp, temp + 4);
+            m_state[0] = reinterpret_cast<std::uint64_t*>(temp)[0];
+            m_state[1] = reinterpret_cast<std::uint64_t*>(temp)[1];
         }
 
     private:

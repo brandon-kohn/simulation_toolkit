@@ -34,12 +34,12 @@ namespace stk {
 
 			bool operator ==(const param_type& rhs) const
             {	
-                return m_mean == m_right.m_mean && m_sigma == m_right.m_sigma;
+                return m_mean == rhs.m_mean && m_sigma == rhs.m_sigma;
             }
 
-            bool operator !=(const param_type& m_right) const
+            bool operator !=(const param_type& right) const
             {
-                return !(*this == m_right);
+                return !(*this == right);
             }
 
             T mean() const { return m_mean; }

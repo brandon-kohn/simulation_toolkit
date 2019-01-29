@@ -38,9 +38,11 @@ namespace stk {
     {
     public:
 
-        xorshift1024starphi_generator(std::uint64_t seed = 42)
+        static const std::uint64_t default_seed = 42ULL;
+
+        xorshift1024starphi_generator(std::uint64_t seed = default_seed)
         {
-            set_seed(seed);
+            this->seed(seed);
         }
 
         using result_type = std::uint64_t;
@@ -59,10 +61,27 @@ namespace stk {
             return r;
         }
         
-        void set_seed(std::uint64_t seed = 42)
+        void seed(std::uint64_t seed = 42)
         {
+            std::uint32_t temp[32];
             std::seed_seq seq{seed};
-            seq.generate(m_state.begin(), m_state.end());
+            seq.generate(temp, temp + 32);
+            m_state[0] = reinterpret_cast<std::uint64_t*>(temp)[0];
+            m_state[1] = reinterpret_cast<std::uint64_t*>(temp)[1];
+            m_state[2] = reinterpret_cast<std::uint64_t*>(temp)[2];
+            m_state[3] = reinterpret_cast<std::uint64_t*>(temp)[3];
+            m_state[4] = reinterpret_cast<std::uint64_t*>(temp)[4];
+            m_state[5] = reinterpret_cast<std::uint64_t*>(temp)[5];
+            m_state[6] = reinterpret_cast<std::uint64_t*>(temp)[6];
+            m_state[7] = reinterpret_cast<std::uint64_t*>(temp)[7];
+            m_state[8] = reinterpret_cast<std::uint64_t*>(temp)[8];
+            m_state[9] = reinterpret_cast<std::uint64_t*>(temp)[9];
+            m_state[10] = reinterpret_cast<std::uint64_t*>(temp)[10];
+            m_state[11] = reinterpret_cast<std::uint64_t*>(temp)[11];
+            m_state[12] = reinterpret_cast<std::uint64_t*>(temp)[12];
+            m_state[13] = reinterpret_cast<std::uint64_t*>(temp)[13];
+            m_state[14] = reinterpret_cast<std::uint64_t*>(temp)[14];
+            m_state[15] = reinterpret_cast<std::uint64_t*>(temp)[15];
         }
 
     private:

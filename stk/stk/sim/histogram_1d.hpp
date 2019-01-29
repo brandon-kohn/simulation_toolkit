@@ -88,7 +88,7 @@ class histogram_1d
 public:
 
 	using value_type = T;
-	static const std::size_t invalid_bin = (std::numeric_limits<std::size_t>::max)(); 
+	static const std::size_t invalid_bin = static_cast<std::size_t>(-1);
 
 	histogram_1d(std::size_t nbins, T xlo, T xhi)
 		: m_axis(nbins, xlo, xhi)

@@ -42,7 +42,9 @@ namespace stk {
 
     public:
 
-        xoroshiro128plus_generator(std::uint64_t seed = 42)
+        static const std::uint64_t default_seed = 42ULL;
+
+        xoroshiro128plus_generator(std::uint64_t seed = default_seed)
         {
             this->seed(seed);
         }
@@ -67,8 +69,11 @@ namespace stk {
 
         void seed(std::uint64_t seed = 42)
         {
+			std::uint32_t temp[4];
             std::seed_seq seq{seed};
-            seq.generate(m_state.begin(), m_state.end());
+            seq.generate(temp, temp + 4);
+            m_state[0] = reinterpret_cast<std::uint64_t*>(temp)[0];
+            m_state[1] = reinterpret_cast<std::uint64_t*>(temp)[1];
         }
 
     private:
