@@ -52,6 +52,12 @@ namespace units {
     using curvature = spatial_frequency;
     using curvature_squared = decltype(curvature() * curvature());
     using curvature_cubed = decltype(curvature() * curvature_squared());
+    using boost::units::si::seconds;
+    using boost::units::si::meters;
+    using boost::units::si::meters_per_second;
+    using boost::units::si::meters_per_second_squared;
+    using boost::units::si::square_meters;
+    using boost::units::si::square_meter;
 
     template <typename T>
     inline T get_underlying_value(T v)

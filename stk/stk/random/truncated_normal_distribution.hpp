@@ -27,6 +27,7 @@ namespace stk {
                 , m_min(lower)
                 , m_max(upper)
             {
+                GEOMETRIX_ASSERT(lower < upper);
                 boost::math::normal_distribution<T> dist(mean, sigma);
                 m_min_quantile = boost::math::cdf(dist, m_min);
                 m_max_quantile = boost::math::cdf(dist, m_max);

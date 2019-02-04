@@ -156,18 +156,7 @@ namespace stk {
     {
         ClipperLib::Clipper clip;
         to_clipper(clip, a, ClipperLib::ptSubject, scale);
-        to_clipper(clip, b, ClipperLib::ptSubject, scale);
-
-        ClipperLib::PolyTree ptree;
-        clip.Execute(ClipperLib::ctIntersection, ptree);
-        return to_polygons_with_holes(ptree, scale);
-    }
-
-    template <typename Geometry1>
-    inline std::vector<polygon_with_holes2> clipper_intersection(Geometry1&& a, unsigned int scale)
-    {
-        ClipperLib::Clipper clip;
-        to_clipper(clip, a, ClipperLib::ptSubject, scale);
+        to_clipper(clip, b, ClipperLib::ptClip, scale);
 
         ClipperLib::PolyTree ptree;
         clip.Execute(ClipperLib::ctIntersection, ptree);
