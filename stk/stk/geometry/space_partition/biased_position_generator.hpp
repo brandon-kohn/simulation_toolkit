@@ -3,6 +3,7 @@
 #include <stk/geometry/primitive/polygon.hpp>
 #include <stk/geometry/space_partition/bsp_tree.hpp>
 #include <stk/geometry/space_partition/rtree_triangle_cache.ipp>
+#include <stk/geometry/space_partition/poly2tri_mesh.hpp>
 #include <geometrix/algorithm/mesh_2d.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/algorithm/hyperplane_partition_policies.hpp>
@@ -160,58 +161,6 @@ namespace stk {
             }
 
             return std::vector<point2>(results.begin(), results.end());
-        }
-
-        stk::mesh2 generate_mesh( const stk::polygon2& polygon, const std::vector<stk::point2>& steinerPoints )
-        {
-            using namespace stk;
-            using namespace geometrix;
-            if (polygon.empty() || !is_polygon_simple(polygon, make_tolerance_policy()))
-                throw std::invalid_argument("polygon not simple");
-
-            std::vector<p2t::Point*> polygon_, memory;
-            STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
-
-            for( const auto& p : polygon )
-            {
-                polygon_.push_back( new p2t::Point( get<0>( p ).value(), get<1>( p ).value() ) );
-                memory.push_back( polygon_.back() );
-            }
-
-            p2t::CDT cdt( polygon_ );
-
-            for (const auto& p : steinerPoints) 
-            {
-                auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
-                memory.push_back(p_);
-                cdt.AddPoint(p_);
-            }
-
-            std::map<p2t::Point*, std::size_t> indices;
-            auto& cdtPoints = cdt.GetPoints();
-            for( std::size_t i = 0; i < cdtPoints.size(); ++i )
-                indices[cdtPoints[i]] = i;
-
-            cdt.Triangulate();
-
-            std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
-            std::vector<std::size_t> iArray;
-            polygon2 points( indices.size() );
-            for( const auto& item : indices )
-                geometrix::assign( points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
-
-            for( auto* triangle : triangles )
-            {
-                for( int i = 0; i < 3; ++i )
-                {
-                    auto* p = triangle->GetPoint( i );
-                    auto it = indices.find( p );
-                    GEOMETRIX_ASSERT( it != indices.end() );
-                    iArray.push_back( it->second );
-                }
-            }
-
-            return mesh2( points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder() );
         }
 
         template <typename Polygon>
