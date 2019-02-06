@@ -7,6 +7,7 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/optional.hpp>
 #include <cstdint>
+#include <type_traits>
 #include <memory>
 
 namespace turf { namespace util {
@@ -34,38 +35,43 @@ namespace stk {
 	namespace unordered_map_detail {
 
 		template <typename T, typename EnableIf=void>
-		struct data_value_traits
-		{
-			using Value = T;
-			using IntType = typename turf::util::BestFit<T>::Unsigned;
-			static const IntType NullValue = (std::numeric_limits<T>::max)();
-			static const IntType Redirect = (std::numeric_limits<T>::max)() - 1;
-		};
-		
+		struct data_value_traits;
+
 		template <typename T>
-		struct data_value_traits<T, typename std::enable_if<std::is_floating_point<T>::value>::type>
+		struct data_value_traits<T, typename std::enable_if<std::is_integral<T>::value>::type>
 		{
 			using Value = T;
 			using IntType = typename turf::util::BestFit<T>::Unsigned;
-			static const IntType NullValue = (std::numeric_limits<T>::max)();
-			static const IntType Redirect = std::numeric_limits<T>::lowest();
+			static const IntType NullValue = ULLONG_MAX;// (std::numeric_limits<T>::max)();
+			static const IntType Redirect = NullValue - 1;// (std::numeric_limits<T>::max)() - 1;
+			static bool is_valid(Value v)
+			{
+				return NullValue != (IntType)v && Redirect != (IntType)v;
+			}
 		};
 		
 		template <typename T>
 		struct data_value_traits<T, typename std::enable_if<std::is_pointer<T>::value>::type>
 		{
-			using Value = T * ;
-			using IntType = typename turf::util::BestFit<T*>::Unsigned;
-			static const IntType NullValue = 0;
-			static const IntType Redirect = 1;
+			using Value = T;
+			using IntType = typename turf::util::BestFit<T>::Unsigned;
+			static const IntType NullValue = 1;//0;
+			static const IntType Redirect = 2;
+			static bool is_valid(Value v)
+			{
+				return NullValue != (IntType)v && Redirect != (IntType)v;
+			}
 		};
 
 	}//! namespace unordered_map_detail;
 
+	//! Stores an integral or pointer data item under and integral or pointer key. Does not assume ownership of data or keys.
+	//! NOTE: For pointer types the values of 1 and 2 are reserved for internal tracking.
+	//! NOTE: For integral types the max and max-1 values of the integral type are reserved for internal tracking. 
 	template<typename Key_, typename Data, typename MemoryReclamationPolicy = junction::DefaultMemoryReclamationPolicy>
 	class concurrent_numeric_unordered_map
 	{
-		static_assert(std::is_integral<Data>::value || std::is_floating_point<Data>::value || std::is_pointer<Data>::value, "The Data type must be a fundamental arithmetic type or a pointer.");
+		static_assert(std::is_integral<Data>::value || std::is_pointer<Data>::value, "The Data type must be a integral type or a pointer.");
 		static_assert((std::is_integral<Key_>::value || std::is_pointer<Key_>::value) && sizeof(Key_) <= sizeof(std::uint64_t), "The Key type of concurrent_unordered_map must be convertible to std::uint64_t. i.e. either an integral type or a pointer.");
 
 		struct uint64_key_traits
@@ -84,13 +90,15 @@ namespace stk {
 			}
 		};
 
+		using data_traits = stk::unordered_map_detail::data_value_traits<Data>;
+
 	public:
 
 		using key_type = Key_;
 		using mapped_type = Data;
 
 	private:
-		using map_type = junction::ConcurrentMap_Leapfrog<std::uint64_t, mapped_type, uint64_key_traits, stk::unordered_map_detail::data_value_traits<Data>, MemoryReclamationPolicy>;
+		using map_type = junction::ConcurrentMap_Leapfrog<std::uint64_t, mapped_type, uint64_key_traits, data_traits, MemoryReclamationPolicy>;
 
 		template <typename T>
 		class hash_iterator : public boost::iterator_facade<hash_iterator<T>, T, boost::forward_traversal_tag>
@@ -153,7 +161,6 @@ namespace stk {
 	public:
 
 		using value_type = mapped_type;
-		using iterator = hash_iterator<value_type>;
 		using const_iterator = hash_iterator<const value_type>;
 
 		concurrent_numeric_unordered_map() = default;
@@ -166,8 +173,8 @@ namespace stk {
 		boost::optional<Data> find(key_type k) const
 		{
 			auto iter = m_map.find((std::uint64_t)k);
-			if (iter.isValid()) {
-				GEOMETRIX_ASSERT(iter.getValue() != (mapped_type)stk::unordered_map_detail::data_value_traits<Data>::Redirect);
+			if (iter.isValid() && iter.getValue() != (mapped_type)data_traits::NullValue) {
+				GEOMETRIX_ASSERT(iter.getValue() != (mapped_type)data_traits::Redirect);
 				return iter.getValue();
 			}
 
@@ -176,10 +183,11 @@ namespace stk {
 
 		std::pair<Data, bool> insert(key_type k, value_type data)
 		{
+			GEOMETRIX_ASSERT(data_traits::is_valid(data));
 			auto mutator = m_map.insertOrFind((std::uint64_t)k);
 			auto result = mutator.getValue();
 			auto wasInserted = false;
-			if (result == (mapped_type)stk::unordered_map_detail::data_value_traits<Data>::NullValue)
+			if (result == (mapped_type)data_traits::NullValue)
 			{
 				result = data;
 				auto oldData = mutator.exchangeValue(result);
@@ -228,14 +236,6 @@ namespace stk {
 		bool empty() const
 		{
 			return cbegin() == cend();
-		}
-		iterator begin()
-		{
-			return iterator{ typename map_type::Iterator{ m_map } };
-		}
-		iterator end()
-		{
-			return iterator{ typename map_type::Iterator{} };
 		}
 		const_iterator begin() const
 		{

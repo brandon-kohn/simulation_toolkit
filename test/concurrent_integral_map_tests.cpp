@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include <stk/container/concurrent_pointer_unordered_map.hpp>
 #include <stk/container/concurrent_numeric_unordered_map.hpp>
@@ -236,4 +237,73 @@ TEST(concurrent_pointer_unordered_map_test_suite, iterator_compare)
 
 	junction::DefaultQSBR().flush();
 	EXPECT_EQ(0, cell::update(0));
+}
+
+TEST(concurrent_numeric_unordered_map_test_suite, insert)
+{
+	using namespace stk;
+	using ::testing::NotNull;
+	auto sut = concurrent_numeric_unordered_map<std::uint64_t, int>{};
+
+	sut.insert(10, 20);
+	ASSERT_TRUE(sut.find(10));
+	EXPECT_EQ(20, *sut.find(10));
+}
+
+TEST(concurrent_numeric_unordered_map_test_suite, erase)
+{
+	using namespace stk;
+	using ::testing::NotNull;
+	auto sut = concurrent_numeric_unordered_map<std::uint64_t, int>{};
+
+	sut.insert(10, 20);
+	sut.erase(10);
+	EXPECT_FALSE(sut.find(10));
+}
+
+TEST(concurrent_numeric_unordered_map_test_suite, pointer_key_insert)
+{
+	using namespace stk;
+	using ::testing::NotNull;
+	auto sut = concurrent_numeric_unordered_map<int*, int*>{};
+
+	int* key0 = reinterpret_cast<int*>(0xBAADF00D);
+	int* data = reinterpret_cast<int*>(0xBAADF00D);
+	sut.insert(key0, data);
+	sut.erase(key0);
+	EXPECT_FALSE(sut.find(key0));
+}
+
+TEST(concurrent_numeric_unordered_map_test_suite, iterator_compare)
+{
+	using namespace stk;
+	using namespace stk::thread;
+	{
+		using sut_t = concurrent_numeric_unordered_map<int*, int*>;
+		auto sut = sut_t{};
+
+		for (int i = 3; i < extent; ++i) 
+		{
+			sut.insert((int*)i, (int*)i);
+		}
+
+		for (auto it1 = sut.cbegin(), it2 = sut.cbegin(); it1 != sut.cend(); ++it1, ++it2) 
+		{
+			EXPECT_EQ(it1, it2);
+		}
+	}
+}
+
+TEST(concurrent_numeric_unordered_map_test_suite, DISABLED_death_on_null_insert)
+{
+	using namespace stk;
+	auto sut = concurrent_numeric_unordered_map<int*, int*>{};
+	ASSERT_DEBUG_DEATH(sut.insert(0, 0), "\.+");
+}
+
+TEST(concurrent_pointer_unordered_map_test_suite, death_on_null_insert)
+{
+	using namespace stk;
+	auto sut = concurrent_pointer_unordered_map<int*, int>{};
+	ASSERT_DEBUG_DEATH(sut.insert(0, std::unique_ptr<int>{}), "\.+");
 }

@@ -54,11 +54,18 @@ namespace stk { namespace unordered_map_detail {
             using IntType = typename turf::util::BestFit<T*>::Unsigned;
             static const IntType NullValue = 0;
             static const IntType Redirect = 1;
+			static bool is_valid(Value v)
+			{
+				return NullValue != (IntType)v && Redirect != (IntType)v;
+			}
+
         };
 
     }//! namespace unordered_map_detail;
 
-    //! The erase policy specifies ownership semantics of the pointers to Data held by the map.
+	//! A concurrent map that holds pointers to data and exercises ownership semantics over those pointers.
+	//! NOTE: Does not support holding null ptrs as data.
+	//! NOTE: If a null_deleter policy is used, the emplace method will leak data if not externally managed.
     template<typename Key_, typename Data, typename OnErasePolicy = std::default_delete<Data>, typename MemoryReclamationPolicy = junction::DefaultMemoryReclamationPolicy>
     class concurrent_pointer_unordered_map
     {
@@ -158,6 +165,7 @@ namespace stk { namespace unordered_map_detail {
 
         std::pair<data_ptr, bool> insert(key_type k, std::unique_ptr<Data, erase_policy>&& pData)
         {
+			GEOMETRIX_ASSERT(pointer_traits::is_valid(pData.get()));
 			auto mutator = m_map.insertOrFind((std::uint64_t)k);
             auto result = mutator.getValue();
             auto wasInserted = false;
