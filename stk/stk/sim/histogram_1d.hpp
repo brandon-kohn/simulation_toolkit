@@ -185,7 +185,7 @@ public:
 			return T{};
 		}
 
-		std::uniform_real_distribution<> U();
+		std::uniform_real_distribution<> U;
 		auto r = U(eng);
 		auto it = std::lower_bound(m_cdf.begin(), m_cdf.end(), r);
 		std::size_t ibin = std::distance(m_cdf.begin(), it);
