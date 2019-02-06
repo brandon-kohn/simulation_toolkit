@@ -121,7 +121,7 @@ namespace stk {
 
 			bool is_valid() const
 			{
-				return m_iterator.isValid() && m_iterator->getValue() != typename map_type::ValueTraits::NullValue;
+				return m_iterator.isValid() && m_iterator->getValue() != data_traits::NullValue;
 			}
 
 			key_type key() const
