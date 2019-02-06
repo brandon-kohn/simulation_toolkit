@@ -294,13 +294,6 @@ TEST(concurrent_numeric_unordered_map_test_suite, iterator_compare)
 	}
 }
 
-TEST(concurrent_numeric_unordered_map_test_suite, DISABLED_death_on_null_insert)
-{
-	using namespace stk;
-	auto sut = concurrent_numeric_unordered_map<int*, int*>{};
-	ASSERT_DEBUG_DEATH(sut.insert(0, 0), "\.+");
-}
-
 TEST(concurrent_pointer_unordered_map_test_suite, death_on_null_insert)
 {
 	using namespace stk;

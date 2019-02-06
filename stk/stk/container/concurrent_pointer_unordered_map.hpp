@@ -243,7 +243,7 @@ namespace stk { namespace unordered_map_detail {
             };
         }
 
-		//! Iterator interface
+		//! Iterator interface - iteration is not safe in the presence of inserts.
 		bool empty() const { return cbegin() == cend(); }
 		iterator begin() { return iterator{ typename map_type::Iterator{ m_map } }; }
 		iterator end() { return iterator{ typename map_type::Iterator{} }; }
