@@ -101,9 +101,9 @@ namespace stk {
 
 	    void param(const param_type& params) { m_parameters = params; }
 
-	    result_type (min)() const {	return numeric_limits<result_type>::denorm_min(); }
+	    result_type (min)() const {	return std::numeric_limits<result_type>::denorm_min(); }
 
-    	result_type (max)() const { return (numeric_limits<result_type>::max)(); }
+    	result_type (max)() const { return (std::numeric_limits<result_type>::max)(); }
 
 	    void reset() { }
 
