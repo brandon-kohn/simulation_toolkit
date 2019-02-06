@@ -304,17 +304,9 @@ private:
 
 		auto inv = 1.0 / m_cdf[nbins];
 		for (auto i = 1UL; i <= nbins; ++i)
-			m_cdf[bin] *= inv;
+			m_cdf[i] *= inv;
 
 		return true;
-	}
-
-	T get_cdf() const
-	{
-		if (cdf_valid())
-			return m_cdf[get_number_bins()];
-		else
-			return compute_cdf_array();
 	}
 
     axis           m_axis;
