@@ -105,7 +105,7 @@ namespace stk { namespace unordered_map_detail {
 
 			bool is_valid() const
 			{
-				return m_iterator.isValid() && m_iterator->getValue() != typename map_type::ValueTraits::NullValue;
+				return m_iterator.isValid() && m_iterator->getValue() != pointer_traits::NullValue;
 			}
 
             key_type key() const { return (key_type)m_iterator.getKey(); }
