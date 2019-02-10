@@ -212,13 +212,7 @@ namespace stk { namespace detail {
         friend class node_iterator;
 
         template <typename U>
-        class node_iterator
-            : public boost::iterator_facade
-            <
-                node_iterator<U>
-              , U
-              , boost::bidirectional_traversal_tag
-            >
+        class node_iterator : public boost::iterator_facade<node_iterator<U>, U, boost::bidirectional_traversal_tag>
         {
         public:
 
@@ -229,7 +223,8 @@ namespace stk { namespace detail {
                 , m_index((std::numeric_limits<size_type>::max)())
             {}
 
-            node_iterator(const node_iterator& other)
+			template <typename U>
+            node_iterator(const node_iterator<U>& other)
                 : m_pNode(other.m_pNode)
 #ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
                 , m_pNodeManager(other.m_pNodeManager)
@@ -284,7 +279,7 @@ namespace stk { namespace detail {
                 return *this;
             }
 
-            explicit node_iterator(concurrent_vector<value_type, allocator_type>* myVector, node_ptr pNode, size_type index)
+            node_iterator(concurrent_vector<value_type, allocator_type>* myVector, node_ptr pNode, size_type index)
                 : m_pNode(pNode)
 #ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
                 , m_pNodeManager(myVector->get_scope_manager())
@@ -316,6 +311,7 @@ namespace stk { namespace detail {
             }
 
             friend class boost::iterator_core_access;
+			template <typename> friend class node_iterator;
 
 #ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
             void release()
@@ -422,97 +418,8 @@ namespace stk { namespace detail {
 
     public:
 
-        struct const_iterator;
-
-        struct iterator : node_iterator< value_type >
-        {
-            using base_t = node_iterator<value_type>;
-
-            iterator()
-                : node_iterator< value_type >()
-            {}
-
-            iterator(const iterator&) = default;
-            iterator& operator=(const iterator&) = default;
-			iterator(iterator&& o)
-				: node_iterator<value_type>(std::forward<iterator>(o))
-			{}
-			iterator& operator=(iterator&& o)
-			{
-				node_iterator<value_type>::operator =(std::forward<iterator>(o));
-				return *this;
-			}
-
-            iterator(concurrent_vector<value_type, allocator_type>* myVector, node_ptr pNode, size_type index)
-                : node_iterator< value_type >(myVector, pNode, index)
-            {}
-
-            template <typename U>
-            bool operator ==(node_iterator<U> const& other) const
-            {
-                return base_t::equal(other);
-            }
-
-            template <typename U>
-            bool operator !=(node_iterator<U> const& other) const
-            {
-                return !base_t::equal(other);// this->m_pNode != other.m_pNode;
-            }
-        };
-
-        struct const_iterator : node_iterator<const value_type>
-        {
-            using base_t = node_iterator<const value_type>;
-
-            const_iterator()
-                : node_iterator<const value_type>()
-            {}
-
-            const_iterator(const const_iterator&) = default;
-            const_iterator& operator=(const const_iterator&) = default;
-			const_iterator(const_iterator&& o)
-				: node_iterator<const value_type>(std::forward<const_iterator>(o))
-			{}
-			const_iterator& operator=(const_iterator&& o)
-			{
-				node_iterator<const value_type>::operator =(std::forward<const_iterator>(o));
-				return *this;
-			}
-
-            const_iterator(const concurrent_vector<value_type, allocator_type>* myVector, node_ptr pNode, size_type index)
-                : node_iterator<const value_type>(const_cast<concurrent_vector<value_type, allocator_type>*>(myVector), pNode, index)
-            {}
-
-            const_iterator(iterator const& other)
-                : node_iterator< const value_type >(other)
-            {}
-
-            const_iterator operator =(iterator const& other)
-            {
-                this->m_pNode = other.m_pNode;
-                return *this;
-            }
-
-            bool operator ==(iterator const& other) const
-            {
-                return base_t::equal(other);// this->m_pNode == other.m_pNode;
-            }
-
-            bool operator ==(const_iterator const& other) const
-            {
-                return base_t::equal(other);// this->m_pNode == other.m_pNode;
-            }
-
-            bool operator !=(iterator const& other) const
-            {
-                return !base_t::equal(other);// this->m_pNode != other.m_pNode;
-            }
-
-            bool operator !=(const_iterator const& other) const
-            {
-                return !base_t::equal(other);// this->m_pNode != other.m_pNode;
-            }
-        };
+		using iterator = node_iterator<value_type>;
+		using const_iterator = node_iterator<const value_type>;
 
         concurrent_vector()
             : concurrent_vector(allocator_type())
@@ -801,13 +708,13 @@ namespace stk { namespace detail {
         const_iterator begin() const
         {
             auto pNode = at_impl(0)->load(std::memory_order_relaxed);
-            return const_iterator(this, pNode, 0);
+            return const_iterator(const_cast<concurrent_vector*>(this), pNode, 0);
         }
 
         const_iterator cbegin() const
         {
             auto pNode = at_impl(0)->load(std::memory_order_relaxed);
-            return const_iterator(this, pNode, 0);
+            return const_iterator(const_cast<concurrent_vector*>(this), pNode, 0);
         }
 
         iterator end()
@@ -817,12 +724,12 @@ namespace stk { namespace detail {
 
         const_iterator end() const
         {
-            return const_iterator(this, nullptr, size());
+            return const_iterator(const_cast<concurrent_vector*>(this), nullptr, size());
         }
 
         const_iterator cend() const
         {
-            return const_iterator(this, nullptr, size());
+            return const_iterator(const_cast<concurrent_vector*>(this), nullptr, size());
         }
 
         size_type capacity() const
