@@ -45,6 +45,19 @@ private:
         return ((((storage_type)ptr) & ~(storage_type)1) | (mark));
     }
 
+    BOOST_CONSTEXPR std::memory_order failure_order(std::memory_order order) BOOST_NOEXCEPT
+	{
+		switch (order) 
+		{
+			case std::memory_order_acq_rel:
+				return std::memory_order_acquire;
+			case std::memory_order_release:
+				return std::memory_order_relaxed;
+			default:
+				return order;
+		};
+	}
+
 public:
 
     atomic_markable_ptr() = default;
@@ -140,7 +153,7 @@ public:
     {
         auto pPtrExpected = combine(expectedPtr, expectedStamp);
         auto pPtrDesired = combine(desiredPtr, desiredStamp);
-        if( m_ptr.compare_exchange_weak(pPtrExpected, pPtrDesired, order))
+        if(m_ptr.compare_exchange_weak(pPtrExpected, pPtrDesired, order, failure_order(order)))
             return true;
         expectedPtr = extract_ptr(pPtrExpected);
         expectedStamp = extract_mark(pPtrExpected);
@@ -151,7 +164,7 @@ public:
     {
         auto pPtrExpected = combine(expectedPtr, expectedStamp);
         auto pPtrDesired = combine(desiredPtr, desiredStamp);
-        if( m_ptr.compare_exchange_strong(pPtrExpected, pPtrDesired, order))
+        if(m_ptr.compare_exchange_strong(pPtrExpected, pPtrDesired, order, failure(order)))
             return true;
         expectedPtr = extract_ptr(pPtrExpected);
         expectedStamp = extract_mark(pPtrExpected);
