@@ -179,13 +179,15 @@ TEST(lock_free_concurrent_vector, bash_concurrency_test)
 	work_stealing_thread_pool<mc_queue_traits> pool(10);
 
 	auto nItems = 10000UL;
+	auto nRuns = 200;
 
 	concurrent_vector<int> v;
-	for (auto i = 0UL; i < 20; ++i)
+	for (auto i = 0UL; i < nRuns; ++i)
 	{
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("concurrent_vector");
-			pool.parallel_apply(nItems, [&v](int q) {
+			pool.parallel_apply(nItems, [&v](int q) 
+			{
 				v.push_back(q);
 				v.pop_back();
 				v.push_back(q);
@@ -195,7 +197,7 @@ TEST(lock_free_concurrent_vector, bash_concurrency_test)
 		EXPECT_EQ((i+1) * nItems, v.size());
 	}
 		
-	EXPECT_EQ(20 * nItems, v.size());
+	EXPECT_EQ(nRuns * nItems, v.size());
 }
 
 TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
@@ -206,10 +208,11 @@ TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
 	work_stealing_thread_pool<mc_queue_traits> pool(10);
 
 	auto nItems = 10000UL;
+	auto nRuns = 200;
 
 	std::mutex mtx;
 	std::vector<int> v;
-	for (auto i = 0UL; i < 20; ++i)
+	for (auto i = 0UL; i < nRuns; ++i)
 	{
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("mutexed_vector");
@@ -231,7 +234,7 @@ TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
 		EXPECT_EQ((i+1) * nItems, v.size());
 	}
 		
-	EXPECT_EQ(20 * nItems, v.size());
+	EXPECT_EQ(nRuns * nItems, v.size());
 }
 
 #include <stk/container/experimental/ref_count_memory_reclaimer.hpp>

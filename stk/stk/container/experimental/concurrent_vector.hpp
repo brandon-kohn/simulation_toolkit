@@ -206,12 +206,6 @@ namespace stk { namespace detail {
         using desc_manager = stk::node_deletion_manager<descriptor, desc_allocator>;
 
         template <typename U>
-        class node_iterator;
-
-        template <typename U>
-        friend class node_iterator;
-
-        template <typename U>
         class node_iterator : public boost::iterator_facade<node_iterator<U>, U, boost::bidirectional_traversal_tag>
         {
         public:
@@ -403,6 +397,9 @@ namespace stk { namespace detail {
             concurrent_vector<value_type, allocator_type>* m_pMyVector{ nullptr };
             size_type m_index;
         };
+        
+        template <typename U>
+        friend class node_iterator;
 
         template <typename U, typename Allocator>
         static U* allocate(Allocator& al, std::size_t n)
@@ -566,13 +563,13 @@ namespace stk { namespace detail {
         void emplace_back(Args&&... a)
         {
             descriptor* pCurr = get_descriptor();
-            auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
+            auto deleter = [this](descriptor* pDesc) {
+				m_desc_manager.destroy_node(pDesc);
+			};
             std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
             auto pNode = create_node(std::forward<Args>(a)...);
-            auto spincount = 0UL;
             do
             {
-                //pCurr = get_descriptor();
                 complete_write(*pCurr);
                 auto bucket = detail::hibit(static_cast<std::uint64_t>(pCurr->size + first_bucket_size)) - detail::hibit(first_bucket_size);
                 bucket_array oldArray;
@@ -581,12 +578,6 @@ namespace stk { namespace detail {
                 if(oldSize <= bucket)
                     allocate_bucket(oldArray, oldSize);
                 *newDesc = descriptor(pCurr->size + 1, at_impl(pCurr->size)->load(), pNode, pCurr->size);
-                if (++spincount > 100)
-                {
-                    auto backoff = spincount * 10;
-                    while (--backoff > 0)
-                        std::this_thread::yield();
-                }
             }
             while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
             m_desc_manager.register_node_to_delete(pCurr);
@@ -606,10 +597,8 @@ namespace stk { namespace detail {
             auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
             std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
             node_ptr pNode;
-            auto spincount = 0UL;
             do
             {
-                //pCurr = get_descriptor();
                 complete_write(*pCurr);
                 if (pCurr->size > 0)
                 {
@@ -618,13 +607,6 @@ namespace stk { namespace detail {
                 }
                 else
                     return false;
-
-                if (++spincount > 100)
-                {
-                    auto backoff = spincount * 10;
-                    while (--backoff > 0)
-                        std::this_thread::yield();
-                }
             }
             while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
             value = std::move(pNode->value());
@@ -640,10 +622,8 @@ namespace stk { namespace detail {
             auto deleter = [this](descriptor* pDesc) { m_desc_manager.destroy_node(pDesc); };
             std::unique_ptr<descriptor, decltype(deleter)> newDesc{ m_desc_manager.create_node(), deleter };
             node_ptr pNode;
-            auto spincount = 0UL;
             do
             {
-                //pCurr = get_descriptor();
                 complete_write(*pCurr);
                 if (pCurr->size > 0)
                 {
@@ -652,13 +632,6 @@ namespace stk { namespace detail {
                 }
                 else
                     return;
-
-                if (++spincount > 100)
-                {
-                    auto backoff = spincount * 10;
-                    while (--backoff > 0)
-                        std::this_thread::yield();
-                }
             }
             while(!m_descriptor.compare_exchange_weak(pCurr, newDesc.get()));
             register_node_for_deletion(pNode);
@@ -841,9 +814,7 @@ namespace stk { namespace detail {
             }
 
             for(auto idx = 0UL; idx < s; ++idx)
-            {
                 at_impl(idx)->exchange(create_node(gen()));
-            }
 
             pCurr->size = s;
         }
