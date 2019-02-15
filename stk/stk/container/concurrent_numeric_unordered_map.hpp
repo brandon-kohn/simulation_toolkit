@@ -1,3 +1,11 @@
+//
+//! Copyright © 2019
+//! Brandon Kohn
+//
+//  Distributed under the Boost Software License, Version 1.0. (See
+//  accompanying file LICENSE_1_0.txt or copy at
+//  http://www.boost.org/LICENSE_1_0.txt)
+//
 #pragma once
 
 #include <junction/ConcurrentMap_Leapfrog.h>
@@ -165,6 +173,10 @@ namespace stk {
 
 		concurrent_numeric_unordered_map() = default;
 
+		concurrent_numeric_unordered_map(const MemoryReclamationPolicy& mp)
+			: m_map(mp)
+		{}
+
 		~concurrent_numeric_unordered_map()
 		{
 			clear();
@@ -199,6 +211,13 @@ namespace stk {
 			}
 
 			return std::make_pair(result, wasInserted);
+		}
+		
+		void assign(key_type k, value_type data)
+		{
+			GEOMETRIX_ASSERT(data_traits::is_valid(data));
+			auto mutator = m_map.insertOrFind((std::uint64_t)k);
+			mutator.exchangeValue(data);
 		}
 
 		void erase(key_type k)

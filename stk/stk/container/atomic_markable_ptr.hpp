@@ -164,7 +164,7 @@ public:
     {
         auto pPtrExpected = combine(expectedPtr, expectedStamp);
         auto pPtrDesired = combine(desiredPtr, desiredStamp);
-        if(m_ptr.compare_exchange_strong(pPtrExpected, pPtrDesired, order, failure(order)))
+        if(m_ptr.compare_exchange_strong(pPtrExpected, pPtrDesired, order, failure_order(order)))
             return true;
         expectedPtr = extract_ptr(pPtrExpected);
         expectedStamp = extract_mark(pPtrExpected);

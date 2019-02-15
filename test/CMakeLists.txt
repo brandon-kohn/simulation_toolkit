@@ -50,6 +50,7 @@ if(Boost_FOUND)
     # Concurrency tests.
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
         set(concurrency_test_suite
+            type_switch_tests
             thread_specific_tests
             concurrency_tests
             concurrent_integral_map_tests

@@ -257,3 +257,4 @@ TEST(ref_count_memory_reclaimer_suite, bash_reclaimer)
 
 	EXPECT_EQ(nItems, reclaimed);
 }
+
