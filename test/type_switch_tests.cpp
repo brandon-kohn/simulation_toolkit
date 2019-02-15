@@ -12,6 +12,7 @@
 
 #include <stk/utility/type_switch.hpp>
 #include <iostream>
+#include <array>
 
 struct base_type
 {
@@ -27,27 +28,42 @@ struct d4_type : base2_type {};
 TEST(memoization_device_suite, test)
 {
 	using namespace stk;
-	auto sw = make_switch(
-	    make_case<d1_type>([&](d1_type* p)
-	    {
-	        std::cout << "Type was d1_type.\n";
-	    })
-	  , make_case<d2_type>([&](d2_type* p)
-	    {
-	        std::cout << "Type was d2_type.\n";
-	    })
-	  , make_case<d3_type>([&](d3_type* p)
-	    {
-	        std::cout << "Type was d3_type.\n";
-	    })
-	);
-
 	auto t1 = d1_type{};
 	auto t2 = d2_type{};
 	auto t3 = d3_type{};
+	auto t4 = d4_type{};
+	std::array<int, 4> count = { 0, 0, 0, 0 };
+	auto sw = make_switch(
+	    make_case<d1_type>([&](d1_type* p)
+	    {
+			++count[0];
+			EXPECT_EQ(&t1, p);
+	    })
+	  , make_case<d2_type>([&](d2_type* p)
+	    {
+			++count[1];
+			EXPECT_EQ(&t2, p);
+	    })
+	  , make_case<d3_type>([&](d3_type* p)
+	    {
+			++count[2];
+			EXPECT_EQ(&t3, p);
+	    })
+	  , make_case<d4_type>([&](d4_type* p)
+	    {
+			++count[3];
+			EXPECT_EQ(&t4, p);
+	    })
+	);
 
-	sw(&t1);
-	sw(&t2);
-	sw(&t3);
-	sw(&t2);
+	sw((base_type*)&t1);
+	sw((base_type*)&t2);
+	sw((base_type*)&t3);
+	sw((base_type*)&t2);
+	sw((base_type*)&t4);
+
+	EXPECT_EQ(1, count[0]);
+	EXPECT_EQ(2, count[1]);
+	EXPECT_EQ(1, count[2]);
+	EXPECT_EQ(1, count[3]);
 }
