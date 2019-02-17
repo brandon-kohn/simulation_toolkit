@@ -18,14 +18,19 @@ namespace stk { namespace detail {
 		void eval(T* x, States& state)
 		{
 			static stk::concurrent_numeric_unordered_map<std::intptr_t, std::uint64_t> jump_targets;
-			auto key = vtbl(x);
+			auto key = (std::intptr_t)&typeid(*x);// vtbl(x);
 			const void* tptr;
-			type_switch_info info(jump_targets.insert(key, std::uint64_t{}).first);
-			switch (info.case_n) 
+			auto case_n = jump_targets.insert(key, std::uint64_t{}).first;
+			switch (case_n) 
 			{
 				default:
-					#define BOOST_PP_LOCAL_MACRO(n)                                                                                                                                                                                                 \
-						if (tptr = std::get<n>(state).matches(x)) { if(info.case_n == 0) jump_targets.assign(key, type_switch_info(std::intptr_t(tptr) - std::intptr_t(x), BOOST_PP_ADD(n,1)).data); case BOOST_PP_ADD(n,1): std::get<n>(state).invoke(x); } else \
+					#define BOOST_PP_LOCAL_MACRO(n)                               \
+						if (tptr = std::get<n>(state).matches(x))                 \
+						{                                                         \
+						    if(case_n == 0)                                       \
+						       jump_targets.assign(key, BOOST_PP_ADD(n,1));       \
+						    case BOOST_PP_ADD(n,1): std::get<n>(state).invoke(x); \
+						} else                                                    \
 					/***/
 					#define BOOST_PP_LOCAL_LIMITS (0, DIMENSION-1)
 					#include BOOST_PP_LOCAL_ITERATE()

@@ -45,6 +45,38 @@ namespace stk{
         return type_switch_case<T, Fn>{std::forward<Fn>(fn)};
     }
 
+	namespace detail {
+		template <typename Fn>
+		struct get_arg;
+		template <typename R, typename C, typename Arg>
+		struct get_arg<R(C::*)(Arg) const>
+		{
+			using type = Arg;
+		};
+		template <typename R, typename C, typename Arg>
+		struct get_arg<R(C::*)(Arg)>
+		{
+			using type = Arg;
+		};
+
+		template <typename Lambda>
+		struct arg_type
+		{
+		private:
+			using fn_type = decltype(&Lambda::operator());
+			using arg1_type = typename get_arg<fn_type>::type;// typename boost::function_traits<fn_type>::arg1_type;
+			static_assert(std::is_pointer<arg1_type>::value, "type_switch cases must operate on a pointer type.");
+		public:
+
+			using type = typename std::remove_pointer<arg1_type>::type;
+		};
+	}//! namespace detail;
+
+    template <typename Fn>
+    inline type_switch_case<typename detail::arg_type<Fn>::type, Fn> type_case(Fn&& fn)
+    {
+        return type_switch_case<typename detail::arg_type<Fn>::type, Fn>{std::forward<Fn>(fn)};
+    }
 
     template <typename... Types>
     class type_switch : detail::type_switch_base<type_switch<Types...>, sizeof...(Types)>

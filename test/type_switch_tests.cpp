@@ -34,22 +34,22 @@ TEST(memoization_device_suite, test)
 	auto t4 = d4_type{};
 	std::array<int, 4> count = { 0, 0, 0, 0 };
 	auto sw = make_switch(
-	    make_case<d1_type>([&](d1_type* p)
+	    type_case([&](const d1_type* p)
 	    {
 			++count[0];
 			EXPECT_EQ(&t1, p);
 	    })
-	  , make_case<d2_type>([&](d2_type* p)
+	  , type_case([&](d2_type* p)
 	    {
 			++count[1];
 			EXPECT_EQ(&t2, p);
 	    })
-	  , make_case<d3_type>([&](d3_type* p)
+	  , type_case([&](d3_type* p)
 	    {
 			++count[2];
 			EXPECT_EQ(&t3, p);
 	    })
-	  , make_case<d4_type>([&](d4_type* p)
+	  , type_case([&](d4_type* p)
 	    {
 			++count[3];
 			EXPECT_EQ(&t4, p);
