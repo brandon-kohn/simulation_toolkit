@@ -23,9 +23,9 @@ namespace stk{
         {}
 
         template <typename U>
-        T* matches(U* u)
+        bool matches(U* u) const
         {
-			return dynamic_cast<T*>(u);
+			return dynamic_cast<T*>(u) != nullptr;
         }
 
         template <typename U>
@@ -76,6 +76,36 @@ namespace stk{
     inline type_switch_case<typename detail::arg_type<Fn>::type, Fn> type_case(Fn&& fn)
     {
         return type_switch_case<typename detail::arg_type<Fn>::type, Fn>{std::forward<Fn>(fn)};
+    }
+    
+	template <typename T, typename Fn>
+	struct type_switch_default 
+    {
+        type_switch_default(Fn&& op)
+            : op(std::forward<Fn>(op))
+        {}
+
+        template <typename U>
+        bool matches(U*) const
+        {
+			return true;
+        }
+
+        template <typename U>
+        void invoke(U* v)
+        {
+			//GEOMETRIX_ASSERT(dynamic_cast<T*>(v) == v);
+			auto x = (T*)v;// boost::polymorphic_downcast<T*>(v);
+            op(x);
+        }
+
+        Fn op; 
+    };
+    
+	template <typename Fn>
+    inline type_switch_default<typename detail::arg_type<Fn>::type, Fn> type_default(Fn&& fn)
+    {
+        return type_switch_default<typename detail::arg_type<Fn>::type, Fn>{std::forward<Fn>(fn)};
     }
 
     template <typename... Types>

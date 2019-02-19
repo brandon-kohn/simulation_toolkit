@@ -36,23 +36,23 @@ TEST(memoization_device_suite, test)
 	auto sw = make_switch(
 	    type_case([&](const d1_type* p)
 	    {
-			++count[0];
-			EXPECT_EQ(&t1, p);
+		    ++count[0];
+		    EXPECT_EQ(&t1, p);
 	    })
 	  , type_case([&](d2_type* p)
 	    {
-			++count[1];
-			EXPECT_EQ(&t2, p);
+		    ++count[1];
+		    EXPECT_EQ(&t2, p);
 	    })
 	  , type_case([&](d3_type* p)
 	    {
-			++count[2];
-			EXPECT_EQ(&t3, p);
+		    ++count[2];
+		    EXPECT_EQ(&t3, p);
 	    })
 	  , type_case([&](d4_type* p)
 	    {
-			++count[3];
-			EXPECT_EQ(&t4, p);
+		    ++count[3];
+		    EXPECT_EQ(&t4, p);
 	    })
 	);
 

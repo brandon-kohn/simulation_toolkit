@@ -19,13 +19,12 @@ namespace stk { namespace detail {
 		{
 			static stk::concurrent_numeric_unordered_map<std::intptr_t, std::uint64_t> jump_targets;
 			auto key = (std::intptr_t)&typeid(*x);// vtbl(x);
-			const void* tptr;
 			auto case_n = jump_targets.insert(key, std::uint64_t{}).first;
 			switch (case_n) 
 			{
 				default:
 					#define BOOST_PP_LOCAL_MACRO(n)                               \
-						if (tptr = std::get<n>(state).matches(x))                 \
+						if (std::get<n>(state).matches(x))                        \
 						{                                                         \
 						    if(case_n == 0)                                       \
 						       jump_targets.assign(key, BOOST_PP_ADD(n,1));       \
