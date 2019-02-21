@@ -46,17 +46,9 @@ private:
     }
 
     BOOST_CONSTEXPR std::memory_order failure_order(std::memory_order order) BOOST_NOEXCEPT
-	{
-		switch (order) 
-		{
-			case std::memory_order_acq_rel:
-				return std::memory_order_acquire;
-			case std::memory_order_release:
-				return std::memory_order_relaxed;
-			default:
-				return order;
-		};
-	}
+    {
+        return order == std::memory_order_acq_rel ? std::memory_order_acquire : (order == std::memory_order_release ? std::memory_order_relaxed : order);
+    }
 
 public:
 
@@ -141,7 +133,7 @@ public:
         auto pPtr = m_ptr.load(order);
         return std::make_tuple(extract_ptr(pPtr), extract_mark(pPtr));
     }
-    
+
     std::tuple<T*, mark_type> exchange(T* desiredPtr, mark_type desiredStamp, std::memory_order order = std::memory_order_seq_cst) BOOST_NOEXCEPT
     {
         auto pPtr = combine(desiredPtr, desiredStamp);

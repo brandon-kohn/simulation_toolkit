@@ -60,18 +60,10 @@ private:
         return ret.value;
     }
 
-	BOOST_CONSTEXPR std::memory_order failure_order(std::memory_order order) BOOST_NOEXCEPT
-	{
-		switch (order) 
-		{
-			case std::memory_order_acq_rel:
-				return std::memory_order_acquire;
-			case std::memory_order_release:
-				return std::memory_order_relaxed;
-			default:
-				return order;
-		};
-	}
+    BOOST_CONSTEXPR std::memory_order failure_order(std::memory_order order) BOOST_NOEXCEPT
+    {
+        return order == std::memory_order_acq_rel ? std::memory_order_acquire : (order == std::memory_order_release ? std::memory_order_relaxed : order);
+    }
 
 public:
 

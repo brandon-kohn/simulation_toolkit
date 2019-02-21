@@ -217,8 +217,8 @@ namespace stk { namespace detail {
                 , m_index((std::numeric_limits<size_type>::max)())
             {}
 
-			template <typename U>
-            node_iterator(const node_iterator<U>& other)
+			template <typename V>
+            node_iterator(const node_iterator<V>& other)
                 : m_pNode(other.m_pNode)
 #ifdef STK_DEBUG_CONCURRENT_VECTOR_ITERATORS
                 , m_pNodeManager(other.m_pNodeManager)
