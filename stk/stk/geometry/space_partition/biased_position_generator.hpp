@@ -7,6 +7,7 @@
 #include <geometrix/algorithm/mesh_2d.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/algorithm/hyperplane_partition_policies.hpp>
+#include <random>
 #include <vector>
 
 namespace stk {
@@ -63,8 +64,8 @@ namespace stk {
         //! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
         //! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
         //! Attraction factor is a quantity specifying the strength of the attraction.
-        template <typename Polygon, typename Segment>
-        biased_position_generator(const Polygon& boundary, const std::vector<Segment>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
+        template <typename Polygon, typename Segments>
+        biased_position_generator(const Polygon& boundary, const Segments& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
         {
             using namespace stk;
             using namespace geometrix;
@@ -86,8 +87,8 @@ namespace stk {
         //! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
         //! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
         //! Attraction factor is a quantity specifying the strength of the attraction.
-        template <typename Polygon, typename Segment>
-        biased_position_generator(const Polygon& boundary, const std::vector<Polygon>& holes, const std::vector<Segment>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
+        template <typename Polygon, typename Holes, typename Segments>
+        biased_position_generator(const Polygon& boundary, const Holes& holes, const Segments& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
         {
             using namespace stk;
             using namespace geometrix;
@@ -105,7 +106,7 @@ namespace stk {
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
-        //! Contruct a generator which uses a reference to an external BSP containing attractive geometry. 
+        //! Construct a generator which uses a reference to an external BSP containing attractive geometry. 
         //! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
         //! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
         //! Attraction factor is a quantity specifying the strength of the attraction.
@@ -125,10 +126,18 @@ namespace stk {
         {
             return geometrix::construct<Point>(m_mesh->get_random_position(random0, random1, random2));
         }
+        
+        template <typename Point, typename Generator>
+        Point get_random_position(Generator& gen)
+        {
+            std::uniform_real_distribution<> U;
+            return geometrix::construct<Point>(m_mesh->get_random_position(U(gen), U(gen), U(gen)));
+        }
 
     private:
 
-        std::vector<stk::point2> generate_fine_steiner_points(const stk::polygon2& pgon, const stk::units::length& cell, const solid_bsp2& bsp)
+        template <typename Polygon>
+        std::vector<stk::point2> generate_fine_steiner_points(const Polygon& pgon, const stk::units::length& cell, const solid_bsp2& bsp)
         {
             using namespace geometrix;
             using namespace stk;

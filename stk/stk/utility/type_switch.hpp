@@ -113,9 +113,8 @@ namespace stk{
     {
     public:
 
-        template <typename... Cases>
-        type_switch(Cases&&... t)
-            : m_state(std::forward<Cases>(t)...)
+        type_switch(Types&&... t)
+            : m_state(std::forward<Types>(t)...)
         {}
 
         template <typename T>
