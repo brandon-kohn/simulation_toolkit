@@ -11,6 +11,8 @@
 #include <stk/geometry/space_partition/mesh.hpp>
 #include <stk/utility/scope_exit.hpp>
 #include <stk/utility/associative_insert.hpp>
+#include <stk/geometry/primitive/polygon_with_holes.hpp>
+#include <geometrix/algorithm/point_sequence/is_polygon_simple.hpp>
 #include <poly2tri/poly2tri.h>
 
 namespace stk {
