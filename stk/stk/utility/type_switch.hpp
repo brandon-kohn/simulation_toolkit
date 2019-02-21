@@ -111,6 +111,8 @@ namespace stk{
     template <typename... Types>
     class type_switch : detail::type_switch_base<type_switch<Types...>, sizeof...(Types)>
     {
+        using base_type = detail::type_switch_base<type_switch<Types...>, sizeof...(Types)>;
+
     public:
 
         type_switch(Types&&... t)
@@ -120,7 +122,7 @@ namespace stk{
         template <typename T>
         void operator()(T* x)
         {
-            return eval(x, m_state);
+            return base_type::eval(x, m_state);
         }
     private:
 
