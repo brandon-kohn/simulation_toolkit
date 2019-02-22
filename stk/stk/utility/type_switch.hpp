@@ -124,6 +124,13 @@ namespace stk{
         {
             return base_type::eval(x, m_state);
         }
+
+		//! Not thread-safe. Can be used to clear memory used by the underlying static type cache.
+		void clear_cache()
+		{
+			base_type::clear_jump_targets();
+		}
+
     private:
 
         template <std::size_t I, typename... Args>

@@ -61,6 +61,7 @@ TEST(memoization_device_suite, test)
 	sw((base_type*)&t3);
 	sw((base_type*)&t2);
 	sw((base_type*)&t4);
+	sw.clear_cache();
 
 	EXPECT_EQ(1, count[0]);
 	EXPECT_EQ(2, count[1]);

@@ -14,12 +14,24 @@ namespace stk { namespace detail {
 	template <typename Derived>
 	struct type_switch_base<Derived, DIMENSION>
 	{
+		static stk::concurrent_numeric_unordered_map<std::intptr_t, std::uint64_t>& jump_targets()
+		{
+			static stk::concurrent_numeric_unordered_map<std::intptr_t, std::uint64_t> instance;
+			return instance;
+		}
+
+		//! May be called from a quiescent state to clear the cached jump targets.
+		void clear_jump_targets()
+		{
+			jump_targets().clear();
+			jump_targets().quiesce();
+		}
+
 		template <typename T, typename States>
 		void eval(T* x, States& state)
 		{
-			static stk::concurrent_numeric_unordered_map<std::intptr_t, std::uint64_t> jump_targets;
 			auto key = (std::intptr_t)&typeid(*x);// vtbl(x);
-			auto case_n = jump_targets.insert(key, std::uint64_t{}).first;
+			auto case_n = jump_targets().insert(key, std::uint64_t{}).first;
 			switch (case_n) 
 			{
 				default:
@@ -27,7 +39,7 @@ namespace stk { namespace detail {
 						if (std::get<n>(state).matches(x))                        \
 						{                                                         \
 						    if(case_n == 0)                                       \
-						       jump_targets.assign(key, BOOST_PP_ADD(n,1));       \
+						       jump_targets().assign(key, BOOST_PP_ADD(n,1));     \
 						    case BOOST_PP_ADD(n,1): std::get<n>(state).invoke(x); \
 						} else                                                    \
 					/***/
