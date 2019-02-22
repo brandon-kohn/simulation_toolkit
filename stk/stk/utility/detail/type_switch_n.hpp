@@ -31,7 +31,8 @@ namespace stk { namespace detail {
 		void eval(T* x, States& state)
 		{
 			auto key = (std::intptr_t)&typeid(*x);// vtbl(x);
-			auto case_n = jump_targets().insert(key, std::uint64_t{}).first;
+			auto it = jump_targets().find(key);
+			auto case_n = it ? *it : std::uint64_t{};
 			switch (case_n) 
 			{
 				default:
