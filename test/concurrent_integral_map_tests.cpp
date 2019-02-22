@@ -298,5 +298,5 @@ TEST(concurrent_pointer_unordered_map_test_suite, death_on_null_insert)
 {
 	using namespace stk;
 	auto sut = concurrent_pointer_unordered_map<int*, int>{};
-	ASSERT_DEBUG_DEATH(sut.insert(0, std::unique_ptr<int>{}), "\.+");
+	ASSERT_DEBUG_DEATH(sut.insert(0, std::unique_ptr<int>{}), "\\.+");
 }
