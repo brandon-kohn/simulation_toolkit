@@ -20,7 +20,7 @@
 
 namespace stk {
 
-using mesh2 = geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<rtree_triangle_cache, geometrix::triangle_area_weight_policy<stk::units::length>>>;
+using mesh2 = geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<rtree_triangle_cache>>;
 
 }//! namespace stk;
 

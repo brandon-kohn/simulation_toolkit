@@ -59,7 +59,7 @@ namespace stk {
 	};
 
 	template <typename WeightPolicy>
-    inline geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, WeightPolicy>> generate_weighted_mesh( const stk::polygon_with_holes2& polygon, std::vector<stk::point2>& steinerPoints, WeightPolicy&& weightPolicy)
+    inline geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache>> generate_weighted_mesh( const stk::polygon_with_holes2& polygon, std::vector<stk::point2>& steinerPoints, WeightPolicy&& weightPolicy)
     {
         using namespace geometrix;
         if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
@@ -122,7 +122,7 @@ namespace stk {
             }
         }
 
-        return geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, WeightPolicy>>( points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), std::forward<WeightPolicy>(weightPolicy) );
+        return geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache>>( points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), std::forward<WeightPolicy>(weightPolicy) );
     }
 
     inline polygon2 get_outer_polygon(point2 ll, point2 ur, units::length offset)

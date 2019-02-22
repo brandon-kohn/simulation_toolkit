@@ -36,7 +36,7 @@ namespace stk {
                 std::size_t idx;
                 auto distanceSqrd = pBSP->get_min_distance_sqrd_to_solid(get_centroid(trig), idx, make_tolerance_policy());
                 auto d2 = std::max(distanceSqrd.value(), distanceSaturation.value());
-                double f = area.value() * exp(-attractionStrength * d2);
+                weight_type f = area.value() * exp(-attractionStrength * d2);
                 return f;
             }
 
@@ -56,7 +56,7 @@ namespace stk {
 
         };
 
-        using mesh_type = geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache, triangle_area_distance_weight_policy>>;
+        using mesh_type = geometrix::mesh_2d<stk::units::length, geometrix::mesh_traits<stk::rtree_triangle_cache>>;
 
     public:
 
@@ -78,8 +78,7 @@ namespace stk {
             };
             auto partitionPolicy = partition_policies::scored_selector_policy<identity_extractor, stk::tolerance_policy>(identity_extractor());
             auto bsp = solid_bsp2{attractiveSegments, partitionPolicy, make_tolerance_policy()};
-            std::vector<point2> spoints = generate_fine_steiner_points(boundary, granularity, bsp);
-            m_mesh = generate_weighted_mesh(boundary, spoints, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor));
+            m_mesh = generate_weighted_mesh(boundary, granularity, bsp, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
@@ -101,8 +100,7 @@ namespace stk {
             };
             auto partitionPolicy = partition_policies::scored_selector_policy<identity_extractor, stk::tolerance_policy>(identity_extractor());
             auto bsp = solid_bsp2{attractiveSegments, partitionPolicy, make_tolerance_policy()};
-            std::vector<point2> spoints = generate_fine_steiner_points(boundary, granularity, bsp);
-            m_mesh = generate_weighted_mesh(boundary, holes, spoints, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor));
+            m_mesh = generate_weighted_mesh(boundary, holes, granularity, bsp, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
@@ -115,8 +113,7 @@ namespace stk {
         {
             using namespace stk;
             using namespace geometrix;
-            std::vector<point2> spoints = generate_fine_steiner_points(boundary, granularity, attractiveBSP);
-            m_mesh = generate_weighted_mesh(boundary, spoints, triangle_area_distance_weight_policy(&attractiveBSP, distanceSaturation, attractionFactor));
+            m_mesh = generate_weighted_mesh(boundary, granularity, attractiveBSP, triangle_area_distance_weight_policy(&attractiveBSP, distanceSaturation, attractionFactor));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
@@ -136,6 +133,18 @@ namespace stk {
 
     private:
 
+		template <typename NumberComparisonPolicy>
+		typename geometrix::bounds_tuple<point2>::type bounds(const polygon2& pgon, const NumberComparisonPolicy& compare)
+		{
+			return geometrix::get_bounds(pgon, compare);
+		}
+
+		template <typename NumberComparisonPolicy>
+		typename geometrix::bounds_tuple<point2>::type bounds(const polygon_with_holes2& pgon, const NumberComparisonPolicy& compare)
+		{
+			return geometrix::get_bounds(pgon.get_outer(), compare);
+		}
+
         template <typename Polygon>
         std::vector<stk::point2> generate_fine_steiner_points(const Polygon& pgon, const stk::units::length& cell, const solid_bsp2& bsp)
         {
@@ -144,9 +153,9 @@ namespace stk {
 
             std::set<point2> results;
             auto cmp = make_tolerance_policy();
-            auto obounds = get_bounds(pgon, cmp);
+            auto obounds = bounds(pgon, cmp);
             auto grid = grid_traits<stk::units::length>(obounds, cell);
-            auto mesh = generate_mesh(pgon, std::vector<point2>{});
+			auto mesh = generate_mesh(pgon);
 
             for (auto q = 0UL; q < mesh.get_number_triangles(); ++q)
             {
@@ -173,7 +182,7 @@ namespace stk {
         }
 
         template <typename Polygon>
-        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, std::vector<stk::point2>& steinerPoints, const triangle_area_distance_weight_policy& weightPolicy)
+        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy)
         {
             using namespace stk;
             using namespace geometrix;
@@ -191,6 +200,7 @@ namespace stk {
 
             p2t::CDT cdt( polygon_ );
 
+            std::vector<point2> steinerPoints = generate_fine_steiner_points(boundary, granularity, bsp);
             for (const auto& p : steinerPoints) 
             {
                 auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
@@ -208,12 +218,12 @@ namespace stk {
             std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
             std::vector<std::size_t> iArray;
             polygon2 points( indices.size() );
-            for( const auto& item : indices )
+            for(const auto& item : indices)
                 geometrix::assign( points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
 
-            for( auto* triangle : triangles )
+            for(auto* triangle : triangles)
             {
-                for( int i = 0; i < 3; ++i )
+                for(int i = 0; i < 3; ++i)
                 {
                     auto* p = triangle->GetPoint( i );
                     auto it = indices.find( p );
@@ -226,7 +236,7 @@ namespace stk {
         }
 
         template <typename Polygon>
-        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const std::vector<Polygon>& holes, std::vector<stk::point2>& steinerPoints, const triangle_area_distance_weight_policy& weightPolicy)
+        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const std::vector<Polygon>& holes, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy)
         {
             using namespace stk;
             using namespace geometrix;
@@ -236,7 +246,7 @@ namespace stk {
             std::vector<p2t::Point*> polygon_, memory;
             STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
 
-            for( const auto& p : polygon )
+            for(const auto& p : polygon)
             {
                 polygon_.push_back( new p2t::Point( get<0>( p ).value(), get<1>( p ).value() ) );
                 memory.push_back( polygon_.back() );
@@ -244,22 +254,23 @@ namespace stk {
 
             p2t::CDT cdt( polygon_ );
 		
-            for( const auto& hole : holes )
+            for(const auto& hole : holes)
             {
                 if (hole.empty() || !is_polygon_simple(hole, make_tolerance_policy()))
                     throw std::invalid_argument("polygon not simple");
 
                 std::vector<p2t::Point*> hole_;
-                for( const auto& p : hole )	
+                for(const auto& p : hole)	
                 {
                     auto p_ = new p2t::Point( get<0>( p ).value(), get<1>( p ).value() );
-                    hole_.push_back( p_ );
-                    memory.push_back( p_ );
+                    hole_.push_back(p_);
+                    memory.push_back(p_);
                 }
 
-                cdt.AddHole( hole_ );
+                cdt.AddHole(hole_);
             }
 		
+            std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
             for (const auto& p : steinerPoints) 
             {
                 auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
@@ -294,6 +305,94 @@ namespace stk {
             return boost::make_unique<mesh_type>(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
         }
 
+		std::unique_ptr<mesh_type> generate_weighted_mesh(const std::vector<stk::polygon_with_holes2>& polygons, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy)
+		{
+			using namespace geometrix;
+			using namespace stk;
+			std::vector<p2t::Point*> memory;
+			std::map<point2, std::size_t> allIndices;
+			std::vector<point2> pArray;
+			std::vector<std::size_t> tArray;
+			auto getIndex = [&](const point2& p) -> std::size_t
+			{
+				auto it = allIndices.lower_bound(p);
+				if (map_lower_bound_contains(p, allIndices, it))
+					return it->second;
+
+				auto newIndex = allIndices.size();
+				pArray.push_back(p);
+				allIndices.insert(it, std::make_pair(p, newIndex));
+				return newIndex;
+			};
+			auto addTriangle = [&](const point2& p0, const point2& p1, const point2& p2)
+			{
+				auto i0 = getIndex(p0);
+				auto i1 = getIndex(p1);
+				auto i2 = getIndex(p2);
+				tArray.push_back(i0);
+				tArray.push_back(i1);
+				tArray.push_back(i2);
+			};
+
+			STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
+
+			for (const auto& polygon : polygons)
+			{
+				std::vector<p2t::Point*> polygon_;
+				if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
+					throw std::invalid_argument("polygon not simple");
+
+				for (const auto& hole : polygon.get_holes()) 
+				{
+					if (!is_polygon_simple(hole, make_tolerance_policy()))
+						throw std::invalid_argument("polygon not simple");
+				}
+
+				for (const auto& p : polygon.get_outer()) 
+				{
+					memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
+					polygon_.push_back(memory.back());
+				}
+
+				p2t::CDT cdt(polygon_);
+
+				//! Add the holes
+				for (const auto& hole : polygon.get_holes()) 
+				{
+					std::vector<p2t::Point*> hole_;
+					for (const auto& p : hole) 
+					{
+						memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
+						hole_.push_back(memory.back());
+					}
+
+					cdt.AddHole(hole_);
+				}
+
+				//! Add the points
+				std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
+				for (const auto& p : steinerPoints)
+				{
+					memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
+					cdt.AddPoint(memory.back());
+				}
+
+				cdt.Triangulate();
+				std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
+				for (auto* triangle : triangles) 
+				{
+					auto* p0_ = triangle->GetPoint(0);
+					auto* p1_ = triangle->GetPoint(1);
+					auto* p2_ = triangle->GetPoint(2);
+					auto p0 = point2{p0_->x * units::meters, p0_->y * units::meters};
+					auto p1 = point2{p1_->x * units::meters, p1_->y * units::meters};
+					auto p2 = point2{p2_->x * units::meters, p2_->y * units::meters};
+					addTriangle(p0, p1, p2);
+				}
+			}
+
+            return boost::make_unique<mesh_type>(pArray, tArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
+		}
         std::unique_ptr<mesh_type> m_mesh;
     };
 }//! namespace stk;

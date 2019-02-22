@@ -83,6 +83,7 @@ inline bool is_self_intersecting(const stk::polygon_with_holes2& pgon)
 	return is_self_intersecting(pgon.get_outer(), pgon.get_holes());
 }
 
+#include <boost/range/algorithm_ext/erase.hpp>
 TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 {
 	using namespace stk;
@@ -166,6 +167,31 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 		rs.emplace_back(p, 0.1 * units::si::meters);
 	}
 
+	boost::range::remove_erase_if(asAreas, [](const polygon_with_holes2& pgon)
+	{
+		if (!is_polygon_simple(pgon.get_outer(), make_tolerance_policy()))
+			return true;
+		for(const auto& hole : pgon.get_holes())
+			if (!is_polygon_simple(hole, make_tolerance_policy()))
+				return true;
+		return false;
+	});
+
+	auto bpg2 = biased_position_generator{ asAreas, segs, granularity, distSaturation, attractionStrength };
+
+	//! Here I generate a bunch of random positions.
+		
+	//! These are for drawing via GraphicalDebugging plugin on visual studio... ignore.
+	rs.clear();
+
+	for (auto i = 0; i < 500; ++i)
+	{
+		//! This is where you get the random position in the region.
+		auto p = bpg2.get_random_position<point2>(rnd(), rnd(), rnd());
+
+		//! These are for drawing via GraphicalDebugging plugin on visual studio... ignore.
+		rs.emplace_back(p, 0.1 * units::si::meters);
+	}
 	EXPECT_TRUE(true);
 }
 
