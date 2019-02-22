@@ -200,7 +200,7 @@ namespace stk {
 
             p2t::CDT cdt( polygon_ );
 
-            std::vector<point2> steinerPoints = generate_fine_steiner_points(boundary, granularity, bsp);
+            std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
             for (const auto& p : steinerPoints) 
             {
                 auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
