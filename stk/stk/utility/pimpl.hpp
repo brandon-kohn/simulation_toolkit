@@ -82,6 +82,11 @@ namespace stk{
 			m_pimpl.swap(o.m_pimpl);
 		}
 
+		operator bool() const
+		{
+			return m_pimpl.get() != nullptr;
+		}
+
 	private:
 
 		pointer clone() const

@@ -19,6 +19,11 @@ public:
 	{
 		m_impl.swap(o.m_impl);
 	}
+
+	bool is_valid() const
+	{
+		return m_impl;
+	}
 	
 private:
 
@@ -38,6 +43,35 @@ public:
 	A_no_copy_no_move& operator=(A_no_copy_no_move&&) = delete;
 
 	int get_x() const;
+
+	bool is_valid() const
+	{
+		return m_impl;
+	}
+	
+private:
+
+	struct AImpl;
+	stk::pimpl<AImpl> m_impl;
+};
+
+class A_no_copy
+{
+public:
+
+	A_no_copy() = default;
+	A_no_copy(int x);
+	A_no_copy(const A_no_copy&) = delete;
+	A_no_copy(A_no_copy&&);
+	A_no_copy& operator=(const A_no_copy&) = delete;
+	A_no_copy& operator=(A_no_copy&&);
+
+	int get_x() const;
+
+	bool is_valid() const
+	{
+		return m_impl;
+	}
 	
 private:
 
