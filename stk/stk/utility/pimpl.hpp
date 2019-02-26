@@ -8,20 +8,25 @@
 //
 #pragma once
 
-#include <boost/config.hpp>
+#include <boost/checked_delete.hpp>
 #include <memory>
 #include <type_traits>
 
 namespace stk{
 
     namespace detail{
+		template <typename T>
+		inline void deleter(T* x)
+		{
+			boost::checked_delete(x);
+		}
     }//! namespace detail;
 
 	template <typename T>
 	class pimpl
 	{
 		using deleter_type = void (*)(T*);
-		static void deleter(T* x)
+		static void dummy_deleter(T* x)
 		{
 			delete x;
 		}
@@ -34,11 +39,12 @@ namespace stk{
 		using const_reference = typename std::add_const<reference>::type;
 
 		pimpl()
-			: m_pimpl(nullptr, &deleter)
+			: m_pimpl(nullptr, &dummy_deleter)
 		{}
 
-		pimpl(pointer p)
-			: m_pimpl(p, &deleter)
+		template <typename D>
+		pimpl(pointer p, D d)
+			: m_pimpl(p, d)
 		{}
 
 		pimpl(const pimpl& o)
@@ -101,7 +107,7 @@ namespace stk{
     template <typename T, typename... Args>
     inline pimpl<T> make_pimpl(Args&&... a)
     {
-        return pimpl<T>(new T(std::forward<Args>(a)...)); 
+        return pimpl<T>(new T(std::forward<Args>(a)...), &detail::deleter<T>); 
     }
 
 }//! namespace stk;
