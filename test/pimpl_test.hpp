@@ -8,8 +8,17 @@ public:
 
 	A() = default;
 	A(int x);
+	A(const A& o);
+	A(A&& o);
+	A& operator =(A o);
+	~A() = default;
 
 	int get_x() const;
+
+	void swap(A& o) 
+	{
+		m_impl.swap(o.m_impl);
+	}
 	
 private:
 

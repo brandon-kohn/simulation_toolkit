@@ -8,7 +8,7 @@
 //
 #pragma once
 
-#include <boost\config.hpp>
+#include <boost/config.hpp>
 #include <memory>
 #include <type_traits>
 
@@ -87,7 +87,7 @@ namespace stk{
 
 		pointer clone() const
 		{
-			return m_pimpl ? new T(**m_pimpl) : nullptr;
+			return m_pimpl ? new T(*m_pimpl) : nullptr;
 		}
 
 		std::unique_ptr<T, deleter_type> m_pimpl;

@@ -24,6 +24,18 @@ A::A(int x)
 
 }
 
+A::A(const A& o) 
+	: m_impl(o.m_impl)
+{
+
+}
+
+A& A::operator=(A o)
+{
+	o.swap(*this);
+	return *this;
+}
+
 int A::get_x() const
 {
 	return m_impl->x;
