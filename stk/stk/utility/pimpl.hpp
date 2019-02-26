@@ -24,7 +24,7 @@ namespace stk{
 		}
 	
 		template <typename T>
-		BOOST_CONSTEXPR void dummy_deleter(T* x)
+		void dummy_deleter(T* x)
 		{
 			GEOMETRIX_ASSERT(false);
 		}
