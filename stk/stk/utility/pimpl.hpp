@@ -9,6 +9,8 @@
 #pragma once
 
 #include <boost/checked_delete.hpp>
+#include <boost/config.hpp>
+#include <geometrix/utility/assert.hpp>
 #include <memory>
 #include <type_traits>
 
@@ -20,17 +22,17 @@ namespace stk{
 		{
 			boost::checked_delete(x);
 		}
+	
+		template <typename T>
+		BOOST_CONSTEXPR void dummy_deleter(T* x)
+		{
+			GEOMETRIX_ASSERT(false);
+		}
     }//! namespace detail;
 
 	template <typename T>
 	class pimpl
 	{
-		using deleter_type = void (*)(T*);
-		static void dummy_deleter(T* x)
-		{
-			delete x;
-		}
-
 	public:
 
 		using pointer = T*;
@@ -38,8 +40,8 @@ namespace stk{
 		using reference = typename std::add_lvalue_reference<T>::type;
 		using const_reference = typename std::add_const<reference>::type;
 
-		pimpl()
-			: m_pimpl(nullptr, &dummy_deleter)
+		BOOST_CONSTEXPR pimpl() BOOST_NOEXCEPT
+			: m_pimpl(nullptr, &detail::dummy_deleter<T>)
 		{}
 
 		template <typename D>
@@ -100,6 +102,7 @@ namespace stk{
 			return m_pimpl ? new T(*m_pimpl) : nullptr;
 		}
 
+		using deleter_type = void (*)(T*);
 		std::unique_ptr<T, deleter_type> m_pimpl;
 
 	};
