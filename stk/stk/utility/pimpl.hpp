@@ -46,7 +46,7 @@ namespace stk{
 		{}
 
 		pimpl(pimpl&& o)
-			: m_pimpl(std::move(o->m_pimpl))
+			: m_pimpl(std::move(o.m_pimpl))
 		{}
 
 		~pimpl() = default;
