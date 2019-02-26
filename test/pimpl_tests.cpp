@@ -69,3 +69,27 @@ TEST(pimpl_test_suite, virtual_pimpl_is_destructed)
 	}
 	EXPECT_TRUE(deleted);
 }
+
+TEST(pimpl_test_suite, lamdba_deleter)
+{
+	struct my_type 
+	{
+		my_type(bool& d)
+			: d(d)
+		{}
+
+		~my_type()
+		{
+			d = true;
+		}
+
+		bool& d;
+	};
+
+	bool deleted = false;
+	{
+		auto p = stk::pimpl<my_type>(new my_type(deleted), [](my_type* p) { delete p; });
+	}
+
+	EXPECT_TRUE(deleted);
+}
