@@ -27,7 +27,7 @@ namespace stk{
 
 		using pointer = T*;
 		using const_pointer = typename std::add_const<pointer>::type;
-		using reference = typename std::add_reference<T>::type;
+		using reference = typename std::add_lvalue_reference<T>::type;
 		using const_reference = typename std::add_const<reference>::type;
 
 		pimpl()
