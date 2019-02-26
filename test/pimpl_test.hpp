@@ -44,3 +44,29 @@ private:
 	struct AImpl;
 	stk::pimpl<AImpl> m_impl;
 };
+
+class ADyn
+{
+public:
+
+	ADyn(bool& deleted)
+		: deleted(deleted)
+	{}
+
+	virtual ~ADyn()
+	{
+		deleted = true;
+	}
+
+private:
+
+	bool& deleted;
+};
+
+struct B 
+{
+	B(bool& deleted);
+	struct BImpl;
+	stk::pimpl<BImpl> m_impl;
+
+};

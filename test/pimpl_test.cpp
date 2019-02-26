@@ -68,3 +68,15 @@ int A_no_copy_no_move::get_x() const
 {
 	return m_impl->x;
 }
+
+struct B::BImpl : ADyn
+{
+	BImpl(bool& deleted)
+		: ADyn(deleted)
+	{}
+};
+B::B(bool& deleted)
+	: m_impl(stk::make_pimpl<BImpl>(deleted))
+{
+
+}

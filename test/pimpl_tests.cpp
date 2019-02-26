@@ -33,3 +33,12 @@ TEST(pimpl_test_suite, unary_construct_no_copy_no_move)
 	A_no_copy_no_move a(10);
 	EXPECT_EQ(10, a.get_x());
 }
+
+TEST(pimpl_test_suite, virtual_pimpl_is_destructed)
+{
+	bool deleted = false;
+	{
+		B b(deleted);
+	}
+	EXPECT_TRUE(deleted);
+}
