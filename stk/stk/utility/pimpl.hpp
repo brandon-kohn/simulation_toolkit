@@ -15,13 +15,16 @@
 namespace stk{
 
     namespace detail{
-
     }//! namespace detail;
 
-	template <typename T, typename Deleter = void (*)(T*)>
+	template <typename T>
 	class pimpl
 	{
-		using deleter_type = Deleter;
+		using deleter_type = void (*)(T*);
+		static void deleter(T* x)
+		{
+			delete x;
+		}
 
 	public:
 
@@ -31,26 +34,22 @@ namespace stk{
 		using const_reference = typename std::add_const<reference>::type;
 
 		pimpl()
-			: m_pimpl(nullptr, [](T* x) { delete x; })
+			: m_pimpl(nullptr, &deleter)
 		{}
 
 		pimpl(pointer p)
-			: m_pimpl(p, [](T* x) { delete x; })
+			: m_pimpl(p, &deleter)
 		{}
-
-		pimpl(T* x, Deleter&& d)
-			: m_pimpl(x, std::forward<Deleter>(d))
-		{}
-
-		~pimpl() = default;
 
 		pimpl(const pimpl& o)
 			: m_pimpl(o.clone(), o.m_pimpl.get_deleter())
 		{}
 
 		pimpl(pimpl&& o)
-			: m_pimpl(std::move(o.m_pimpl))
+			: m_pimpl(std::move(o->m_pimpl))
 		{}
+
+		~pimpl() = default;
 		
 		pimpl& operator=(pimpl o)
 		{
