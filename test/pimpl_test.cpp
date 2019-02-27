@@ -28,24 +28,33 @@ A::A(int x)
 
 }
 
-A::A(const A& o) 
-	: m_impl(o.m_impl)
-{
-
-}
-
+#ifdef BOOST_NO_CXX11_DEFAULTED_MOVES
 A::A(A&& o)
 	: m_impl(std::move(o.m_impl))
 {
 
 }
 
-A& A::operator=(A o)
+A& A::operator=(A&& o)
 {
-	o.swap(*this);
+	m_impl = std::move(o.m_impl);
 	return *this;
 }
+#endif
 
+/*
+A::A(const A& o) 
+	: m_impl(o.m_impl)
+{
+
+}
+
+A& A::operator=(const A& o)
+{
+	A(o).swap(*this);
+	return *this;
+}
+*/
 int A::get_x() const
 {
 	return m_impl->x;
@@ -88,6 +97,7 @@ struct B::BImpl : ADyn
 		: ADyn(deleted)
 	{}
 };
+
 B::B(bool& deleted)
 	: m_impl(stk::make_pimpl<BImpl>(deleted))
 {
@@ -138,4 +148,3 @@ int A_no_copy::get_x() const
 {
 	return m_impl->x;
 }
-

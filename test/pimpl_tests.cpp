@@ -88,7 +88,7 @@ TEST(pimpl_test_suite, lamdba_deleter)
 
 	bool deleted = false;
 	{
-		auto p = stk::pimpl<my_type>(new my_type(deleted), [](my_type* p) { delete p; });
+		auto p = stk::pimpl<my_type>(new my_type(deleted), [](my_type* p) { delete p; }, [](my_type* p) { return new my_type(*p); });
 	}
 
 	EXPECT_TRUE(deleted);

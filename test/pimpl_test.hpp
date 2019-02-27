@@ -6,11 +6,18 @@ class A
 {
 public:
 
-	A() = default;
 	A(int x);
-	A(const A& o);
+#ifdef BOOST_NO_CXX11_DEFAULTED_MOVES
 	A(A&& o);
-	A& operator =(A o);
+	A& operator =(A&& o);
+#else
+	A(A&& o) = default;
+	A& operator =(A&& o) = default;
+#endif
+
+	A() = default;
+	A(const A& o) = default;
+	A& operator =(const A& o) = default;
 	~A() = default;
 
 	int get_x() const;
