@@ -131,6 +131,11 @@ namespace stk {
             return geometrix::construct<Point>(m_mesh->get_random_position(U(gen), U(gen), U(gen)));
         }
 
+		mesh_type const& get_mesh() const
+		{
+			return *m_mesh;
+		}
+
     private:
 
 		template <typename NumberComparisonPolicy>
