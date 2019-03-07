@@ -200,19 +200,34 @@ namespace stk {
         return to_polylines(ptree, scale);
     }
     
-    template <typename... Args>
-    inline decltype(clipper_intersection_impl(std::declval<ClipperLib::Clipper>(), std::declval<Args>()...)) clipper_intersection(Args&&...a)
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polyline2> clipper_intersection(Geometry1&& a, Geometry2&& b, unsigned int scale)
     {
         ClipperLib::Clipper clip;
-        return clipper_intersection_impl(clip, std::forward<Args>(a)...);
+        return clipper_intersection_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
     }
     
-    template <typename... Args>
-    inline decltype(clipper_intersection_impl(std::declval<ClipperLib::Clipper>(), std::declval<Args>()...)) clipper_intersection_simple(Args&&...a)
+	template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polygon_with_holes2> clipper_intersection(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        return clipper_intersection_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+    
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polyline2> clipper_intersection_simple(Geometry1&& a, Geometry2&& b, unsigned int scale)
     {
         ClipperLib::Clipper clip;
         clip.StrictlySimple(true);
-        return clipper_intersection_impl(clip, std::forward<Args>(a)...);
+        return clipper_intersection_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+    
+	template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polygon_with_holes2> clipper_intersection_simple(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        clip.StrictlySimple(true);
+        return clipper_intersection_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
     }
 
     inline std::vector<polygon_with_holes2> clipper_offset(const polygon2& pgon, const units::length& offset, unsigned int scale)
