@@ -23,6 +23,13 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 if(Boost_FOUND)
+
+    # pimpl test
+    add_executable(pimpl_tests pimpl_test.cpp pimpl_tests.cpp)
+    target_link_libraries(pimpl_tests gtest_static gmock_main_static stk geometrix ${Boost_LIBRARIES})
+    add_test(NAME pimpl_tests COMMAND pimpl_tests)
+    set_property(TEST pimpl_tests PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
+
     set(tests
         random_tests
         biased_position_generator_tests
