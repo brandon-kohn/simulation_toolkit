@@ -585,7 +585,6 @@ namespace stk {
 			using namespace geometrix;
 			using namespace stk;
 
-			std::set<point2> results;
 			auto cmp = make_tolerance_policy();
 			auto obounds = bounds(pgon, cmp);
 			auto grid = grid_traits<stk::units::length>(obounds, cell);
@@ -602,10 +601,10 @@ namespace stk {
 					auto d2 = bsp.get_min_distance_sqrd_to_solid(c, idx, cmp);
 					if (d2 > m2 && m_tree.point_in_solid_space(c, cmp) == point_in_solid_classification::in_empty_space) {
 						auto w = wp.get_weight(d2);
-						if (w > 1.0e-7){
+						//if (w > 1.0e-7){
 							m_positions.push_back(c);
 							m_integral.push_back(w);
-						}
+						//}
 					}
 				}
 			}
