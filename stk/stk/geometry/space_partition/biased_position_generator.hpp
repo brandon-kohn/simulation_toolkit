@@ -4,9 +4,16 @@
 #include <stk/geometry/space_partition/bsp_tree.hpp>
 #include <stk/geometry/space_partition/rtree_triangle_cache.ipp>
 #include <stk/geometry/space_partition/poly2tri_mesh.hpp>
+
+#include <geometrix/algorithm/intersection/polyline_polyline_intersection.hpp>
 #include <geometrix/algorithm/mesh_2d.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/algorithm/hyperplane_partition_policies.hpp>
+
+#include <boost/range/numeric.hpp>
+#include <boost/range/algorithm/for_each.hpp>
+#include <boost/optional.hpp>
+
 #include <random>
 #include <vector>
 
@@ -400,5 +407,226 @@ namespace stk {
 		}
         std::unique_ptr<mesh_type> m_mesh;
     };
+
+	namespace detail {
+		inline void add_segments(const polygon2& pgon, std::vector<segment2>& segs)
+		{
+			auto size = pgon.size();
+			for (std::size_t i = 0, j = 1; i < size; ++i, j = (j + 1) % size)
+				segs.emplace_back(pgon[i], pgon[j]);
+		}
+
+		inline void add_segments(const polygon_with_holes2& pgon, std::vector<segment2>& segs)
+		{
+			add_segments(pgon.get_outer(), segs);
+			for (const auto& h : pgon.get_holes())
+				add_segments(h, segs);
+		}
+
+		template <typename Polygons>
+		inline std::vector<segment2> polygon_collection_as_segment_range(const Polygons& pgons)
+		{
+			using namespace stk::detail;
+			using namespace geometrix;
+			std::vector<segment2> segments;
+			for (const auto& p : pgons)
+				add_segments(p, segments);
+
+			return std::move(segments);
+		}
+	}//! namespace detail;
+
+	template <typename NumberComparisonPolicy>
+	inline bool is_self_intersecting(const polygon2& outer, const std::vector<polygon2>& holes, const NumberComparisonPolicy& cmp)
+	{
+		auto to_polyline = [](const polygon2& pgon)
+		{
+			stk::polyline2 r(pgon.begin(), pgon.end()); r.push_back(pgon.front()); return std::move(r);
+		};
+
+		using namespace stk;
+		using namespace geometrix;
+		std::vector<polyline2> subjects;
+		subjects.emplace_back(to_polyline(outer));
+		for (const auto& hole : holes)
+			subjects.emplace_back(to_polyline(hole));
+
+		for (auto i = 0UL; i < subjects.size(); ++i) 
+		{
+			for (auto j = i + 1; j < subjects.size(); ++j) 
+			{
+				auto null_visitor = [](intersection_type iType, std::size_t, std::size_t, std::size_t, std::size_t, point2, point2)
+				{
+					return iType != e_non_crossing;
+				};
+				if (polyline_polyline_intersect(subjects[i], subjects[j], null_visitor, cmp))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	template <typename NumberComparisonPolicy>
+	inline bool is_self_intersecting(const stk::polygon_with_holes2& pgon, const NumberComparisonPolicy& cmp)
+	{
+		return is_self_intersecting(pgon.get_outer(), pgon.get_holes(), cmp);
+	}
+
+	class biased_position_grid
+	{
+	public:
+
+		struct weight_policy
+		{
+			weight_policy(const stk::units::length& d, double attractionStrength)
+				: distanceSaturation(d*d)
+				, attractionStrength(attractionStrength)
+			{}
+
+			double get_weight(stk::units::area const& distanceSqrd) const
+			{
+				using namespace geometrix;
+				using namespace stk;
+				using std::exp;
+
+				std::size_t idx;
+				auto d2 = std::max(distanceSqrd.value(), distanceSaturation.value());
+				double f = exp(-attractionStrength * d2);
+				return f;
+			}
+
+			stk::units::area distanceSaturation{ 1.0 * stk::units::si::square_meters };
+			double attractionStrength{ 1.0 };
+		};
+
+		//! Construct a generator which uses a reference to an external BSP containing attractive geometry. 
+		//! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
+		//! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
+		//! Attraction factor is a quantity specifying the strength of the attraction.
+		template <typename NumberComparisonPolicy>
+		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
+			: m_halfcell(0.5 * granularity)
+			, m_tree(detail::polygon_collection_as_segment_range(boundary), geometrix::partition_policies::autopartition_policy{}, cmp) 
+		{
+			using namespace stk;
+			using namespace geometrix;
+			auto wp = weight_policy{distanceSaturation, attractionFactor};
+			boost::for_each(boundary, [&, this](const polygon_with_holes2& p)
+			{
+				generate_points(p, granularity, minDistance, attractiveBSP, wp);
+			});
+
+			make_integral();
+		}
+
+		//! Generates points within the simple polygonal boundary with a bias towards the geometry in attractiveSegments. 
+		//! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
+		//! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
+		//! Attraction factor is a quantity specifying the strength of the attraction.
+		template <typename NumberComparisonPolicy>
+		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const std::vector<segment2>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
+			: biased_position_grid(boundary, solid_bsp2{attractiveSegments, geometrix::partition_policies::autopartition_policy{}, cmp}, granularity, distanceSaturation, attractionFactor, minDistance, cmp)
+		{
+
+		}
+
+		//! Returns a random position in an optional if there was a position found within the specified number of attempts.
+		template <typename Gen>
+		boost::optional<point2> get_random_position(Gen& gen, std::uint32_t maxAttempts = 100000) const
+		{
+			GEOMETRIX_ASSERT(!m_positions.empty());
+
+			point2 p;
+			do {
+				std::uniform_real_distribution<> U;
+				auto rT = U(gen);
+				auto it(std::lower_bound(m_integral.begin(), m_integral.end(), rT));
+				std::size_t i = std::distance(m_integral.begin(), it);
+				p = generate_random(i, gen);
+			} while (m_tree.point_in_solid_space(p, make_tolerance_policy()) != geometrix::point_in_solid_classification::in_empty_space && --maxAttempts > 0);
+
+			if (maxAttempts > 0)
+				return p;
+			else
+				return boost::none;
+		}
+
+	private:
+
+		//! Generate a random point inside a circle at m_position[i];
+		template <typename Gen>
+		point2 generate_random(std::size_t i, Gen& gen) const
+		{
+			GEOMETRIX_ASSERT(i < m_positions.size());
+			using std::sqrt;
+
+			const auto vx = vector2{ m_halfcell, 0.0 * boost::units::si::meters };
+			const auto vy = vector2{ 0.0 * boost::units::si::meters, m_halfcell };
+
+			auto U = std::uniform_real_distribution<>{ -1.0, 1.0 };
+			return m_positions[i] + U(gen) * vx + U(gen) * vy;
+		}
+
+		template <typename NumberComparisonPolicy>
+		typename geometrix::bounds_tuple<point2>::type bounds(const polygon2& pgon, const NumberComparisonPolicy& compare)
+		{
+			return geometrix::get_bounds(pgon, compare);
+		}
+
+		template <typename NumberComparisonPolicy>
+		typename geometrix::bounds_tuple<point2>::type bounds(const polygon_with_holes2& pgon, const NumberComparisonPolicy& compare)
+		{
+			return geometrix::get_bounds(pgon.get_outer(), compare);
+		}
+
+		template <typename Polygon>
+		void generate_points(const Polygon& pgon, const stk::units::length& cell, const stk::units::length& minDistance, const solid_bsp2& bsp, const weight_policy& wp)
+		{
+			using namespace geometrix;
+			using namespace stk;
+
+			std::set<point2> results;
+			auto cmp = make_tolerance_policy();
+			auto obounds = bounds(pgon, cmp);
+			auto grid = grid_traits<stk::units::length>(obounds, cell);
+
+			stk::units::length xmin, xmax, ymin, ymax;
+			std::tie(xmin, xmax, ymin, ymax) = obounds;
+
+			auto m2 = minDistance * minDistance;
+			std::uint32_t imin = grid.get_x_index(xmin), imax = grid.get_x_index(xmax), jmin = grid.get_y_index(ymin), jmax = grid.get_y_index(ymax);
+			for (auto j = jmin; j <= jmax; ++j) {
+				for (auto i = imin; i <= imax; ++i) {
+					auto c = grid.get_cell_centroid(i, j);
+					std::size_t idx;
+					auto d2 = bsp.get_min_distance_sqrd_to_solid(c, idx, cmp);
+					if (d2 > m2 && m_tree.point_in_solid_space(c, cmp) == point_in_solid_classification::in_empty_space) {
+						auto w = wp.get_weight(d2);
+						if (w > 1.0e-7){
+							m_positions.push_back(c);
+							m_integral.push_back(w);
+						}
+					}
+				}
+			}
+		}
+
+		void make_integral()
+		{
+			auto sum = boost::accumulate(m_integral, 0.0);
+			GEOMETRIX_ASSERT(sum > 0.0);
+			auto last = double{};
+			for (auto& w : m_integral) {
+				w = last + w / sum;
+				last = w;
+			}
+		}
+
+		stk::units::length  m_halfcell;
+		std::vector<point2> m_positions;
+		std::vector<double> m_integral;
+		stk::solid_bsp2     m_tree;
+
+	};
 }//! namespace stk;
 
