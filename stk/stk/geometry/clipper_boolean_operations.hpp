@@ -267,5 +267,19 @@ namespace stk {
 
         return to_polygons_with_holes(ptree, scale);
     }
+
+	inline std::vector<polygon_with_holes2> clipper_simplify(const polygon_with_holes2& pgon, unsigned int scale)
+	{
+		auto outer = clipper_union_simple(pgon.get_outer(), scale);
+		auto holes = std::vector<polygon_with_holes2>{};
+
+		for (const auto h : pgon.get_holes())
+			holes = clipper_union_simple(holes, geometrix::reverse(h), scale);
+
+		auto result = outer;
+		for (const auto h : holes)
+			result = clipper_difference_simple(result, h, scale);
+		return result;
+	}
 }//! namespace stk;
 

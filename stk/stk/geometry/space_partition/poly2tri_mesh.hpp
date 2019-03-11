@@ -15,6 +15,8 @@
 #include <geometrix/algorithm/point_sequence/is_polygon_simple.hpp>
 #include <poly2tri/poly2tri.h>
 
+#include <iostream>
+
 namespace stk {
     inline mesh2 generate_mesh(const std::vector<stk::polygon_with_holes2>& polygons)
     {
@@ -46,7 +48,7 @@ namespace stk {
         };
 
         STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
-
+		auto i = 0;
         for (const auto& polygon : polygons)
         {
             std::vector<p2t::Point*> polygon_;
@@ -81,6 +83,7 @@ namespace stk {
                 cdt.AddHole(hole_);
             }
 
+			std::cout << i++ << std::endl;
             cdt.Triangulate();
             std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
             for (auto* triangle : triangles)

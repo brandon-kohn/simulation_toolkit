@@ -10,6 +10,8 @@
 #include <stk/geometry/geometry_kernel.hpp>
 #include <stk/geometry/space_partition/poly2tri_mesh.hpp>
 #include <stk/geometry/space_partition/rtree_triangle_cache.ipp>
+#include <stk/geometry/clipper_boolean_operations.hpp>
+#include <stk/geometry/space_partition/biased_position_generator.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/dynamic_bitset.hpp>
@@ -324,3 +326,34 @@ bool in_diametral_lens(stk::units::angle const& theta, stk::point2 const& o, stk
 	return (dt * dt) >= (v2_cos_theta2_1 * v2_cos_theta2_1 * magnitude_sqrd(op) * magnitude_sqrd(dp));
 }
 
+#include "bugged_geometry.hpp"
+
+std::vector<stk::polygon_with_holes2> heal_self_intersections(const stk::polygon_with_holes2& pgon, stk::units::length& healOffset, unsigned int scale)
+{
+	using namespace stk;
+
+	std::vector<stk::polygon_with_holes2> outer = clipper_union_simple(pgon.get_outer(), scale);
+	for (const auto& h : pgon.get_holes()) 		
+	{
+		auto nh = clipper_offset(h, healOffset, scale);
+		outer = clipper_difference_simple(outer, nh, scale);
+	}
+
+	return outer;
+}
+
+TEST(mesh_test_suite, bugging)
+{
+	using namespace stk;
+
+	auto geometry = get_geometry();
+
+	if (is_self_intersecting(geometry[0], make_tolerance_policy())) {
+		auto newGeometry = heal_self_intersections(geometry[0], 0.001 * units::si::meters, 10000);
+		GEOMETRIX_ASSERT(!is_self_intersecting(newGeometry[0], make_tolerance_policy()));
+		geometry.erase(geometry.begin() + 0);
+		geometry.insert(geometry.end(), newGeometry.begin(), newGeometry.end());
+	}
+	
+	auto mesh = generate_mesh(geometry);
+}
