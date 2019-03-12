@@ -18,11 +18,30 @@
 #include <stk/utility/scope_exit.hpp>
 #include <stk/geometry/clipper_boolean_operations.hpp>
 #include <stk/geometry/space_partition/biased_position_generator.hpp>
+#include <stk/thread/work_stealing_thread_pool.hpp>
+#include <stk/thread/concurrentqueue.h>
+#include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/algorithm_ext/erase.hpp>
 
 #include <exception>
+
+using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
+
+//stk::thread::work_stealing_thread_pool<mc_queue_traits> pool;
+
+struct sequential_executor
+{
+	template <typename Container, typename Fn>
+	void parallel_for(Container&& c, Fn f)
+	{
+		for (auto& c : c)
+			f(c);
+	}
+};
+
+sequential_executor pool;
 
 TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 {
@@ -33,7 +52,7 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	//! This geometry is from the pedestrian tutorial model. pouter is a pedestrian area.
 	auto pouter = polygon2{ {60.932305376161821 * boost::units::si::meters, 2148.1332399388775 * boost::units::si::meters}, {-71.142922936356626 * boost::units::si::meters, 2113.9137489674613 * boost::units::si::meters}, {-49.530612848873716 * boost::units::si::meters, 1976.4354431331158 * boost::units::si::meters}, {-14.710779930115677 * boost::units::si::meters, 1992.0443337513134 * boost::units::si::meters}, {21.910078829270788 * boost::units::si::meters, 1942.2159521607682 * boost::units::si::meters}, {83.745299357397016 * boost::units::si::meters, 1988.4422820704058 * boost::units::si::meters}, {131.77265510737197 * boost::units::si::meters, 2051.4781864918768 * boost::units::si::meters}, {77.741879888635594 * boost::units::si::meters, 2097.1041744546965 * boost::units::si::meters} };
 	auto scale = 1000UL;
-	auto r0 = clipper_offset(pouter, 0.2*units::si::meters, scale);
+	auto r0 = clipper_offset(pouter, 0.001*units::si::meters, scale);
 
 	auto outer = r0[0].get_outer();
 
@@ -72,18 +91,20 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	for (auto const& h : unn)
 	{
 		//! Offset these slightly to emphasize near intersections.
-		auto r = clipper_offset(h, 0.1 * units::si::meters, scale);
+		auto r = clipper_offset(h, 0.001 * units::si::meters, scale);
 		GEOMETRIX_ASSERT(r.size() == 1);//! If the offsetting results in more than one polygon.. the input polygon needs to be investigated.
 		newHoles.insert(newHoles.end(), r.begin(), r.end());
 	}
 
 	//! Difference the disjoint set of holes from the outer area. The result is a collection of polygons with holes, AKA accessible spaces.
-	auto asAreas = clipper_difference(outer, newHoles, scale);
+	auto asAreas = std::vector<polygon_with_holes2>{ outer };
+	for(const auto& h : newHoles)
+		asAreas = clipper_difference(asAreas, h, scale);
 
 	//! The result is a collection of areas.. each of which is a disjoint accessible space; separate from the others. Each should be processed as a separate region.
 
 	//! Here we look at the first region which is the most interesting one.
-	GEOMETRIX_ASSERT(!is_self_intersecting(asAreas[0], make_tolerance_policy()));
+	//GEOMETRIX_ASSERT(!is_self_intersecting(asAreas[0], make_tolerance_policy()));
 
 	stk::units::length granularity = 4.0 * units::si::meters; //! This term specifies the resolution of the steiner points in the resulting mesh. 
 	stk::units::length distSaturation = 1.0 * units::si::meters;//! This term specifies the distance at which the attractive force saturates... i.e. the mesh elements within this distance have uniform weight.
@@ -105,7 +126,7 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	});
 
 	std::mt19937 gen;
-	auto bpg2 = biased_position_grid{ asAreas, segs, granularity, distSaturation, attractionStrength, 0.3 * boost::units::si::meters, make_tolerance_policy() };
+	auto bpg2 = biased_position_grid{ asAreas, segs, granularity, distSaturation, attractionStrength, 0.3 * boost::units::si::meters, make_tolerance_policy(), pool };
 
 	//! Here I generate a bunch of random positions.
 	for (auto i = 0; i < 100; ++i)
@@ -129,7 +150,7 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 	//! This geometry is from the pedestrian tutorial model. pouter is a pedestrian area.
 	auto pouter = polygon2{ {60.932305376161821 * boost::units::si::meters, 2148.1332399388775 * boost::units::si::meters}, {-71.142922936356626 * boost::units::si::meters, 2113.9137489674613 * boost::units::si::meters}, {-49.530612848873716 * boost::units::si::meters, 1976.4354431331158 * boost::units::si::meters}, {-14.710779930115677 * boost::units::si::meters, 1992.0443337513134 * boost::units::si::meters}, {21.910078829270788 * boost::units::si::meters, 1942.2159521607682 * boost::units::si::meters}, {83.745299357397016 * boost::units::si::meters, 1988.4422820704058 * boost::units::si::meters}, {131.77265510737197 * boost::units::si::meters, 2051.4781864918768 * boost::units::si::meters}, {77.741879888635594 * boost::units::si::meters, 2097.1041744546965 * boost::units::si::meters} };
 	auto scale = 1000UL;
-	auto r0 = clipper_offset(pouter, 0.2*units::si::meters, scale);
+	auto r0 = clipper_offset(pouter, 0.001*units::si::meters, scale);
 
 	auto outer = r0[0].get_outer();
 
@@ -168,18 +189,20 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 	for (auto const& h : unn)
 	{
 		//! Offset these slightly to emphasize near intersections.
-		auto r = clipper_offset(h, 0.1 * units::si::meters, scale);
+		auto r = clipper_offset(h, 0.001 * units::si::meters, scale);
 		GEOMETRIX_ASSERT(r.size() == 1);//! If the offsetting results in more than one polygon.. the input polygon needs to be investigated.
 		newHoles.insert(newHoles.end(), r.begin(), r.end());
 	}
 
 	//! Difference the disjoint set of holes from the outer area. The result is a collection of polygons with holes, AKA accessible spaces.
-	auto asAreas = clipper_difference(outer, newHoles, scale);
+	auto asAreas = std::vector<polygon_with_holes2>{ outer };
+	for (const auto& h : newHoles)
+		asAreas = clipper_difference(asAreas, h, scale);;
 
 	//! The result is a collection of areas.. each of which is a disjoint accessible space; separate from the others. Each should be processed as a separate region.
 
 	//! Here we look at the first region which is the most interesting one.
-	GEOMETRIX_ASSERT(!is_self_intersecting(asAreas[0], make_tolerance_policy()));
+	//GEOMETRIX_ASSERT(!is_self_intersecting(asAreas[0], make_tolerance_policy()));
 
 	stk::units::length granularity = 4.0 * units::si::meters; //! This term specifies the resolution of the steiner points in the resulting mesh. 
 	stk::units::length distSaturation = 1.0 * units::si::meters;//! This term specifies the distance at which the attractive force saturates... i.e. the mesh elements within this distance have uniform weight.
@@ -187,7 +210,7 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 	auto segs = polygon_collection_as_segment_range(pholes);//! Specify the holes to be the attractive geometry (which are stored as segments.)
 
 	//! This is the generator. I construct from polygon with holes here.. also has interface for simple polygonal boundary only.
-	auto bpg = biased_position_generator{ asAreas[0].get_outer(), asAreas[0].get_holes(), segs, granularity, distSaturation, attractionStrength };
+	biased_position_generator bpg{asAreas[0].get_outer(), asAreas[0].get_holes(), segs, granularity, distSaturation, attractionStrength, pool};
 
 	//! Here I generate a bunch of random positions.
 		
@@ -215,7 +238,8 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 		return false;
 	});
 
-	auto bpg2 = biased_position_generator{ asAreas, segs, granularity, distSaturation, attractionStrength };
+	stk::
+	biased_position_generator bpg2{ asAreas, segs, granularity, distSaturation, attractionStrength, pool };
 
 	//! Here I generate a bunch of random positions.
 		

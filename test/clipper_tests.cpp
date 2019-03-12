@@ -348,3 +348,34 @@ TEST(clipper_test_suite, testFailingCasePgonIntersection)
 
 	EXPECT_TRUE(results.size() == 1);
 }
+
+#include <geometrix/algorithm/point_sequence/is_polygon_simple.hpp>
+TEST(clipper_test_suite, fixSelfIntersection)
+{
+	using namespace stk;
+	using namespace geometrix;
+
+	auto pgon = polygon2{ {-6168.3000000000002 * boost::units::si::meters, -11649.264999999999 * boost::units::si::meters}, {-6168.2929999999997 * boost::units::si::meters, -11649.268 * boost::units::si::meters}, {-6168.2950000000001 * boost::units::si::meters, -11649.263000000001 * boost::units::si::meters}, {-6168.4799999999996 * boost::units::si::meters, -11649.337 * boost::units::si::meters}, {-6168.4769999999999 * boost::units::si::meters, -11649.343000000001 * boost::units::si::meters} };
+	EXPECT_TRUE(!is_polygon_simple(pgon, make_tolerance_policy()));
+	clipper_clean(pgon, 10000);
+	EXPECT_TRUE(!is_polygon_simple(pgon, make_tolerance_policy()));
+	auto result = clipper_simplify(pgon, 10000);
+	for (auto i = 0ULL; i < result.size();)
+	{
+		const auto& pwh = result[i];
+		if (!is_polygon_with_holes_simple(pwh, make_tolerance_policy())) 
+		{
+			auto newGeometry = clipper_offset(pwh, 0.0001 * boost::units::si::meters, 10000);
+			result.erase(result.begin() + i);
+			result.insert(result.end(), newGeometry.begin(), newGeometry.end());
+			continue;
+		}
+
+		++i;
+	}
+
+	for (const auto& pwh : result)
+	{
+		EXPECT_TRUE(is_polygon_with_holes_simple(pwh, make_tolerance_policy()));
+	}
+}

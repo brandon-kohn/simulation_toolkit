@@ -17,6 +17,7 @@
 
 #include <random>
 #include <vector>
+#include <mutex>
 
 namespace stk {
 
@@ -72,8 +73,8 @@ namespace stk {
         //! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
         //! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
         //! Attraction factor is a quantity specifying the strength of the attraction.
-        template <typename Polygon, typename Segments>
-        biased_position_generator(const Polygon& boundary, const Segments& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
+        template <typename Polygon, typename Segments, typename Executor>
+        biased_position_generator(const Polygon& boundary, const Segments& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, Executor&& exec)
         {
             using namespace stk;
             using namespace geometrix;
@@ -86,7 +87,7 @@ namespace stk {
             };
             auto partitionPolicy = partition_policies::scored_selector_policy<identity_extractor, stk::tolerance_policy>(identity_extractor());
             auto bsp = solid_bsp2{attractiveSegments, partitionPolicy, make_tolerance_policy()};
-            m_mesh = generate_weighted_mesh(boundary, granularity, bsp, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor));
+            m_mesh = generate_weighted_mesh(boundary, granularity, bsp, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor), std::forward<Executor>(exec));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
@@ -94,8 +95,8 @@ namespace stk {
         //! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
         //! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
         //! Attraction factor is a quantity specifying the strength of the attraction.
-        template <typename Polygon, typename Holes, typename Segments>
-        biased_position_generator(const Polygon& boundary, const Holes& holes, const Segments& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
+        template <typename Polygon, typename Holes, typename Segments, typename Executor>
+        biased_position_generator(const Polygon& boundary, const Holes& holes, const Segments& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, Executor&& exec)
         {
             using namespace stk;
             using namespace geometrix;
@@ -108,7 +109,7 @@ namespace stk {
             };
             auto partitionPolicy = partition_policies::scored_selector_policy<identity_extractor, stk::tolerance_policy>(identity_extractor());
             auto bsp = solid_bsp2{attractiveSegments, partitionPolicy, make_tolerance_policy()};
-            m_mesh = generate_weighted_mesh(boundary, holes, granularity, bsp, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor));
+            m_mesh = generate_weighted_mesh(boundary, holes, granularity, bsp, triangle_area_distance_weight_policy(&bsp, distanceSaturation, attractionFactor), std::forward<Executor>(exec));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
@@ -116,12 +117,12 @@ namespace stk {
         //! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
         //! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
         //! Attraction factor is a quantity specifying the strength of the attraction.
-        template <typename Polygon>
-        biased_position_generator(const Polygon& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor)
+        template <typename Polygon, typename Executor>
+        biased_position_generator(const Polygon& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, Executor&& exec)
         {
             using namespace stk;
             using namespace geometrix;
-            m_mesh = generate_weighted_mesh(boundary, granularity, attractiveBSP, triangle_area_distance_weight_policy(&attractiveBSP, distanceSaturation, attractionFactor));
+            m_mesh = generate_weighted_mesh(boundary, granularity, attractiveBSP, triangle_area_distance_weight_policy(&attractiveBSP, distanceSaturation, attractionFactor), std::forward<Executor>(exec));
             m_mesh->get_adjacency_matrix();//! cache the adjacency matrix.
         }
 
@@ -194,8 +195,8 @@ namespace stk {
             return std::vector<point2>(results.begin(), results.end());
         }
 
-        template <typename Polygon>
-        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy)
+        template <typename Polygon, typename Executor>
+        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy, Executor&& exec)
         {
             using namespace stk;
             using namespace geometrix;
@@ -248,8 +249,8 @@ namespace stk {
             return boost::make_unique<mesh_type>(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
         }
 
-        template <typename Polygon>
-        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const std::vector<Polygon>& holes, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy)
+        template <typename Polygon, typename Executor>
+        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const std::vector<Polygon>& holes, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy, Executor&& exec)
         {
             using namespace stk;
             using namespace geometrix;
@@ -318,10 +319,12 @@ namespace stk {
             return boost::make_unique<mesh_type>(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
         }
 
-		std::unique_ptr<mesh_type> generate_weighted_mesh(const std::vector<stk::polygon_with_holes2>& polygons, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy)
+		template <typename Executor>
+		std::unique_ptr<mesh_type> generate_weighted_mesh(const std::vector<stk::polygon_with_holes2>& polygons, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy, Executor&& exec)
 		{
 			using namespace geometrix;
 			using namespace stk;
+			std::mutex memmutx;
 			std::vector<p2t::Point*> memory;
 			std::map<point2, std::size_t> allIndices;
 			std::vector<point2> pArray;
@@ -337,8 +340,11 @@ namespace stk {
 				allIndices.insert(it, std::make_pair(p, newIndex));
 				return newIndex;
 			};
+			
+			std::mutex mtx;
 			auto addTriangle = [&](const point2& p0, const point2& p1, const point2& p2)
 			{
+				auto lk = std::unique_lock<std::mutex>{ mtx };
 				auto i0 = getIndex(p0);
 				auto i1 = getIndex(p1);
 				auto i2 = getIndex(p2);
@@ -349,7 +355,7 @@ namespace stk {
 
 			STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
 
-			for (const auto& polygon : polygons)
+			auto work = [&](const polygon_with_holes2& polygon)
 			{
 				std::vector<p2t::Point*> polygon_;
 				if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
@@ -363,8 +369,11 @@ namespace stk {
 
 				for (const auto& p : polygon.get_outer()) 
 				{
+					auto pMem = boost::make_unique<p2t::Point>(get<0>(p).value(), get<1>(p).value());
+					polygon_.push_back(pMem.get());
+					pMem.release();
+					auto lk = std::unique_lock<std::mutex>{ memmutx };
 					memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
-					polygon_.push_back(memory.back());
 				}
 
 				p2t::CDT cdt(polygon_);
@@ -375,8 +384,11 @@ namespace stk {
 					std::vector<p2t::Point*> hole_;
 					for (const auto& p : hole) 
 					{
+						auto pMem = boost::make_unique<p2t::Point>(get<0>(p).value(), get<1>(p).value());
+						hole_.push_back(pMem.get());
+						pMem.release();
+						auto lk = std::unique_lock<std::mutex>{ memmutx };
 						memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
-						hole_.push_back(memory.back());
 					}
 
 					cdt.AddHole(hole_);
@@ -386,8 +398,11 @@ namespace stk {
 				std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
 				for (const auto& p : steinerPoints)
 				{
+					auto pMem = boost::make_unique<p2t::Point>(get<0>(p).value(), get<1>(p).value());
+					cdt.AddPoint(pMem.get());
+					pMem.release();
+					auto lk = std::unique_lock<std::mutex>{ memmutx };
 					memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
-					cdt.AddPoint(memory.back());
 				}
 
 				cdt.Triangulate();
@@ -402,7 +417,10 @@ namespace stk {
 					auto p2 = point2{p2_->x * units::meters, p2_->y * units::meters};
 					addTriangle(p0, p1, p2);
 				}
-			}
+			};
+
+			exec.parallel_for(polygons, work);
+			//for (const auto& polygon : polygons)
 
             return boost::make_unique<mesh_type>(pArray, tArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
 		}
@@ -504,15 +522,15 @@ namespace stk {
 		//! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
 		//! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
 		//! Attraction factor is a quantity specifying the strength of the attraction.
-		template <typename NumberComparisonPolicy>
-		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
+		template <typename NumberComparisonPolicy, typename Executor>
+		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp, Executor&& exec)
 			: m_halfcell(0.5 * granularity)
 			, m_tree(detail::polygon_collection_as_segment_range(boundary), geometrix::partition_policies::autopartition_policy{}, cmp) 
 		{
 			using namespace stk;
 			using namespace geometrix;
 			auto wp = weight_policy{distanceSaturation, attractionFactor};
-			boost::for_each(boundary, [&, this](const polygon_with_holes2& p)
+			exec.parallel_for(boundary, [&, this](const polygon_with_holes2& p)
 			{
 				generate_points(p, granularity, minDistance, attractiveBSP, wp);
 			});
@@ -524,9 +542,9 @@ namespace stk {
 		//! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
 		//! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
 		//! Attraction factor is a quantity specifying the strength of the attraction.
-		template <typename NumberComparisonPolicy>
-		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const std::vector<segment2>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
-			: biased_position_grid(boundary, solid_bsp2{attractiveSegments, geometrix::partition_policies::autopartition_policy{}, cmp}, granularity, distanceSaturation, attractionFactor, minDistance, cmp)
+		template <typename NumberComparisonPolicy, typename Executor>
+		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const std::vector<segment2>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp, Executor&& exec)
+			: biased_position_grid(boundary, solid_bsp2{attractiveSegments, geometrix::partition_policies::autopartition_policy{}, cmp}, granularity, distanceSaturation, attractionFactor, minDistance, cmp, std::forward<Executor>(exec))
 		{
 
 		}
@@ -602,10 +620,11 @@ namespace stk {
 					auto d2 = bsp.get_min_distance_sqrd_to_solid(c, idx, cmp);
 					if (d2 > m2 && m_tree.point_in_solid_space(c, cmp) == point_in_solid_classification::in_empty_space) {
 						auto w = wp.get_weight(d2);
-						//if (w > 1.0e-7){
+						{
+							auto lk = std::unique_lock<std::mutex>{ m_mtx };
 							m_positions.push_back(c);
 							m_integral.push_back(w);
-						//}
+						}
 					}
 				}
 			}
@@ -626,6 +645,7 @@ namespace stk {
 		std::vector<point2> m_positions;
 		std::vector<double> m_integral;
 		stk::solid_bsp2     m_tree;
+		std::mutex          m_mtx;
 
 	};
 }//! namespace stk;

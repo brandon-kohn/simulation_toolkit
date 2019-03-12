@@ -21,6 +21,7 @@ namespace stk {
     inline void to_clipper(ClipperLib::Clipper& clip, const polygon2& a, ClipperLib::PolyType type, unsigned int scale)
     {
         ClipperLib::Path path;
+		path.reserve(a.size());
 
         for (const auto& p : a)
             path << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
@@ -32,19 +33,17 @@ namespace stk {
     {
         to_clipper(clip, a.get_outer(), type, scale);
         for (const auto& hole : a.get_holes())
-            //to_clipper(clip, hole, (ClipperLib::PolyType)!type, scale);
             to_clipper(clip, hole, type, scale);
     }
 
 	//! Add a polyline to clipper. NOTE: Must be a subject type.
     inline void to_clipper(ClipperLib::Clipper& clip, const polyline2& a, ClipperLib::PolyType type, unsigned int scale)
     {
-        ClipperLib::Path path;
 		GEOMETRIX_ASSERT(type == ClipperLib::ptSubject);
-
+        ClipperLib::Path path;
+		path.reserve(a.size());
         for (const auto& p : a)
             path << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
-
         clip.AddPath(path, ClipperLib::ptSubject, false);
     }
 
@@ -59,6 +58,7 @@ namespace stk {
     {
         std::vector<polygon_with_holes2> results;
         std::vector<ClipperLib::PolyNode*> outerStack;
+		outerStack.reserve(ptree.ChildCount());
 
         for (int i = 0; i < ptree.ChildCount(); ++i)
             outerStack.push_back(ptree.Childs[i]);
@@ -70,6 +70,7 @@ namespace stk {
             GEOMETRIX_ASSERT(!pOuter->IsHole());
 
             polygon_with_holes2 contour;
+			contour.get_outer().reserve(pOuter->Contour.size());
             for (const auto& p : pOuter->Contour)
                 contour.get_outer().emplace_back((p.X / static_cast<double>(scale)) * units::si::meters, (p.Y / static_cast<double>(scale)) * units::si::meters);
 
@@ -80,6 +81,7 @@ namespace stk {
                 if (pChild->IsHole())
                 {
                     polygon2 hole;
+					hole.reserve(pChild->Contour.size());
                     for (const auto& p : pChild->Contour)
                         hole.emplace_back((p.X / static_cast<double>(scale))* units::si::meters, (p.Y / static_cast<double>(scale))* units::si::meters);
                     contour.add_hole(std::move(hole));
@@ -115,6 +117,33 @@ namespace stk {
 
         return results;
     }
+
+	inline void clipper_clean(polygon2& a, unsigned int scale)
+	{
+		ClipperLib::Path path;
+		path.reserve(a.size());
+
+		for (const auto& p : a)
+			path.emplace_back(p[0].value() * scale, p[1].value() * scale);
+
+		a.clear();
+		for(const auto& p : path)
+			a.emplace_back((p.X / static_cast<double>(scale)) * units::si::meters, (p.Y / static_cast<double>(scale)) * units::si::meters);
+	}
+
+	inline void clipper_clean(polygon_with_holes2& a, unsigned int scale)
+	{
+		clipper_clean(a.get_outer(), scale);
+		for (auto& hole : a.get_holes())
+			clipper_clean(hole, scale);
+	}
+
+	template <typename T>
+	inline void clipper_clean(std::vector<T>& a, unsigned int scale)
+	{
+		for (const auto& i : a)
+			clipper_clean(i, scale);
+	}
 
     template <typename Geometry1, typename Geometry2>
     inline std::vector<polygon_with_holes2> clipper_union_impl(ClipperLib::Clipper& clip, Geometry1&& a, Geometry2&& b, unsigned int scale)
