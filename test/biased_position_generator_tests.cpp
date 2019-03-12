@@ -104,11 +104,10 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 		return false;
 	});
 
+	std::mt19937 gen;
 	auto bpg2 = biased_position_grid{ asAreas, segs, granularity, distSaturation, attractionStrength, 0.3 * boost::units::si::meters, make_tolerance_policy() };
 
 	//! Here I generate a bunch of random positions.
-	std::mt19937 gen;
-		
 	for (auto i = 0; i < 100; ++i)
 	{
 		//! This is where you get the random position in the region.

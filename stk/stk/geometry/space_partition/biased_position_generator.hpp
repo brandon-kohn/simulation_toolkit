@@ -504,8 +504,8 @@ namespace stk {
 		//! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
 		//! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
 		//! Attraction factor is a quantity specifying the strength of the attraction.
-		template <typename Gen, typename NumberComparisonPolicy>
-		biased_position_grid(Gen& gen, std::size_t nPoints, const std::vector<polygon_with_holes2>& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
+		template <typename NumberComparisonPolicy>
+		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const solid_bsp2& attractiveBSP, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
 			: m_halfcell(0.5 * granularity)
 			, m_tree(detail::polygon_collection_as_segment_range(boundary), geometrix::partition_policies::autopartition_policy{}, cmp) 
 		{
@@ -514,7 +514,7 @@ namespace stk {
 			auto wp = weight_policy{distanceSaturation, attractionFactor};
 			boost::for_each(boundary, [&, this](const polygon_with_holes2& p)
 			{
-				generate_points(gen, p, granularity, minDistance, attractiveBSP, wp);
+				generate_points(p, granularity, minDistance, attractiveBSP, wp);
 			});
 
 			make_integral();
@@ -524,9 +524,9 @@ namespace stk {
 		//! Granularity specifies the spacing of the Steiner points used to generate the underlying mesh.
 		//! Distance saturation sets an attraction threshold which limits the attractive potential of a segment once within the specified distance.
 		//! Attraction factor is a quantity specifying the strength of the attraction.
-		template <typename Gen, typename NumberComparisonPolicy>
-		biased_position_grid(Gen& gen, const std::vector<polygon_with_holes2>& boundary, const std::vector<segment2>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
-			: biased_position_grid(gen, boundary, solid_bsp2{attractiveSegments, geometrix::partition_policies::autopartition_policy{}, cmp}, granularity, distanceSaturation, attractionFactor, minDistance, cmp)
+		template <typename NumberComparisonPolicy>
+		biased_position_grid(const std::vector<polygon_with_holes2>& boundary, const std::vector<segment2>& attractiveSegments, const stk::units::length& granularity, const stk::units::length& distanceSaturation, double attractionFactor, const stk::units::length& minDistance, const NumberComparisonPolicy& cmp)
+			: biased_position_grid(boundary, solid_bsp2{attractiveSegments, geometrix::partition_policies::autopartition_policy{}, cmp}, granularity, distanceSaturation, attractionFactor, minDistance, cmp)
 		{
 
 		}
@@ -580,8 +580,8 @@ namespace stk {
 			return geometrix::get_bounds(pgon.get_outer(), compare);
 		}
 
-		template <typename Gen, typename Polygon>
-		void generate_points(Gen& gen, std::size_t nPoints, const Polygon& pgon, const stk::units::length& cell, const stk::units::length& minDistance, const solid_bsp2& bsp, const weight_policy& wp)
+		template <typename Polygon>
+		void generate_points(const Polygon& pgon, const stk::units::length& cell, const stk::units::length& minDistance, const solid_bsp2& bsp, const weight_policy& wp)
 		{
 			using namespace geometrix;
 			using namespace stk;
