@@ -13,6 +13,7 @@
 #include <stk/geometry/primitive/polygon.hpp>
 #include <stk/geometry/primitive/polyline.hpp>
 #include <stk/geometry/primitive/polygon_with_holes.hpp>
+#include <geometrix/algorithm/point_sequence/is_polygon_simple.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
 

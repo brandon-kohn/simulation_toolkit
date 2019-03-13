@@ -21,6 +21,7 @@
 #include <stk/thread/work_stealing_thread_pool.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
+#include <stk/thread/seq_executor.hpp>
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/algorithm_ext/erase.hpp>
@@ -30,18 +31,7 @@
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
 
 //stk::thread::work_stealing_thread_pool<mc_queue_traits> pool;
-
-struct sequential_executor
-{
-	template <typename Container, typename Fn>
-	void parallel_for(Container&& c, Fn f)
-	{
-		for (auto& c : c)
-			f(c);
-	}
-};
-
-sequential_executor pool;
+stk::seq_executor pool;
 
 TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 {
@@ -82,9 +72,6 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	,   polygon2{ {50.484425916685723 * boost::units::si::meters, 2053.4570706384256 * boost::units::si::meters}, {52.838457798701711 * boost::units::si::meters, 2049.045887815766 * boost::units::si::meters}, {60.77858688053675 * boost::units::si::meters, 2053.2831452032551 * boost::units::si::meters}, {58.424554998520762 * boost::units::si::meters, 2057.6943280259147 * boost::units::si::meters} }
 	};
 
-	//! The original geometry is self intersecting.. so process these. This is important. The input geometry to the biased_position_generator must not contain ANY self intersections.
-	GEOMETRIX_ASSERT(is_self_intersecting(pouter, pholes, make_tolerance_policy()));
-
 	//! Union the holes together to find the actual disjoint set of holes.
 	std::vector<polygon_with_holes2> newHoles;
 	auto unn = clipper_union(pholes, scale);
@@ -103,8 +90,6 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	//! The result is a collection of areas.. each of which is a disjoint accessible space; separate from the others. Each should be processed as a separate region.
 
 	//! Here we look at the first region which is the most interesting one.
-	//GEOMETRIX_ASSERT(!is_self_intersecting(asAreas[0], make_tolerance_policy()));
-
 	stk::units::length granularity = 4.0 * units::si::meters; //! This term specifies the resolution of the steiner points in the resulting mesh. 
 	stk::units::length distSaturation = 1.0 * units::si::meters;//! This term specifies the distance at which the attractive force saturates... i.e. the mesh elements within this distance have uniform weight.
 	double attractionStrength = 0.1;//! Quantity specifying how strongly the attractive geometry weighs on mesh elements.
@@ -170,9 +155,6 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 	,   polygon2{ {73.816761517140549 * boost::units::si::meters, 2060.3501096237451 * boost::units::si::meters}, {71.190584940311965 * boost::units::si::meters, 2064.6048947637901 * boost::units::si::meters}, {63.53197168832412 * boost::units::si::meters, 2059.8777769254521 * boost::units::si::meters}, {66.158148265152704 * boost::units::si::meters, 2055.6229917854071 * boost::units::si::meters} }
 	,   polygon2{ {50.484425916685723 * boost::units::si::meters, 2053.4570706384256 * boost::units::si::meters}, {52.838457798701711 * boost::units::si::meters, 2049.045887815766 * boost::units::si::meters}, {60.77858688053675 * boost::units::si::meters, 2053.2831452032551 * boost::units::si::meters}, {58.424554998520762 * boost::units::si::meters, 2057.6943280259147 * boost::units::si::meters} }
 	};
-
-	//! The original geometry is self intersecting.. so process these. This is important. The input geometry to the biased_position_generator must not contain ANY self intersections.
-	GEOMETRIX_ASSERT(is_self_intersecting(pouter, pholes, make_tolerance_policy()));
 
 	//! Union the holes together to find the actual disjoint set of holes.
 	std::vector<polygon_with_holes2> newHoles;

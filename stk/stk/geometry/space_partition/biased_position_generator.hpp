@@ -419,7 +419,7 @@ namespace stk {
 				}
 			};
 
-			exec.parallel_for(polygons, work);
+			exec.for_each(polygons, work);
 			//for (const auto& polygon : polygons)
 
             return boost::make_unique<mesh_type>(pArray, tArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
@@ -454,42 +454,6 @@ namespace stk {
 			return std::move(segments);
 		}
 	}//! namespace detail;
-
-	template <typename NumberComparisonPolicy>
-	inline bool is_self_intersecting(const polygon2& outer, const std::vector<polygon2>& holes, const NumberComparisonPolicy& cmp)
-	{
-		auto to_polyline = [](const polygon2& pgon)
-		{
-			stk::polyline2 r(pgon.begin(), pgon.end()); r.push_back(pgon.front()); return std::move(r);
-		};
-
-		using namespace stk;
-		using namespace geometrix;
-		std::vector<polyline2> subjects;
-		subjects.emplace_back(to_polyline(outer));
-		for (const auto& hole : holes)
-			subjects.emplace_back(to_polyline(hole));
-
-		for (auto i = 0UL; i < subjects.size(); ++i) 
-		{
-			for (auto j = i + 1; j < subjects.size(); ++j) 
-			{
-				auto null_visitor = [](intersection_type iType, std::size_t, std::size_t, std::size_t, std::size_t, point2, point2)
-				{
-					return iType != e_non_crossing;
-				};
-				if (polyline_polyline_intersect(subjects[i], subjects[j], null_visitor, cmp))
-					return true;
-			}
-		}
-		return false;
-	}
-
-	template <typename NumberComparisonPolicy>
-	inline bool is_self_intersecting(const stk::polygon_with_holes2& pgon, const NumberComparisonPolicy& cmp)
-	{
-		return geometrix::is_polygon_with_holes_simple(pgon, cmp);// is_self_intersecting(pgon.get_outer(), pgon.get_holes(), cmp);
-	}
 
 	class biased_position_grid
 	{
@@ -530,7 +494,7 @@ namespace stk {
 			using namespace stk;
 			using namespace geometrix;
 			auto wp = weight_policy{distanceSaturation, attractionFactor};
-			exec.parallel_for(boundary, [&, this](const polygon_with_holes2& p)
+			exec.for_each(boundary, [&, this](const polygon_with_holes2& p)
 			{
 				generate_points(p, granularity, minDistance, attractiveBSP, wp);
 			});

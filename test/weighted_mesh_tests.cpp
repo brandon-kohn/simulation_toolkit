@@ -347,13 +347,6 @@ TEST(mesh_test_suite, bugging)
 	using namespace stk;
 
 	auto geometry = get_geometry();
-
-	if (is_self_intersecting(geometry[0], make_tolerance_policy())) {
-		auto newGeometry = heal_self_intersections(geometry[0], 0.001 * units::si::meters, 10000);
-		GEOMETRIX_ASSERT(!is_self_intersecting(newGeometry[0], make_tolerance_policy()));
-		geometry.erase(geometry.begin() + 0);
-		geometry.insert(geometry.end(), newGeometry.begin(), newGeometry.end());
-	}
-	
+	heal_non_simple_polygons(geometry);
 	auto mesh = generate_mesh(geometry);
 }
