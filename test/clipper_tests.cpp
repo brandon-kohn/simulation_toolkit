@@ -133,6 +133,41 @@ TEST(clipper_test_suite, testDifferencePgonWithHole)
 
 	auto r = clipper_difference(outer, pgon2, 1000UL);
 
+	EXPECT_EQ(2, r.size());
+	EXPECT_EQ(get_signed_area(outer), get_signed_area(r[0].get_outer()));
+	EXPECT_EQ(1, r[0].get_holes().size());
+	EXPECT_EQ(get_signed_area(outer2), -get_signed_area(r[0].get_holes()[0]));
+	EXPECT_EQ(0, r[1].get_holes().size());
+	EXPECT_EQ(get_signed_area(hole2), -get_signed_area(r[1].get_outer()));
+}
+
+TEST(clipper_test_suite, testWinding)
+{
+	using namespace stk;
+
+	auto a0 = polygon2{
+		  { -1.0 * boost::units::si::meters, -1.0 * boost::units::si::meters}
+		, { 1.0 * boost::units::si::meters, -1.0 * boost::units::si::meters}
+		, { 1.0 * boost::units::si::meters, 1.0 * boost::units::si::meters}
+		, { -1.0 * boost::units::si::meters, 1.0 * boost::units::si::meters}
+	};
+
+	auto a1 = polygon2{
+		  { -0.75 * boost::units::si::meters, -0.75 * boost::units::si::meters}
+		, { 0.75 * boost::units::si::meters, -0.75 * boost::units::si::meters}
+		, { 0.75 * boost::units::si::meters, 0.75 * boost::units::si::meters}
+		, { -0.75 * boost::units::si::meters, 0.75 * boost::units::si::meters}
+	};
+
+	auto a2 = polygon2{
+		  { -0.5 * boost::units::si::meters, -0.5 * boost::units::si::meters}
+		, { 0.5 * boost::units::si::meters, -0.5 * boost::units::si::meters}
+		, { 0.5 * boost::units::si::meters, 0.5 * boost::units::si::meters}
+		, { -0.5 * boost::units::si::meters, 0.5 * boost::units::si::meters}
+	};
+
+	auto r = clipper_union(std::vector<polygon2>({a0, a1, a2}), 1000UL);
+
 	r.size();
 }
 

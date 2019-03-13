@@ -152,7 +152,7 @@ namespace stk {
         to_clipper(clip, b, ClipperLib::ptSubject, scale);
 
         ClipperLib::PolyTree ptree;
-        clip.Execute(ClipperLib::ctUnion, ptree);
+        clip.Execute(ClipperLib::ctUnion, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
         return to_polygons_with_holes(ptree, scale);
     }
 
@@ -162,7 +162,7 @@ namespace stk {
         to_clipper(clip, a, ClipperLib::ptSubject, scale);
 
         ClipperLib::PolyTree ptree;
-        clip.Execute(ClipperLib::ctUnion, ptree);
+        clip.Execute(ClipperLib::ctUnion, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
         return to_polygons_with_holes(ptree, scale);
     }
     
@@ -188,7 +188,7 @@ namespace stk {
         to_clipper(clip, b, ClipperLib::ptClip, scale);
 
         ClipperLib::PolyTree ptree;
-        clip.Execute(ClipperLib::ctDifference, ptree);
+        clip.Execute(ClipperLib::ctDifference, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
         return to_polygons_with_holes(ptree, scale);
     }
 
@@ -214,7 +214,7 @@ namespace stk {
         to_clipper(clip, b, ClipperLib::ptClip, scale);
 
         ClipperLib::PolyTree ptree;
-        clip.Execute(ClipperLib::ctIntersection, ptree);
+        clip.Execute(ClipperLib::ctIntersection, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
         return to_polygons_with_holes(ptree, scale);
     }
 
@@ -225,7 +225,7 @@ namespace stk {
         to_clipper(clip, b, ClipperLib::ptClip, scale);
 
         ClipperLib::PolyTree ptree;
-		clip.Execute(ClipperLib::ctIntersection, ptree);
+		clip.Execute(ClipperLib::ctIntersection, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
         return to_polylines(ptree, scale);
     }
     
@@ -310,5 +310,42 @@ namespace stk {
 			result = clipper_difference_simple(result, h, scale);
 		return result;
 	}
+
+	inline std::vector<stk::polygon_with_holes2> heal_non_simple_polygon(const stk::polygon_with_holes2& pgon, stk::units::length const& healOffset, unsigned int scale)
+	{
+		using namespace stk;
+		using namespace geometrix;
+
+		std::vector<stk::polygon_with_holes2> outer = { pgon };
+		if (!is_polygon_simple(pgon.get_outer(), make_tolerance_policy())) {
+			outer = clipper_offset(pgon.get_outer(), healOffset, scale);
+		}
+
+		for (const auto& h : pgon.get_holes())
+		{
+			auto nh = clipper_offset(h, healOffset, scale);
+			outer = clipper_difference_simple(outer, nh, scale);
+		}
+
+		return outer;
+	}
+
+	inline void heal_non_simple_polygons(std::vector<stk::polygon_with_holes2>& pgons, stk::units::length const& offset = 0.001 * boost::units::si::meters, unsigned int scale = 10000)
+	{
+		for (std::size_t i = 0; i < pgons.size();) 
+		{
+			if (!is_polygon_with_holes_simple(pgons[i], make_tolerance_policy())) 
+			{
+				auto newGeometry = heal_non_simple_polygon(pgons[i], offset, scale);
+				std::iter_swap(pgons.begin() + i, pgons.end() - 1);
+				pgons.pop_back();
+				pgons.insert(pgons.end(), newGeometry.begin(), newGeometry.end());
+				continue;
+			}
+
+			++i;
+		}
+	}
+
 }//! namespace stk;
 
