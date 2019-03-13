@@ -15,8 +15,8 @@ namespace stk {
         template <typename Container, typename Fn>
         void for_each(Container&& c, Fn&& f)
         {
-            for (auto& c : c)
-                f(c);
+            for (auto& i : c)
+                f(i);
         }
 
         template <typename Fn>
