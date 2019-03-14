@@ -102,7 +102,7 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	heal_non_simple_polygons(asAreas);
 
 	std::mt19937 gen;
-	auto bpg2 = biased_position_grid{ asAreas, segs, granularity, distSaturation, attractionStrength, 0.3 * boost::units::si::meters, make_tolerance_policy(), pool };
+	biased_position_grid bpg2{ asAreas, segs, granularity, distSaturation, attractionStrength, 0.3 * boost::units::si::meters, make_tolerance_policy(), pool };
 
 	//! Here I generate a bunch of random positions.
 	for (auto i = 0; i < 100; ++i)
