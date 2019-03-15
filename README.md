@@ -1,5 +1,5 @@
 # Simulation ToolKit (STK)
-[![GitHub version](https://badge.fury.io/gh/brandon-kohn%2Fsimulation_toolkit.svg)](https://badge.fury.io/gh/brandon-kohn%2Fsimulation_toolkit)
+[![GitHub version](https://img.shields.io/github/tag/brandon-kohn/simulation_toolkit.svg?style=plastic)](http:shields.io/)
 <a target="_blank" href="https://travis-ci.org/brandon-kohn/simulation_toolkit">![Travis status][badge.Travis]</a>
 
 [CMake][1] superproject for cds, clipper, junction, geometrix, poly2tri, nlopt, turf and miscellaneous utilities for simulations.
@@ -18,7 +18,7 @@
 
 ##### Requirements:
 ###### Requires C++11 for boost.fiber, junction, and libcds.
-###### Boost version 1.65.1 is required with the following compiled libraries:
+###### Boost version 1.65.1 is required with the following compiled librarhttps://img.shields.io/github/tag/brandon-kohn/simulation_toolkit.svgies:
         context 
         fiber - (to use stk fiber pool)
         system
