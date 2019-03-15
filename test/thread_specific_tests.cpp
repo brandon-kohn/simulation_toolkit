@@ -305,6 +305,7 @@ TEST(thread_specific_tests, single_instance_thread_specific)
     boost::for_each(thds, [](std::thread& thd) { thd.join(); });
 }
 
+#ifdef STK_DO_THREAD_SPECIFIC_TIMINGS
 TEST(timing, single_instance_thread_specific_timing)
 {
     using namespace stk;
@@ -424,4 +425,5 @@ TEST(timing, compare_thread_specific_and_boost_tss)
     }
 
 }
+#endif//!STK_DO_THREAD_SPECIFIC_TIMINGS
 
