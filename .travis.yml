@@ -11,6 +11,7 @@ sudo: false
 # Branches to build.
 branches:
     only:
+        - master
         - feature/travis_ci_trial
 
 #env:
