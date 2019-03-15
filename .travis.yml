@@ -62,9 +62,9 @@ matrix:
     #  addons: { apt: { packages: ["g++-7", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
 
     # Xcode 6.4
-    - os: osx
-      env: UNIT_TESTS=true BOOST_VERSION=default
-      osx_image: xcode6.4
+    #- os: osx
+    #  env: UNIT_TESTS=true BOOST_VERSION=default
+    #  osx_image: xcode6.4
 
     # Xcode 7.3
     #- os: osx
@@ -77,9 +77,9 @@ matrix:
     #  osx_image: xcode8.3
 
     # Xcode 9.1
-    #- os: osx
-    #  env: UNIT_TESTS=true BOOST_VERSION=default
-    #  osx_image: xcode9.1
+    - os: osx
+      env: UNIT_TESTS=true BOOST_VERSION=default
+      osx_image: xcode9.1
 
     ##########################################################################
     # Build with variations in the configuration
