@@ -8,6 +8,11 @@ os: linux # Jobs are on Linux unless specified otherwise
 dist: trusty # Jobs are on Trusty unless specified otherwise
 sudo: false
 
+# Branches to build.
+branches:
+    only:
+        - feature/travis_ci_trial
+
 #env:
     #global:
     # GitHub token for pushing the documentation, logging in with the
