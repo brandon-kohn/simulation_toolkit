@@ -234,7 +234,7 @@ install:
   #  fi
 
 
-#before_script:
+before_script:
   ############################################################################
   # When running with Boost.Build, put Hana in the Boost tree and make that
   # the root of the project
@@ -255,7 +255,7 @@ install:
   ############################################################################
   # Go back to the root of the project and setup the build directory
   ############################################################################
-  #- cd "${TRAVIS_BUILD_DIR}"
+  - cd "${TRAVIS_BUILD_DIR}"
   #- (mkdir build && cd build && cmake .. ${CMAKE_OPTIONS})
 
 
@@ -333,7 +333,7 @@ script:
   ############################################################################
   - |
     if [[ "${UNIT_TESTS}" == "true" ]]; then
-        cd simulation_toolkit && ./run_tests.sh release "Unix Makefiles"
+        ./run_tests.sh release "Unix Makefiles"
     fi
 
   ############################################################################
