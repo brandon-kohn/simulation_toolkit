@@ -75,3 +75,4 @@ After running the above command the superproject and submodules will be built in
 
 [1]: https://cmake.org/
 [2]: https://cmake.org/cmake/help/v3.0/module/FindBoost.html
+[badge.Travis]: https://travis-ci.org/brandon-kohn/simulation_toolkit.svg?branch=feature/travis_ci_trial
