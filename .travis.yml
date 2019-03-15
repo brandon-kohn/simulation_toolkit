@@ -34,32 +34,32 @@ matrix:
       addons: { apt: { packages: ["clang-3.6", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-precise-3.6"] } }
 
     # Clang 3.7
-    - env: UNIT_TESTS=true COMPILER=clang++-3.7 BOOST_VERSION=default
-      addons: { apt: { packages: ["clang-3.7", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-precise-3.7"] } }
+    #- env: UNIT_TESTS=true COMPILER=clang++-3.7 BOOST_VERSION=default
+    #  addons: { apt: { packages: ["clang-3.7", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-precise-3.7"] } }
 
     # Clang 3.8
-    - env: UNIT_TESTS=true COMPILER=clang++-3.8 BOOST_VERSION=default
-      addons: { apt: { packages: ["clang-3.8", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-precise-3.8"] } }
+    #- env: UNIT_TESTS=true COMPILER=clang++-3.8 BOOST_VERSION=default
+    #  addons: { apt: { packages: ["clang-3.8", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-precise-3.8"] } }
 
     # Clang 3.9
-    - env: UNIT_TESTS=true COMPILER=clang++-3.9 BOOST_VERSION=default
-      addons: { apt: { packages: ["clang-3.9", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-3.9"] } }
+    #- env: UNIT_TESTS=true COMPILER=clang++-3.9 BOOST_VERSION=default
+    #  addons: { apt: { packages: ["clang-3.9", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-3.9"] } }
 
     # Clang 4.0
-    - env: UNIT_TESTS=true COMPILER=clang++-4.0 BOOST_VERSION=default
-      addons: { apt: { packages: ["clang-4.0", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-4.0"] } }
+    #- env: UNIT_TESTS=true COMPILER=clang++-4.0 BOOST_VERSION=default
+    #  addons: { apt: { packages: ["clang-4.0", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-4.0"] } }
 
     # Clang 5.0
-    - env: UNIT_TESTS=true COMPILER=clang++-5.0 BOOST_VERSION=default
-      addons: &defaults { apt: { packages: ["clang-5.0", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-5.0"] } }
+    #- env: UNIT_TESTS=true COMPILER=clang++-5.0 BOOST_VERSION=default
+    #  addons: &defaults { apt: { packages: ["clang-5.0", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-5.0"] } }
 
     # GCC 6
     - env: UNIT_TESTS=true COMPILER=g++-6 BOOST_VERSION=default 
       addons: { apt: { packages: ["g++-6", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
 
     # GCC 7
-    - env: UNIT_TESTS=true COMPILER=g++-7 BOOST_VERSION=default
-      addons: { apt: { packages: ["g++-7", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
+    #- env: UNIT_TESTS=true COMPILER=g++-7 BOOST_VERSION=default
+    #  addons: { apt: { packages: ["g++-7", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
 
     # Xcode 6.4
     - os: osx
@@ -67,38 +67,38 @@ matrix:
       osx_image: xcode6.4
 
     # Xcode 7.3
-    - os: osx
-      env: UNIT_TESTS=true BOOST_VERSION=default
-      osx_image: xcode7.3
+    #- os: osx
+    #  env: UNIT_TESTS=true BOOST_VERSION=default
+    #  osx_image: xcode7.3
 
     # Xcode 8.3
-    - os: osx
-      env: UNIT_TESTS=true BOOST_VERSION=default
-      osx_image: xcode8.3
+    #- os: osx
+    #  env: UNIT_TESTS=true BOOST_VERSION=default
+    #  osx_image: xcode8.3
 
     # Xcode 9.1
-    - os: osx
-      env: UNIT_TESTS=true BOOST_VERSION=default
-      osx_image: xcode9.1
+    #- os: osx
+    #  env: UNIT_TESTS=true BOOST_VERSION=default
+    #  osx_image: xcode9.1
 
     ##########################################################################
     # Build with variations in the configuration
     ##########################################################################
     # With C++17 instead of C++14, on Clang
-    - env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=default 
-      addons: *defaults
+    #- env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=default 
+    #  addons: *defaults
 
     # With C++17 instead of C++14, on GCC
-    - env: UNIT_TESTS=true COMPILER=g++-6     BOOST_VERSION=default
-      addons: { apt: { packages: ["g++-6", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
+    #- env: UNIT_TESTS=true COMPILER=g++-6     BOOST_VERSION=default
+    #  addons: { apt: { packages: ["g++-6", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
 
     # With debug mode
-    - env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=default 
-      addons: *defaults
+    #- env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=default 
+    #  addons: *defaults
 
     # With Boost 1.65.1
-    - env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=1.65.1
-      addons: *defaults
+    #- env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=1.65.1
+    #  addons: *defaults
 
     ##########################################################################
     # Generate the documentation
@@ -116,12 +116,12 @@ matrix:
     # Jobs that are allowed to fail
     ##########################################################################
     # Boost trunk
-    - env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=trunk
-      addons: *defaults
+    #- env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=trunk
+    #  addons: *defaults
 
 
-  allow_failures:
-    - env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=trunk
+  #allow_failures:
+  #  - env: UNIT_TESTS=true COMPILER=default BOOST_VERSION=trunk
 
 
 install:
