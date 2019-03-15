@@ -1,4 +1,7 @@
 # Simulation ToolKit (STK)
+
+<a target="_blank" href="https://travis-ci.org/brandon-kohn/simultion_toolkit">![Travis status][badge.Travis]</a>
+
 [CMake][1] superproject for cds, clipper, junction, geometrix, poly2tri, nlopt, turf and miscellaneous utilities for simulations.
 
 ##### Libraries included: 
@@ -75,3 +78,4 @@ After running the above command the superproject and submodules will be built in
 
 [1]: https://cmake.org/
 [2]: https://cmake.org/cmake/help/v3.0/module/FindBoost.html
+[badge.Travis]: https://travis-ci.org/brandon-kohn/simulation_toolkit.svg?branch=feature/travis_ci_trial
