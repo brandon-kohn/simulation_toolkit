@@ -1,4 +1,7 @@
-# Simulation ToolKit (STK) <a target="_blank" href="https://travis-ci.org/brandon-kohn/simultion-toolkit">![Travis status][badge.Travis]</a>
+# Simulation ToolKit (STK) 
+
+<a target="_blank" href="https://travis-ci.org/brandon-kohn/simultion_toolkit">![Travis status][badge.Travis]</a>
+
 [CMake][1] superproject for cds, clipper, junction, geometrix, poly2tri, nlopt, turf and miscellaneous utilities for simulations.
 
 ##### Libraries included: 
