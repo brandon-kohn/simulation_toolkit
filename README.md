@@ -1,4 +1,4 @@
-# Simulation ToolKit (STK) 
+# Simulation ToolKit (STK)
 
 <a target="_blank" href="https://travis-ci.org/brandon-kohn/simultion_toolkit">![Travis status][badge.Travis]</a>
 
