@@ -156,6 +156,7 @@ install:
         { travis_retry wget -O - ${BOOST_URL} | tar --strip-components=1 -xz -C ${BOOST_DIR}; } || exit 1
       fi
 
+      export BOOST_ROOT=${BOOST_DIR}
       CMAKE_OPTIONS+=" -DBOOST_ROOT=${BOOST_DIR}"
     fi
 
@@ -235,16 +236,6 @@ install:
 
 
 before_script:
-  ############################################################################
-  # When running with Boost.Build, put Hana in the Boost tree and make that
-  # the root of the project
-  ############################################################################
-  #- |
-  #  if [[ "${BOOST_BUILD}" == "true" ]]; then
-  #    rm -rf "${BOOST_DIR}/libs/hana"
-  #    mv "${TRAVIS_BUILD_DIR}" "${BOOST_DIR}/libs/hana"
-  #    export TRAVIS_BUILD_DIR="${BOOST_DIR}/libs/hana"
-  #  fi
 
   ############################################################################
   # Set the git identity (for pushing the documentation and the benchmarks)
