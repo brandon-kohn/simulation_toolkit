@@ -33,7 +33,7 @@ cmake --build cmake.build.%CONFIG% --config %CONFIG%
 if ERRORLEVEL 1 goto error
 
 cd cmake.build.%CONFIG%
-ctest -C %CONFIG% %3 %4 %5 %6 %7 %8 %9
+ctest -C -V %CONFIG% %3 %4 %5 %6 %7 %8 %9
 if ERRORLEVEL 1 goto error
 
 exit /B 0
