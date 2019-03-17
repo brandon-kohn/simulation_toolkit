@@ -50,7 +50,7 @@ struct work_stealing_thread_pool_fixture : ::testing::TestWithParam<int>
     stk::thread::work_stealing_thread_pool<mc_queue_traits> pool;
 };
 
-auto nOSThreads = std::thread::hardware_concurrency()-1;
+auto nOSThreads = std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2);
 template <std::size_t Runs>
 struct timing_fixture : ::testing::Test
 {
