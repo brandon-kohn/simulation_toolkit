@@ -134,6 +134,7 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
     using namespace stk;
     using namespace stk::thread;
 
+	GTEST_MESSAGE("nOSThreads: ") << nOSThreads;
     const std::size_t njobs = nOSThreads - 1;
     std::vector<int> items(njobs, 1);
     auto npartitions = nOSThreads;
@@ -149,7 +150,6 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
 #define STK_DO_THREADPOOL_TIMINGS
 #ifdef STK_DO_THREADPOOL_TIMINGS
 const std::size_t njobs = 64 * 1024;
-/*
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
     using namespace ::testing;
@@ -181,7 +181,6 @@ TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_par
 	}
 	GTEST_MESSAGE("consumed count: ") << consumed;
 }
-*/
 
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
 {
