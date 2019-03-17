@@ -228,18 +228,28 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
     using namespace stk::thread;
 	using pool_t = work_stealing_thread_pool<mc_queue_traits>;
 	pool_t pool(nOSThreads);
+	GTEST_MESSAGE("nOSThreads: ") << nOSThreads;
 	counter consumed(nOSThreads + 1);
 
-    auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
-    for (int i = 0; i < nTimingRuns; ++i)
-    {
-        consumed.reset();
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k empty with parallel_apply");
-            pool.parallel_apply(njobs, task);
-        }
-        EXPECT_EQ(njobs, consumed.count());
-    }
+	try
+	{
+		auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+		for (int i = 0; i < nTimingRuns; ++i)
+		{
+			consumed.reset();
+			{
+				GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k empty with parallel_apply");
+				pool.parallel_apply(njobs, task);
+			}
+			EXPECT_EQ(njobs, consumed.count());
+		}
+	} catch (std::exception& e)
+	{
+		GTEST_MESSAGE("exception: ") << e.what();
+		GTEST_MESSAGE("consumed count: ") << consumed.count();
+		throw e;
+	}
+	GTEST_MESSAGE("consumed count: ") << consumed.count();
 }
 
 TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
