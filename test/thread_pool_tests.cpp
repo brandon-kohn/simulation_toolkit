@@ -146,6 +146,8 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
     EXPECT_EQ(njobs, count);
 }
 
+#define STK_DO_THREADPOOL_TIMINGS
+#ifdef STK_DO_THREADPOOL_TIMINGS
 const int njobs = 64 * 1024;
 
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
@@ -155,18 +157,27 @@ TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_par
     using namespace stk::thread;
 
     thread_pool<mc_queue_traits> pool(nOSThreads);
-    std::atomic<int> consumed{0};
+    std::atomic<std::int64_t> consumed{0};
     auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
 
-    for (int i = 0; i < nTimingRuns; ++i)
-    {
-        consumed.store(0, std::memory_order_relaxed);
-        {
-            GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_apply");
-            pool.parallel_apply(njobs, task);
-        }
-        EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
-    }
+	try
+	{
+		for (int i = 0; i < nTimingRuns; ++i)
+		{
+			consumed.store(0, std::memory_order_relaxed);
+			{
+				GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_apply");
+				pool.parallel_apply(njobs, task);
+			}
+			EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
+		}
+	} catch (std::exception& e)
+	{
+		GTEST_MESSAGE("exception: ") << e.what();
+		GTEST_MESSAGE("consumed count: ") << consumed;
+		throw e;
+	}
+	GTEST_MESSAGE("consumed count: ") << consumed;
 }
 
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_for)
@@ -363,6 +374,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_no_tokens_6
 		EXPECT_EQ(njobs, consumed.count());
 	}
 }
+#endif//DO TIMINGS
 
 TEST(cache_line_padding_suite, test_simple_padding)
 {
