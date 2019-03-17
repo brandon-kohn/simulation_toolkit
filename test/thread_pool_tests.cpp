@@ -68,10 +68,10 @@ TEST_F(timing_fixture200, test_partition_work)
     using namespace stk;
     using namespace stk::thread;
 
-    const int njobs = 64*1024;
+    const std::size_t njobs = 64*1024;
     auto npartitions = nOSThreads;
     auto schedule = partition_work(njobs, npartitions);
-    int count = 0;
+    std::size_t count = 0;
     for (auto range : schedule)
         for (auto i = range.first; i < range.second; ++i)
             ++count;
@@ -84,10 +84,10 @@ TEST_F(timing_fixture200, test_partition_work_zero)
     using namespace stk;
     using namespace stk::thread;
 
-    const int njobs = 0;
+    const std::size_t njobs = 0;
     auto npartitions = nOSThreads;
     auto schedule = partition_work(njobs, npartitions);
-    int count = 0;
+    std::size_t count = 0;
     for (auto range : schedule)
         for (auto i = range.first; i < range.second; ++i)
             ++count;
@@ -100,11 +100,11 @@ TEST_F(timing_fixture200, test_partition_work_empty)
     using namespace stk;
     using namespace stk::thread;
 
-    const int njobs = 0;
+    const std::size_t njobs = 0;
     std::vector<int> items;
     auto npartitions = nOSThreads;
     auto schedule = partition_work(items, npartitions);
-    int count = 0;
+    std::size_t count = 0;
     for (auto range : schedule)
         for (auto i : range)
             ++count;
@@ -117,11 +117,11 @@ TEST_F(timing_fixture200, test_partition_work_one_item)
     using namespace stk;
     using namespace stk::thread;
 
-    const int njobs = 1;
+    const std::size_t njobs = 1;
     std::vector<int> items = { 1 };
     auto npartitions = nOSThreads;
     auto schedule = partition_work(items, npartitions);
-    int count = 0;
+    std::size_t count = 0;
     for (auto range : schedule)
         for (auto i : range)
             ++count;
@@ -134,12 +134,12 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
     using namespace stk;
     using namespace stk::thread;
 
-    const int njobs = nOSThreads - 1;
+    const std::size_t njobs = nOSThreads - 1;
     std::vector<int> items(njobs, 1);
     auto npartitions = nOSThreads;
     auto schedule = partition_work(items, npartitions);
     EXPECT_EQ(njobs, schedule.size());
-    int count = 0;
+    std::size_t count = 0;
     for (auto range : schedule)
         for (auto i : range)
             ++count;
@@ -148,7 +148,7 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
 
 #define STK_DO_THREADPOOL_TIMINGS
 #ifdef STK_DO_THREADPOOL_TIMINGS
-const int njobs = 64 * 1024;
+const std::size_t njobs = 64 * 1024;
 
 TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_parallel_apply)
 {
@@ -156,13 +156,15 @@ TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_par
     using namespace stk;
     using namespace stk::thread;
 
+	GTEST_MESSAGE("Starting pool with nthreads: ") << nOSThreads;
     thread_pool<mc_queue_traits> pool(nOSThreads);
+	GTEST_MESSAGE("Running timings: ") << nOSThreads;
     std::atomic<std::int64_t> consumed{0};
-    auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
+    auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	try
 	{
-		for (int i = 0; i < nTimingRuns; ++i)
+		for (auto i = 0ULL; i < nTimingRuns; ++i)
 		{
 			consumed.store(0, std::memory_order_relaxed);
 			{
@@ -188,15 +190,15 @@ TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_par
 
     thread_pool<mc_queue_traits> pool(nOSThreads);
 
-    std::atomic<int> consumed{0};
-    auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
+    std::atomic<std::int64_t> consumed{0};
+    auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto i = 0ULL; i < nTimingRuns; ++i)
     {
         consumed.store(0, std::memory_order_relaxed);
         {
             GEOMETRIX_MEASURE_SCOPE_TIME("thread_pool moody_64k empty with parallel_for");
-            pool.parallel_for(boost::irange(0,njobs), task);
+            pool.parallel_for(boost::irange<std::size_t>(0,njobs), task);
         }
         EXPECT_EQ(njobs, consumed.load(std::memory_order_relaxed));
     }
@@ -214,7 +216,7 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
     std::stringstream name;
     name << GetParam() << " work-stealing threadpool moody_64k empty";
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto i = 0ULL; i < nTimingRuns; ++i)
     {
         consumed.reset();
         {
@@ -238,14 +240,16 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
     using namespace stk;
     using namespace stk::thread;
 	using pool_t = work_stealing_thread_pool<mc_queue_traits>;
+	
+	GTEST_MESSAGE("Starting pool with nthreads: ") << nOSThreads;
 	pool_t pool(nOSThreads);
-	GTEST_MESSAGE("nOSThreads: ") << nOSThreads;
 	counter consumed(nOSThreads + 1);
 
+	GTEST_MESSAGE("Running timings: ") << nOSThreads;
 	try
 	{
-		auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
-		for (int i = 0; i < nTimingRuns; ++i)
+		auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+	    for (auto i = 0ULL; i < nTimingRuns; ++i)
 		{
 			consumed.reset();
 			{
@@ -273,13 +277,13 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
-	for (int i = 0; i < nTimingRuns; ++i)
+	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k empty with parallel_for");
-			pool.parallel_for(boost::irange(0, njobs), task);
+			pool.parallel_for(boost::irange<std::size_t>(0, njobs), task);
 		}
 		EXPECT_EQ(njobs, consumed.count());
 	}
@@ -296,13 +300,13 @@ TEST_F(timing_fixture200, work_stealing_threads_vyukov_concurrentQ_64k_empty_job
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
-	for (int i = 0; i < nTimingRuns; ++i)
+	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool vyukov_64k empty with parallel_for");
-			pool.parallel_for(boost::irange(0, njobs), task);
+			pool.parallel_for(boost::irange<std::size_t>(0, njobs), task);
 		}
 		EXPECT_EQ(njobs, consumed.count());
 	}
@@ -319,8 +323,8 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
-    for (int i = 0; i < nTimingRuns; ++i)
+	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+    for (auto i = 0ULL; i < nTimingRuns; ++i)
     {
         consumed.reset();
         {
@@ -341,13 +345,13 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
-	for (int i = 0; i < nTimingRuns; ++i)
+	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_64k 1000us with parallel_for");
-			pool.parallel_for(boost::irange(0, njobs), task);
+			pool.parallel_for(boost::irange<std::size_t>(0, njobs), task);
 		}
 		EXPECT_EQ(njobs, consumed.count());
 	}
@@ -363,13 +367,13 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_no_tokens_6
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](int) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
-	for (int i = 0; i < nTimingRuns; ++i)
+	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("work-stealing threadpool moody_no_tokens_64k 1000us with parallel_for");
-			pool.parallel_for(boost::irange(0, njobs), task);
+			pool.parallel_for(boost::irange<std::size_t>(0, njobs), task);
 		}
 		EXPECT_EQ(njobs, consumed.count());
 	}
