@@ -14,6 +14,7 @@
 #include <stk/geometry/space_partition/biased_position_generator.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
+#include <boost/range/algorithm_ext/erase.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <exception>
 
@@ -294,6 +295,100 @@ TEST(weighted_mesh_test_suite, multi_polygon_mesh)
 	EXPECT_TRUE(trigs.size() > 0);
 }
 
+TEST(mesh_test_suite, bugged_polygon)
+{
+	using namespace stk;
+
+	auto pgon = polygon2{
+	 {229.89800000000000 * boost::units::si::meters, -433.92200000000003 * boost::units::si::meters}
+	, {231.08400000000000 * boost::units::si::meters, -432.22899999999998 * boost::units::si::meters }
+	, {285.71300000000002 * boost::units::si::meters,-222.77099999999999 * boost::units::si::meters}
+	, {287.38799999999998 * boost::units::si::meters, -216.16399999999999 * boost::units::si::meters}
+	, {284.39800000000002 * boost::units::si::meters, -211.15600000000001 * boost::units::si::meters}
+	, {204.06399999999999 * boost::units::si::meters, -524.61000000000001 * boost::units::si::meters}
+	};
+
+	std::vector<point2> spoints = {
+		  {211.56399999999999 * boost::units::si::meters, -497.11000000000001 * boost::units::si::meters }
+		, {216.56399999999999 * boost::units::si::meters, -477.11000000000001 * boost::units::si::meters }
+		, {221.56399999999999 * boost::units::si::meters, -462.11000000000001 * boost::units::si::meters }
+		, {221.56399999999999 * boost::units::si::meters, -457.11000000000001 * boost::units::si::meters }
+		, {226.56399999999999 * boost::units::si::meters, -442.11000000000001 * boost::units::si::meters }
+		, {226.56399999999999 * boost::units::si::meters, -437.11000000000001 * boost::units::si::meters }
+		, {231.56399999999999 * boost::units::si::meters, -427.11000000000001 * boost::units::si::meters }
+		, {231.56399999999999 * boost::units::si::meters, -422.11000000000001 * boost::units::si::meters }
+		, {236.56399999999999 * boost::units::si::meters, -407.11000000000001 * boost::units::si::meters }
+		, {236.56399999999999 * boost::units::si::meters, -402.11000000000001 * boost::units::si::meters }
+		, {241.56399999999999 * boost::units::si::meters, -387.11000000000001 * boost::units::si::meters }
+		, {241.56399999999999 * boost::units::si::meters, -382.11000000000001 * boost::units::si::meters }
+		, {246.56399999999999 * boost::units::si::meters, -372.11000000000001 * boost::units::si::meters }
+		, {246.56399999999999 * boost::units::si::meters, -367.11000000000001 * boost::units::si::meters }
+		, {246.56399999999999 * boost::units::si::meters, -362.11000000000001 * boost::units::si::meters }
+		, {251.56399999999999 * boost::units::si::meters, -352.11000000000001 * boost::units::si::meters }
+		, {251.56399999999999 * boost::units::si::meters, -347.11000000000001 * boost::units::si::meters }
+		, {251.56399999999999 * boost::units::si::meters, -342.11000000000001 * boost::units::si::meters }
+		, {256.56399999999996 * boost::units::si::meters, -332.11000000000001 * boost::units::si::meters }
+		, {256.56399999999996 * boost::units::si::meters, -327.11000000000001 * boost::units::si::meters }
+		, {256.56399999999996 * boost::units::si::meters, -322.11000000000001 * boost::units::si::meters }
+		, {261.56399999999996 * boost::units::si::meters, -312.11000000000001 * boost::units::si::meters }
+		, {261.56399999999996 * boost::units::si::meters, -307.11000000000001 * boost::units::si::meters }
+		, {261.56399999999996 * boost::units::si::meters, -302.11000000000001 * boost::units::si::meters }
+		, {266.56399999999996 * boost::units::si::meters, -292.11000000000001 * boost::units::si::meters }
+		, {266.56399999999996 * boost::units::si::meters, -287.11000000000001 * boost::units::si::meters }
+		, {266.56399999999996 * boost::units::si::meters, -282.11000000000001 * boost::units::si::meters }
+		, {271.56399999999996 * boost::units::si::meters, -272.11000000000001 * boost::units::si::meters }
+		, {271.56399999999996 * boost::units::si::meters, -267.11000000000001 * boost::units::si::meters }
+		, {271.56399999999996 * boost::units::si::meters, -262.11000000000001 * boost::units::si::meters }
+		, {276.56399999999996 * boost::units::si::meters, -257.11000000000001 * boost::units::si::meters }
+		, {276.56399999999996 * boost::units::si::meters, -252.11000000000001 * boost::units::si::meters }
+		, {276.56399999999996 * boost::units::si::meters, -247.11000000000001 * boost::units::si::meters }
+		, {276.56399999999996 * boost::units::si::meters, -242.11000000000001 * boost::units::si::meters }
+		, {281.56399999999996 * boost::units::si::meters, -237.11000000000001 * boost::units::si::meters }
+		, {281.56399999999996 * boost::units::si::meters, -232.11000000000001 * boost::units::si::meters }
+		, {281.56399999999996 * boost::units::si::meters, -227.11000000000001 * boost::units::si::meters }
+		, {286.56399999999996 * boost::units::si::meters, -217.11000000000001 * boost::units::si::meters }
+	};
+
+	auto cmp = make_tolerance_policy();
+/*
+	auto is_on_edge = [&pgon, cmp](const point2& p)
+	{
+		for (std::size_t i = pgon.size() - 1, j = 0; j < pgon.size(); i = j++)
+			if (is_collinear(pgon[i], pgon[j], p, cmp))
+				return true;
+		return false;
+	};
+	auto p0 = point2{ 266.56399999999996 * boost::units::si::meters, -292.11000000000001 * boost::units::si::meters };
+	auto op = point2{ 251.56399999999999 * boost::units::si::meters, -352.11000000000001 * boost::units::si::meters };
+	auto ep = point2{ 251.56399999999999 * boost::units::si::meters, -352.11000000000001 * boost::units::si::meters };
+
+	boost::for_each(spoints, is_on_edge);
+*/
+
+	using namespace geometrix;
+	do 
+	{
+		try 
+		{
+			auto m = generate_mesh(pgon, spoints);
+			break;
+		}
+		catch (p2t::collinear_points_exception const & e) 
+		{
+			point2 a = point2{ e.a.x * boost::units::si::meters, e.a.y * boost::units::si::meters };
+			point2 b = point2{ e.b.x * boost::units::si::meters, e.b.y * boost::units::si::meters };
+			point2 c = point2{ e.c.x * boost::units::si::meters, e.c.y * boost::units::si::meters };
+			auto is_bad_point = [&a, &b, &c, &cmp](const point2& p)
+			{
+				return numeric_sequence_equals_2d(p, a, cmp) || numeric_sequence_equals_2d(p, b, cmp) || numeric_sequence_equals_2d(p, c, cmp);
+			};
+			auto oldSize = spoints.size();
+			boost::remove_erase_if(spoints, is_bad_point);
+			if (spoints.size() == oldSize)
+				throw e;
+		}
+	} while (true);
+}
 bool in_diametral_circle(stk::point2 const& p, stk::point2 const& o, stk::point2 const& d)
 {
 	using namespace geometrix;

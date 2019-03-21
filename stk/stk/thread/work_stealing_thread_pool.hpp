@@ -330,22 +330,22 @@ namespace stk {
 
             ~work_stealing_thread_pool()
             {
-                set_done(true);
-
-                while (number_threads()) {
+                //while (number_threads()) 
+				{
                     auto lk = unique_lock<mutex_type>{ m_pollingMtx };
-                    m_pollingCnd.notify_all();
+					set_done(true);
+	                m_pollingCnd.notify_all();
                 }
 
-                GEOMETRIX_ASSERT(number_threads() == 0);
+                //GEOMETRIX_ASSERT(number_threads() == 0);
 
                 for (auto& t : m_threads) {
                     if (t.joinable()) {
-#ifdef BOOST_MSVC
-                        t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
-#else
+//#ifdef BOOST_MSVC
+//                        t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
+//#else
                         t.join();
-#endif
+//#endif
                     }
                 }
             }

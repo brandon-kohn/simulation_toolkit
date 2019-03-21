@@ -39,6 +39,9 @@ namespace stk {
     }
 }//! namespace stk;
 
+auto nOSThreads = std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2);
+using counter = stk::thread::scalable_task_counter;
+
 struct work_stealing_thread_pool_fixture : ::testing::TestWithParam<int>
 {
     work_stealing_thread_pool_fixture()
@@ -50,7 +53,6 @@ struct work_stealing_thread_pool_fixture : ::testing::TestWithParam<int>
     stk::thread::work_stealing_thread_pool<mc_queue_traits> pool;
 };
 
-auto nOSThreads = std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2);
 template <std::size_t Runs>
 struct timing_fixture : ::testing::Test
 {
@@ -60,7 +62,6 @@ struct timing_fixture : ::testing::Test
 
 	static const std::size_t nTimingRuns = Runs;
 };
-using counter = stk::thread::scalable_task_counter;
 using timing_fixture200 = timing_fixture<200>;
 TEST_F(timing_fixture200, test_partition_work)
 {
