@@ -38,7 +38,10 @@
 #include <fpu_control.h>
 #endif /* LINUX */
 
-#include "../CommonTypes.h"
+#include <exact/predicates.hpp>
+#include <geometrix/utility/assert.hpp>
+
+using RealType = double;
 
 /* On some machines, the exact arithmetic routines might be defeated by the  */
 /*   use of internal extended precision floating-point registers.  Sometimes */
@@ -1398,5 +1401,66 @@ RealType incircle
     }
 
     return incircleadapt(pa, pb, pc, pd, permanent);
+}
+
+class predicate_state
+{
+	predicate_state()
+	{
+		exact::init();
+	}
+public:
+
+	static void init()
+	{
+		static predicate_state i;
+	}
+};
+
+bool isInitialized = false;
+
+geometrix::orientation_type orientation(const stk::point2& a, const stk::point2& b, const stk::point2& c)
+{
+	GEOMETRIX_ASSERT(isInitialized);
+
+	using namespace geometrix;
+	RealType pa[2] = { a[0].value(), a[1].value() };
+	RealType pb[2] = { b[0].value(), b[1].value() };
+	RealType pc[2] = { c[0].value(), c[1].value() };
+
+	auto r = orient2d(pa, pb, pc);
+
+	if (r > 0.0)
+		return oriented_left;
+	if (r < 0.0)
+		return oriented_right;
+
+	return oriented_collinear;
+}
+
+void exact::init()
+{
+	exactinit();
+	isInitialized = true;
+}
+
+geometrix::orientation_type exact::in_circumcircle(const stk::point2& a, const stk::point2& b, const stk::point2& c, const stk::point2& d)
+{
+	GEOMETRIX_ASSERT(isInitialized);
+
+	using namespace geometrix;
+	RealType pa[2] = { a[0].value(), a[1].value() };
+	RealType pb[2] = { b[0].value(), b[1].value() };
+	RealType pc[2] = { c[0].value(), c[1].value() };
+	RealType pd[2] = { d[0].value(), d[1].value() };
+
+	auto r = incircle(pa, pb, pc, pd);
+
+	if (r > 0.0)
+		return oriented_left;
+	if (r < 0.0)
+		return oriented_right;
+
+	return oriented_collinear;
 }
 
