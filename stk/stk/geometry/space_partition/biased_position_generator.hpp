@@ -474,7 +474,7 @@ namespace stk {
 							addTriangle(p0, p1, p2);
 						}
 
-						return;
+						return true;
 					} 
 					catch (p2t::collinear_points_exception const & e) 
 					{
@@ -486,8 +486,8 @@ namespace stk {
 						};
 						auto oldSize = steinerPoints_.size();
 						boost::remove_erase_if(steinerPoints_, is_bad_point);
-						if (steinerPoints_.size() == oldSize)
-							throw e;
+						if (steinerPoints_.size() == oldSize) 
+							return false;//Silently skip the polygon...
 					}
 				}
 				while (true);
