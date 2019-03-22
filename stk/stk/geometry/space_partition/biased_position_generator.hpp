@@ -203,7 +203,7 @@ namespace stk {
             if (polygon.empty() || !is_polygon_simple(polygon, make_tolerance_policy()))
                 throw std::invalid_argument("polygon not simple");
 
-            std::vector<p2t::Point*> polygon_, memory;
+			std::vector<p2t::Point*> polygon_, memory;
             STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
 
             for( const auto& p : polygon )
@@ -212,41 +212,64 @@ namespace stk {
                 memory.push_back( polygon_.back() );
             }
 
-            p2t::CDT cdt( polygon_ );
-
             std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
-            for (const auto& p : steinerPoints) 
-            {
-                auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
-                memory.push_back(p_);
-                cdt.AddPoint(p_);
-            }
+			std::vector<p2t::Point*> steinerPoints_;
+			for (const auto& p : steinerPoints) 
+			{
+				auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
+				memory.push_back(p_);
+				steinerPoints_.push_back(memory.back());
+			}
 
-            std::map<p2t::Point*, std::size_t> indices;
-            auto& cdtPoints = cdt.GetPoints();
-            for( std::size_t i = 0; i < cdtPoints.size(); ++i )
-                indices[cdtPoints[i]] = i;
+			do 
+			{
+				try 
+				{
+					p2t::CDT cdt( polygon_ );
 
-            cdt.Triangulate();
+					for (const auto& p : steinerPoints_) 
+						cdt.AddPoint(p);
 
-            std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
-            std::vector<std::size_t> iArray;
-            polygon2 points( indices.size() );
-            for(const auto& item : indices)
-                geometrix::assign( points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
+					std::map<p2t::Point*, std::size_t> indices;
+					auto& cdtPoints = cdt.GetPoints();
+					for( std::size_t i = 0; i < cdtPoints.size(); ++i )
+						indices[cdtPoints[i]] = i;
 
-            for(auto* triangle : triangles)
-            {
-                for(int i = 0; i < 3; ++i)
-                {
-                    auto* p = triangle->GetPoint( i );
-                    auto it = indices.find( p );
-                    GEOMETRIX_ASSERT( it != indices.end() );
-                    iArray.push_back( it->second );
-                }
-            }
+					cdt.Triangulate();
 
-            return boost::make_unique<mesh_type>(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
+					std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
+					std::vector<std::size_t> iArray;
+					polygon2 points( indices.size() );
+					for(const auto& item : indices)
+						geometrix::assign( points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
+
+					for(auto* triangle : triangles)
+					{
+						for(int i = 0; i < 3; ++i)
+						{
+							auto* p = triangle->GetPoint(i);
+							auto it = indices.find(p);
+							GEOMETRIX_ASSERT(it != indices.end());
+							iArray.push_back(it->second);
+						}
+					}
+
+					return boost::make_unique<mesh_type>(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
+				}
+				catch (p2t::collinear_points_exception const & e) 
+				{
+					auto is_bad_point = [&e, &cmp](const p2t::Point* p)
+					{
+						return (cmp.equals(p->x, e.a.x) && cmp.equals(p->y, e.a.y))
+							|| (cmp.equals(p->x, e.b.x) && cmp.equals(p->y, e.b.y))
+							|| (cmp.equals(p->x, e.c.x) && cmp.equals(p->y, e.c.y));
+					};
+					auto oldSize = steinerPoints_.size();
+					boost::remove_erase_if(steinerPoints_, is_bad_point);
+					if (steinerPoints_.size() == oldSize)
+						throw e;
+				}
+			} while (true);
         }
 
         template <typename Polygon, typename Executor>
@@ -258,65 +281,93 @@ namespace stk {
                 throw std::invalid_argument("polygon not simple");
 
             std::vector<p2t::Point*> polygon_, memory;
+			std::vector<std::vector<p2t::Point*>> holes_;
             STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
 
+			auto cmp = make_tolerance_policy();
             for(const auto& p : polygon)
             {
                 polygon_.push_back( new p2t::Point( get<0>( p ).value(), get<1>( p ).value() ) );
                 memory.push_back( polygon_.back() );
             }
-
-            p2t::CDT cdt( polygon_ );
-		
-            for(const auto& hole : holes)
+            
+			for(const auto& hole : holes)
             {
                 if (hole.empty() || !is_polygon_simple(hole, make_tolerance_policy()))
                     throw std::invalid_argument("polygon not simple");
 
-                std::vector<p2t::Point*> hole_;
+				holes_.emplace_back();
                 for(const auto& p : hole)	
                 {
                     auto p_ = new p2t::Point( get<0>( p ).value(), get<1>( p ).value() );
-                    hole_.push_back(p_);
+                    holes_.back().push_back(p_);
                     memory.push_back(p_);
                 }
-
-                cdt.AddHole(hole_);
             }
 		
             std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
-            for (const auto& p : steinerPoints) 
-            {
-                auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
-                memory.push_back(p_);
-                cdt.AddPoint(p_);
-            }
 
-            std::map<p2t::Point*, std::size_t> indices;
-            auto& cdtPoints = cdt.GetPoints();
-            for( std::size_t i = 0; i < cdtPoints.size(); ++i )
-                indices[cdtPoints[i]] = i;
+			std::vector<p2t::Point*> steinerPoints_;
+			for (const auto& p : steinerPoints) 
+			{
+				auto p_ = new p2t::Point(get<0>(p).value(), get<1>(p).value());
+				memory.push_back(p_);
+				steinerPoints_.push_back(p_);
+			}
 
-            cdt.Triangulate();
+			do
+			{
+				try 
+				{
+					p2t::CDT cdt(polygon_);
 
-            std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
-            std::vector<std::size_t> iArray;
-            polygon2 points( indices.size() );
-            for( const auto& item : indices )
-                geometrix::assign( points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
+					for (const auto& hole_ : holes_)
+						cdt.AddHole(hole_);
 
-            for( auto* triangle : triangles )
-            {
-                for( int i = 0; i < 3; ++i )
-                {
-                    auto* p = triangle->GetPoint( i );
-                    auto it = indices.find( p );
-                    GEOMETRIX_ASSERT( it != indices.end() );
-                    iArray.push_back( it->second );
-                }
-            }
+					for (const auto& p : steinerPoints_)
+						cdt.AddPoint(p);
 
-            return boost::make_unique<mesh_type>(points, iArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
+					std::map<p2t::Point*, std::size_t> indices;
+					auto& cdtPoints = cdt.GetPoints();
+					for (std::size_t i = 0; i < cdtPoints.size(); ++i)
+						indices[cdtPoints[i]] = i;
+
+					cdt.Triangulate();
+
+					std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
+					std::vector<std::size_t> iArray;
+					polygon2 points(indices.size());
+					for (const auto& item : indices)
+						geometrix::assign(points[item.second], item.first->x * units::si::meters, item.first->y * units::si::meters);
+
+					for (auto* triangle : triangles) 
+					{
+						for (int i = 0; i < 3; ++i) 
+						{
+							auto* p = triangle->GetPoint(i);
+							auto it = indices.find(p);
+							GEOMETRIX_ASSERT(it != indices.end());
+							iArray.push_back(it->second);
+						}
+					}
+
+					return boost::make_unique<mesh_type>(points, iArray, cmp, stk::rtree_triangle_cache_builder(), weightPolicy);
+				} 
+				catch (p2t::collinear_points_exception const & e) 
+				{
+					auto is_bad_point = [&e, &cmp](const p2t::Point* p)
+					{
+						return (cmp.equals(p->x, e.a.x) && cmp.equals(p->y, e.a.y))
+							|| (cmp.equals(p->x, e.b.x) && cmp.equals(p->y, e.b.y))
+							|| (cmp.equals(p->x, e.c.x) && cmp.equals(p->y, e.c.y));
+					};
+					auto oldSize = steinerPoints_.size();
+					boost::remove_erase_if(steinerPoints_, is_bad_point);
+					if (steinerPoints_.size() == oldSize)
+						throw e;
+				}
+			}
+			while (true);
         }
 
 		template <typename Executor>
@@ -329,6 +380,7 @@ namespace stk {
 			std::map<point2, std::size_t> allIndices;
 			std::vector<point2> pArray;
 			std::vector<std::size_t> tArray;
+			auto cmp = make_tolerance_policy();
 			auto getIndex = [&](const point2& p) -> std::size_t
 			{
 				auto it = allIndices.lower_bound(p);
@@ -361,66 +413,87 @@ namespace stk {
 				if (polygon.get_outer().empty() || !is_polygon_simple(polygon.get_outer(), make_tolerance_policy()))
 					throw std::invalid_argument("polygon not simple");
 
-				for (const auto& hole : polygon.get_holes()) 
+				for (const auto& hole : polygon.get_holes())
 				{
 					if (!is_polygon_simple(hole, make_tolerance_policy()))
 						throw std::invalid_argument("polygon not simple");
 				}
 
-				for (const auto& p : polygon.get_outer()) 
+				for (const auto& p : polygon.get_outer())
 				{
-					auto pMem = boost::make_unique<p2t::Point>(get<0>(p).value(), get<1>(p).value());
-					polygon_.push_back(pMem.get());
-					pMem.release();
 					auto lk = std::unique_lock<std::mutex>{ memmutx };
 					memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
+					polygon_.push_back(memory.back());
 				}
-
-				p2t::CDT cdt(polygon_);
 
 				//! Add the holes
+				std::vector<std::vector<p2t::Point*>> holes_;
 				for (const auto& hole : polygon.get_holes()) 
 				{
-					std::vector<p2t::Point*> hole_;
+					holes_.emplace_back();
 					for (const auto& p : hole) 
 					{
-						auto pMem = boost::make_unique<p2t::Point>(get<0>(p).value(), get<1>(p).value());
-						hole_.push_back(pMem.get());
-						pMem.release();
 						auto lk = std::unique_lock<std::mutex>{ memmutx };
 						memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
+						holes_.back().push_back(memory.back());
 					}
-
-					cdt.AddHole(hole_);
 				}
 
-				//! Add the points
 				std::vector<point2> steinerPoints = generate_fine_steiner_points(polygon, granularity, bsp);
+				std::vector<p2t::Point*> steinerPoints_;
 				for (const auto& p : steinerPoints)
 				{
-					auto pMem = boost::make_unique<p2t::Point>(get<0>(p).value(), get<1>(p).value());
-					cdt.AddPoint(pMem.get());
-					pMem.release();
 					auto lk = std::unique_lock<std::mutex>{ memmutx };
 					memory.push_back(new p2t::Point(get<0>(p).value(), get<1>(p).value()));
+					steinerPoints_.push_back(memory.back());
 				}
 
-				cdt.Triangulate();
-				std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
-				for (auto* triangle : triangles) 
+				do
 				{
-					auto* p0_ = triangle->GetPoint(0);
-					auto* p1_ = triangle->GetPoint(1);
-					auto* p2_ = triangle->GetPoint(2);
-					auto p0 = point2{p0_->x * units::meters, p0_->y * units::meters};
-					auto p1 = point2{p1_->x * units::meters, p1_->y * units::meters};
-					auto p2 = point2{p2_->x * units::meters, p2_->y * units::meters};
-					addTriangle(p0, p1, p2);
+					try 
+					{
+						p2t::CDT cdt(polygon_);
+
+						for (const auto& hole_ : holes_)
+							cdt.AddHole(hole_);
+
+						for (const auto& p : steinerPoints_)
+							cdt.AddPoint(p);
+
+						cdt.Triangulate();
+
+						std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
+						for (auto* triangle : triangles) 
+						{
+							auto* p0_ = triangle->GetPoint(0);
+							auto* p1_ = triangle->GetPoint(1);
+							auto* p2_ = triangle->GetPoint(2);
+							auto p0 = point2{p0_->x * units::meters, p0_->y * units::meters};
+							auto p1 = point2{p1_->x * units::meters, p1_->y * units::meters};
+							auto p2 = point2{p2_->x * units::meters, p2_->y * units::meters};
+							addTriangle(p0, p1, p2);
+						}
+
+						return;
+					} 
+					catch (p2t::collinear_points_exception const & e) 
+					{
+						auto is_bad_point = [&e, &cmp](const p2t::Point* p)
+						{
+							return (cmp.equals(p->x, e.a.x) && cmp.equals(p->y, e.a.y))
+								|| (cmp.equals(p->x, e.b.x) && cmp.equals(p->y, e.b.y))
+								|| (cmp.equals(p->x, e.c.x) && cmp.equals(p->y, e.c.y));
+						};
+						auto oldSize = steinerPoints_.size();
+						boost::remove_erase_if(steinerPoints_, is_bad_point);
+						if (steinerPoints_.size() == oldSize)
+							throw e;
+					}
 				}
+				while (true);
 			};
 
 			exec.for_each(polygons, work);
-			//for (const auto& polygon : polygons)
 
             return boost::make_unique<mesh_type>(pArray, tArray, make_tolerance_policy(), stk::rtree_triangle_cache_builder(), weightPolicy);
 		}
