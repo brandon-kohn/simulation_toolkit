@@ -53,7 +53,7 @@ using RealType = double;
 /*   however, INEXACT should be defined to be nothing.  ("#define INEXACT".) */
 
 #define INEXACT                          /* Nothing */
-/* #define INEXACT volatile */
+//#define INEXACT volatile 
 
 /* Which of the following two methods of finding the absolute values is      */
 /*   fastest is compiler-dependent.  A few compilers can inline and optimize */
@@ -202,12 +202,12 @@ void exactinit()
     RealType half;
     RealType check, lastcheck;
     int every_other;
-
+/**/
 #ifdef _WIN32
 #ifdef REAL_TYPE_FP32
-    _control87(_PC_24, _MCW_PC); /* Set FPU control word for single precision. */
+ //   _control87(_PC_24, _MCW_PC); /* Set FPU control word for single precision. */
 #else /* not SINGLE */
-    _control87(_PC_53, _MCW_PC); /* Set FPU control word for double precision. */
+ //   _control87(_PC_53, _MCW_PC); /* Set FPU control word for double precision. */
 #endif /* not SINGLE */
 #else
     int cword; 
@@ -1419,48 +1419,85 @@ public:
 
 bool isInitialized = false;
 
-geometrix::orientation_type orientation(const stk::point2& a, const stk::point2& b, const stk::point2& c)
-{
-	GEOMETRIX_ASSERT(isInitialized);
+namespace exact {
 
-	using namespace geometrix;
-	RealType pa[2] = { a[0].value(), a[1].value() };
-	RealType pb[2] = { b[0].value(), b[1].value() };
-	RealType pc[2] = { c[0].value(), c[1].value() };
+	geometrix::orientation_type orientation(const std::array<double, 2>& a, const std::array<double, 2>& b, const std::array<double, 2>& c)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
 
-	auto r = orient2d(pa, pb, pc);
+		auto r = orient2d(a.data(), b.data(), c.data());
 
-	if (r > 0.0)
-		return oriented_left;
-	if (r < 0.0)
-		return oriented_right;
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
 
-	return oriented_collinear;
-}
+		return oriented_collinear;
+	}
 
-void exact::init()
-{
-	exactinit();
-	isInitialized = true;
-}
+	geometrix::orientation_type orientation(const stk::point2& a, const stk::point2& b, const stk::point2& c)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
 
-geometrix::orientation_type exact::in_circumcircle(const stk::point2& a, const stk::point2& b, const stk::point2& c, const stk::point2& d)
-{
-	GEOMETRIX_ASSERT(isInitialized);
+		RealType pa[2] = { a[0].value(), a[1].value() };
+		RealType pb[2] = { b[0].value(), b[1].value() };
+		RealType pc[2] = { c[0].value(), c[1].value() };
 
-	using namespace geometrix;
-	RealType pa[2] = { a[0].value(), a[1].value() };
-	RealType pb[2] = { b[0].value(), b[1].value() };
-	RealType pc[2] = { c[0].value(), c[1].value() };
-	RealType pd[2] = { d[0].value(), d[1].value() };
+		auto r = orient2d(pa, pb, pc);
 
-	auto r = incircle(pa, pb, pc, pd);
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
 
-	if (r > 0.0)
-		return oriented_left;
-	if (r < 0.0)
-		return oriented_right;
+		return oriented_collinear;
+	}
 
-	return oriented_collinear;
-}
+	geometrix::orientation_type orientation(const double* a, const double* b, const double* c)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
+
+		auto r = orient2d(a, b, c);
+
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
+
+		return oriented_collinear;
+	}
+
+	void init()
+	{
+		if (!isInitialized) 
+		{
+			exactinit();
+			isInitialized = true;
+		}
+	}
+
+	geometrix::orientation_type in_circumcircle(const stk::point2& a, const stk::point2& b, const stk::point2& c, const stk::point2& d)
+	{
+		GEOMETRIX_ASSERT(isInitialized);
+
+		using namespace geometrix;
+		RealType pa[2] = { a[0].value(), a[1].value() };
+		RealType pb[2] = { b[0].value(), b[1].value() };
+		RealType pc[2] = { c[0].value(), c[1].value() };
+		RealType pd[2] = { d[0].value(), d[1].value() };
+
+		auto r = incircle(pa, pb, pc, pd);
+
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
+
+		return oriented_collinear;
+	}
+
+}//! namespace exact;
 

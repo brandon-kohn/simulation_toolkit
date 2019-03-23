@@ -26,11 +26,12 @@ if(Boost_FOUND)
 
     # pimpl test
     add_executable(pimpl_tests pimpl_test.cpp pimpl_tests.cpp)
-    target_link_libraries(pimpl_tests gtest_static gmock_main_static stk geometrix ${Boost_LIBRARIES})
+    target_link_libraries(pimpl_tests gtest_static gmock_main_static stk geometrix exact_static ${Boost_LIBRARIES})
     add_test(NAME pimpl_tests COMMAND pimpl_tests)
     set_property(TEST pimpl_tests PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
 
     set(tests
+        exact_tests
         random_tests
         biased_position_generator_tests
         weighted_mesh_tests
@@ -49,7 +50,7 @@ if(Boost_FOUND)
     foreach(test ${tests})
         add_executable(${test} ${test}.cpp)
         target_compile_definitions(${test} PRIVATE -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
-        target_link_libraries(${test} gtest_static gmock_main_static clipper_static stk geometrix poly2tri_static ${Boost_LIBRARIES})
+        target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk geometrix poly2tri_static ${Boost_LIBRARIES})
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
@@ -73,7 +74,7 @@ if(Boost_FOUND)
         foreach(test ${concurrency_test_suite})
             add_executable(${test} ${test}.cpp)
             target_compile_definitions(${test} PRIVATE -DJUNCTION_STATIC_LIB -DTURF_STATIC_LIB -DRPMALLOC_STATIC_LIB -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
-            target_link_libraries(${test} gtest_static gmock_main_static stk geometrix turf_static junction_static clipper_static poly2tri_static rpmalloc_static ${Boost_LIBRARIES})
+            target_link_libraries(${test} gtest_static gmock_main_static stk geometrix exact_static turf_static junction_static clipper_static poly2tri_static rpmalloc_static ${Boost_LIBRARIES})
             add_test(NAME ${test} COMMAND ${test})
             set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
         endforeach()

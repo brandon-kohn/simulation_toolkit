@@ -14,12 +14,16 @@
 
 #include <geometrix/algorithm/orientation_enum.hpp>
 
+#include <array>
+
 namespace exact {
 
 	EXACT_API void init();
 
 	//! Calculate if c is left, right, or collinear wrt the line formed by a->b.
 	EXACT_API geometrix::orientation_type orientation(const stk::point2& a, const stk::point2& b, const stk::point2& c);
+	EXACT_API geometrix::orientation_type orientation(const std::array<double, 2>& a, const std::array<double, 2>& b, const std::array<double, 2>& c);
+	EXACT_API geometrix::orientation_type orientation(const double* a, const double* b, const double* c);
 
 	//! Check if point d is inside(left), outside(right) or collinear (cocircular) of the circum-circle of a, b, c. Circum-circle is the circle that contains a,b,c on its perimeter.
 	//! NOTE: a, b, c must be counterclockwise for the above orientation convention.
