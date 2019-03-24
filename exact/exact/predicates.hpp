@@ -28,6 +28,8 @@ namespace exact {
 	//! Check if point d is inside(left), outside(right) or collinear (cocircular) of the circum-circle of a, b, c. Circum-circle is the circle that contains a,b,c on its perimeter.
 	//! NOTE: a, b, c must be counterclockwise for the above orientation convention.
 	EXACT_API geometrix::orientation_type in_circumcircle(const stk::point2& a, const stk::point2& b, const stk::point2& c, const stk::point2& d);
+	EXACT_API geometrix::orientation_type in_circumcircle(const std::array<double, 2>& a, const std::array<double, 2>& b, const std::array<double, 2>& c, const std::array<double, 2>& d);
+	EXACT_API geometrix::orientation_type in_circumcircle(const double* a, const double* b, const double* c, const double* d);
 	
 
 }//! namespace exact;

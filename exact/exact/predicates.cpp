@@ -1499,5 +1499,35 @@ namespace exact {
 		return oriented_collinear;
 	}
 
+	geometrix::orientation_type in_circumcircle(const std::array<double, 2>& a, const std::array<double, 2>& b, const std::array<double, 2>& c, const std::array<double, 2>& d)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
+
+		auto r = incircle(a.data(), b.data(), c.data(), d.data());
+
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
+
+		return oriented_collinear;
+	}
+
+	geometrix::orientation_type in_circumcircle(const double* a, const double* b, const double* c, const double* d)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
+
+		auto r = incircle(a, b, c, d);
+
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
+
+		return oriented_collinear;
+	}
+
 }//! namespace exact;
 
