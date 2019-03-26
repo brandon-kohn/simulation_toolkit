@@ -34,7 +34,7 @@ cmake -H. -B"cmake.build.${CONFIG}" -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE="${CONFIG
 cmake --build "cmake.build.${CONFIG}" --config "${CONFIG}" || error_exit "CMake Install failed. Aborting"
 
 cd "cmake.build.${CONFIG}"
-ctest -C --output-on-failure -V "${CONFIG}" $3 $4 $5 $6 $7 $8 $9 || error_exit "CTest failed to run tests."
+ctest --output-on-failure -V -C "${CONFIG}" $3 $4 $5 $6 $7 $8 $9 || error_exit "CTest failed to run tests."
 
 exit 0
 # End
