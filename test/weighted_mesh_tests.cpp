@@ -447,7 +447,7 @@ TEST(mesh_test_suite, bugging)
 	exact::init();
 
 	auto geometry = get_geometry();
-	//heal_non_simple_polygons(geometry);
+	heal_non_simple_polygons(geometry);
 	auto mesh = generate_mesh(geometry);
     std::vector<polygon2> trigs;
     for(auto i = 0; i < mesh.get_number_triangles(); ++i)

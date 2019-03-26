@@ -14,20 +14,40 @@ int main(int argc, char* argv[])
     }
 
     int timeout = 60000;
+	std::string fname = "RUN_GOOGLE_TESTS";
 	if (argc > 2)
 	{
-		std::regex timeoutRegex("\\s*-t=(.+)");
-		std::cmatch match;
-		if (std::regex_match(argv[2], match, timeoutRegex))
+		for (auto i = 2; i < argc; ++i) 
 		{
-			try
+			std::regex timeoutRegex("\\s*-t=(\\d+)");
+			std::cmatch match;
+			if (std::regex_match(argv[i], match, timeoutRegex)) 
 			{
-				timeout = boost::lexical_cast<int>(match.str(1));
+				try 
+				{
+					timeout = boost::lexical_cast<int>(match.str(1));
+				}
+				catch (...)
+				{
+					std::cerr << "Bad format specified for timeout option.\n" << "Usage: gtest_runner <path-to-module> [-t=<timeout in milliseconds>] [-fname=\"MyTestHookFunction\"] [google test options]" << std::endl;
+					return 1;
+				}
+				continue;
 			}
-			catch (...)
+
+			std::regex fnameRegex("\\s*-fname=(\\w+)");
+			if (std::regex_match(argv[i], match, fnameRegex)) 
 			{
-				std::cerr << "Bad format specified for timeout option.\n" << "Usage: gtest_runner <path-to-module> [-t=<timeout in milliseconds>] [google test options]" << std::endl;
-				return 1;
+				try 
+				{
+					fname = match.str(1);
+				}
+				catch (...)
+				{
+					std::cerr << "Bad format specified for fname option.\n" << "Usage: gtest_runner <path-to-module> [-t=<timeout in milliseconds>] [-fname=MyTestHookFunction] [google test options]" << std::endl;
+					return 1;
+				}
+				continue;
 			}
 		}
 	}
@@ -38,9 +58,7 @@ int main(int argc, char* argv[])
 
     try
     {
-		//! Try purposely leaking the lib to avoid unload issues with google test?
-        //boost::dll::shared_library* pLib = new boost::dll::shared_library(dllpath, boost::dll::load_mode::append_decorations);
-        auto tests = /*pLib->get<int(int*,char**)>("RUN_GOOGLE_TESTS");*/boost::dll::import<int(int*, char**)>(dllpath, "RUN_GOOGLE_TESTS", boost::dll::load_mode::append_decorations);
+        auto tests = boost::dll::import<int(int*, char**)>(dllpath, fname.c_str(), boost::dll::load_mode::append_decorations);
 
         std::cout << "Running Tests in " << dllpath << std::endl;
         boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(timeout);
