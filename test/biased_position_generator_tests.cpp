@@ -23,6 +23,8 @@
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
 #include <stk/thread/seq_executor.hpp>
 
+#include <exact/predicates.hpp>
+
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/algorithm_ext/erase.hpp>
 
@@ -38,6 +40,8 @@ TEST(biased_position_grid_test_suite, polygon_with_holes_test)
 	using namespace stk;
 	using namespace stk::detail;
 	using namespace geometrix;
+
+	exact::init();
 
 	//! This geometry is from the pedestrian tutorial model. pouter is a pedestrian area.
 	auto pouter = polygon2{ {60.932305376161821 * boost::units::si::meters, 2148.1332399388775 * boost::units::si::meters}, {-71.142922936356626 * boost::units::si::meters, 2113.9137489674613 * boost::units::si::meters}, {-49.530612848873716 * boost::units::si::meters, 1976.4354431331158 * boost::units::si::meters}, {-14.710779930115677 * boost::units::si::meters, 1992.0443337513134 * boost::units::si::meters}, {21.910078829270788 * boost::units::si::meters, 1942.2159521607682 * boost::units::si::meters}, {83.745299357397016 * boost::units::si::meters, 1988.4422820704058 * boost::units::si::meters}, {131.77265510737197 * boost::units::si::meters, 2051.4781864918768 * boost::units::si::meters}, {77.741879888635594 * boost::units::si::meters, 2097.1041744546965 * boost::units::si::meters} };
@@ -122,6 +126,8 @@ TEST(biased_position_generator_test_suite, polygon_with_holes_test)
 	using namespace stk;
 	using namespace stk::detail;
 	using namespace geometrix;
+	
+	exact::init();
 
 	//! This geometry is from the pedestrian tutorial model. pouter is a pedestrian area.
 	auto pouter = polygon2{ {60.932305376161821 * boost::units::si::meters, 2148.1332399388775 * boost::units::si::meters}, {-71.142922936356626 * boost::units::si::meters, 2113.9137489674613 * boost::units::si::meters}, {-49.530612848873716 * boost::units::si::meters, 1976.4354431331158 * boost::units::si::meters}, {-14.710779930115677 * boost::units::si::meters, 1992.0443337513134 * boost::units::si::meters}, {21.910078829270788 * boost::units::si::meters, 1942.2159521607682 * boost::units::si::meters}, {83.745299357397016 * boost::units::si::meters, 1988.4422820704058 * boost::units::si::meters}, {131.77265510737197 * boost::units::si::meters, 2051.4781864918768 * boost::units::si::meters}, {77.741879888635594 * boost::units::si::meters, 2097.1041744546965 * boost::units::si::meters} };
@@ -223,6 +229,8 @@ TEST(bsp_test_suite, point_in_solid_classification_test)
 	using namespace stk;
 	using namespace stk::detail;
 	using namespace geometrix;
+	
+	exact::init();
 
 	//! This geometry is from the pedestrian tutorial model. pouter is a pedestrian area.
 	auto pouter = polygon2{ {60.932305376161821 * boost::units::si::meters, 2148.1332399388775 * boost::units::si::meters}, {-71.142922936356626 * boost::units::si::meters, 2113.9137489674613 * boost::units::si::meters}, {-49.530612848873716 * boost::units::si::meters, 1976.4354431331158 * boost::units::si::meters}, {-14.710779930115677 * boost::units::si::meters, 1992.0443337513134 * boost::units::si::meters}, {21.910078829270788 * boost::units::si::meters, 1942.2159521607682 * boost::units::si::meters}, {83.745299357397016 * boost::units::si::meters, 1988.4422820704058 * boost::units::si::meters}, {131.77265510737197 * boost::units::si::meters, 2051.4781864918768 * boost::units::si::meters}, {77.741879888635594 * boost::units::si::meters, 2097.1041744546965 * boost::units::si::meters} };
