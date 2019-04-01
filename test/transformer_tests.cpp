@@ -430,5 +430,12 @@ TEST(TransformerTestSuite, polygon_with_holesTest)
 
 	EXPECT_TRUE(true);
 
+	auto xform2 = xform;
+	xform2.inverse();
+
+	auto og = xform2(r);
+
+	EXPECT_TRUE(true);
+
 }
 

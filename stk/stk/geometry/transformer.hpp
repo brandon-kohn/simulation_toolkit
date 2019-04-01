@@ -12,6 +12,7 @@
 #include <geometrix/tensor/matrix.hpp>
 #include <geometrix/tags.hpp>
 #include <geometrix/tensor/homogeneous_adaptor.hpp>
+#include <geometrix/algebra/algebra.hpp>
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
@@ -204,7 +205,10 @@ namespace stk {
 		template <typename Matrix>
 		transformer_base(const Matrix& m)
 			: m_transform(geometrix::construct<transform_matrix>(m))
-		{}
+		{
+			using namespace geometrix;
+			BOOST_CONCEPT_ASSERT((SquareMatrixConcept<Matrix>));
+		}
 
 		void reset()
 		{
@@ -382,7 +386,7 @@ namespace stk {
 				,   -sinp,  0,  cosp, 0
 				,   0,  0,  0,  1
 			};
-
+			
 			m_transform = MatrixConcatenationPolicy()(m_transform, r);
 
 			return *this;
@@ -454,17 +458,12 @@ namespace stk {
 
 		transformer() = default;
 
-		template <typename Matrix>
-		transformer(const Matrix& m)
+		template <typename MatrixOrCopy>
+		transformer(const MatrixOrCopy& m)
 			: base_t(m)
-		{
-			using namespace geometrix;
-			BOOST_CONCEPT_ASSERT((SquareMatrixConcept<Matrix>));
-		}
-
-		transformer(const base_t& ops)
-			: base_t(ops)
 		{}
+
+		transformer& operator = (transformer const& o) = default;
 
 		template <typename Geometry>
 		Geometry operator()(const Geometry& p) const
@@ -478,6 +477,13 @@ namespace stk {
 		{
 			using namespace geometrix;
 			base_t::m_transform = construct<transform_matrix>(trans(base_t::m_transform));
+			return *this;
+		}
+
+		transformer& inverse()
+		{
+			using namespace geometrix;
+			base_t::m_transform = construct<transform_matrix>(inv(base_t::m_transform));
 			return *this;
 		}
 
