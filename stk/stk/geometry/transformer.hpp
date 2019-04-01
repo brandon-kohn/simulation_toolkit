@@ -536,6 +536,23 @@ namespace stk {
 
 			return result;
 		}
+		
+		template <typename Polygon>
+		Polygon transform(const Polygon& p, geometrix::geometry_tags::polygon_with_holes_tag) const
+		{
+			using namespace geometrix;
+			using namespace boost::adaptors;
+			using point_t = typename geometric_traits<Polygon>::point_type;
+			using polygon_t = typename geometric_traits<Polygon>::polygon_type;
+
+			polygon_t outer = (*this)(p.get_outer());
+			auto const& holes = p.get_holes();
+			std::vector<polygon_t> rholes;
+			rholes.reserve(holes.size());
+			boost::copy(holes | transformed([this](const polygon_t& p) { return transform(p, geometry_tags::polygon_tag{}); }), std::back_inserter(rholes));
+
+			return Polygon{ outer, rholes };
+		}
 	};
 
 	using transformer2 = transformer<2, post_multiplication_matrix_concatenation_policy>;

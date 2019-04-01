@@ -1,5 +1,5 @@
 //
-//! Copyright © 2018
+//! Copyright © 2018-2019
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
@@ -300,16 +300,20 @@ namespace stk {
 
 	inline std::vector<polygon_with_holes2> clipper_simplify(const polygon_with_holes2& pgon, unsigned int scale)
 	{
-		auto outer = clipper_union_simple(pgon.get_outer(), scale);
+		auto result = clipper_union_simple(pgon.get_outer(), scale);
 		auto holes = std::vector<polygon_with_holes2>{};
 
 		for (const auto h : pgon.get_holes())
 			holes = clipper_union_simple(holes, geometrix::reverse(h), scale);
 
-		auto result = outer;
 		for (const auto h : holes)
 			result = clipper_difference_simple(result, h, scale);
 		return result;
+	}
+
+	inline std::vector<polygon_with_holes2> clipper_simplify(const polygon2& pgon, unsigned int scale)
+	{
+		return clipper_union_simple(pgon, scale);
 	}
 
 	inline std::vector<stk::polygon_with_holes2> heal_non_simple_polygon(const stk::polygon_with_holes2& pgon, stk::units::length const& healOffset, unsigned int scale)

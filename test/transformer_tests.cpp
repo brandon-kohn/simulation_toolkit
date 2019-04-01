@@ -412,10 +412,23 @@ TEST(TransformerTestSuite, testFindRotationAxisThetaEqualsPi)
 	EXPECT_TRUE(make_tolerance_policy().equals(theta, a));
 }
 
-#include <boost/optional.hpp>
-TEST(optionalTest, optionalTest)
+TEST(TransformerTestSuite, polygon_with_holesTest)
 {
-  boost::optional<int> o = 0;
-  EXPECT_TRUE(o);
+	using namespace geometrix;
+	using namespace stk;
+	
+	using xform_t = transformer<2, post_multiplication_matrix_concatenation_policy>;
+
+	polygon2 pgon = polygon2{ { 10 * units::si::meters, 5.25 * units::si::meters },{ 10 * units::si::meters, 10 * units::si::meters },{ 0 * units::si::meters, 10 * units::si::meters },{ 0 * units::si::meters, 0 * units::si::meters },{ 10 * units::si::meters, 0 * units::si::meters },{ 10 * units::si::meters, 4.75 * units::si::meters },{ 1 * units::si::meters, 4.75 * units::si::meters },{ 1 * units::si::meters, 5.25 * units::si::meters } };
+	polygon2 hole = { { 0.5 * units::si::meters, 0.5 * units::si::meters },{ 0.5 * units::si::meters, 1 * units::si::meters },{ 1 * units::si::meters, 1 * units::si::meters },{ 1 * units::si::meters, 0.5 * units::si::meters } };
+	polygon_with_holes2 geometry{ pgon, std::vector<polygon2>{hole} };
+
+	auto xform = xform_t{};
+	xform.translate(vector2{ 1.0 * units::si::meters, 1.0 * units::meters });
+
+	auto r = xform(geometry);
+
+	EXPECT_TRUE(true);
+
 }
 
