@@ -13,9 +13,9 @@
 #include <stk/geometry/primitive/polygon.hpp>
 #include <stk/geometry/primitive/polyline.hpp>
 #include <stk/geometry/primitive/polygon_with_holes.hpp>
+#include <geometrix/primitive/point_sequence_utilities.hpp>
+#include <stk/geometry/transformer.hpp>
 #include <geometrix/algorithm/point_sequence/is_polygon_simple.hpp>
-#include <boost/range/adaptor/transformed.hpp>
-#include <boost/range/algorithm/copy.hpp>
 
 namespace stk {
 
@@ -322,9 +322,8 @@ namespace stk {
 		using namespace geometrix;
 
 		std::vector<stk::polygon_with_holes2> outer = { pgon };
-		if (!is_polygon_simple(pgon.get_outer(), make_tolerance_policy())) {
+		if (!is_polygon_simple(pgon.get_outer(), make_tolerance_policy()))
 			outer = clipper_offset(pgon.get_outer(), healOffset, scale);
-		}
 
 		for (const auto& h : pgon.get_holes())
 		{
