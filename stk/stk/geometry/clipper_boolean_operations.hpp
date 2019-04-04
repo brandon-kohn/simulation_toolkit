@@ -297,6 +297,21 @@ namespace stk {
 
         return to_polygons_with_holes(ptree, scale);
     }
+    
+    inline std::vector<polygon_with_holes2> clipper_offset(const polyline2& pline, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::Path boundary;
+
+        for (const auto& p : pline)
+            boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+
+        ClipperLib::ClipperOffset co;
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etOpenSquare);
+        ClipperLib::PolyTree ptree;
+        co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
 
 	inline std::vector<polygon_with_holes2> clipper_simplify(const polygon_with_holes2& pgon, unsigned int scale)
 	{

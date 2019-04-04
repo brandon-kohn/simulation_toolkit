@@ -8,11 +8,14 @@
 //
 #ifndef STK_GEOMETRY_TRANSFORMER_HPP
 #define STK_GEOMETRY_TRANSFORMER_HPP
+#pragma once
 
 #include <geometrix/tensor/matrix.hpp>
 #include <geometrix/tags.hpp>
 #include <geometrix/tensor/homogeneous_adaptor.hpp>
 #include <geometrix/algebra/algebra.hpp>
+
+#include <stk/geometry/tensor/vector.hpp>
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>
@@ -65,9 +68,7 @@ namespace stk {
 	inline geometrix::matrix<double, 3, 3> translate2(const vector2& v)
 	{
 		using namespace geometrix;
-		using m_t = geometrix::matrix<double, 3, 3>;
-
-		return m_t
+		return geometrix::matrix<double, 3, 3>
 		{
 			  1.0, 0.0, construct<double>(get<0>(v))
 			, 0.0, 1.0, construct<double>(get<1>(v))
@@ -80,11 +81,10 @@ namespace stk {
 		using namespace geometrix;
 		using std::cos;
 		using std::sin;
-		using m_t = geometrix::matrix<double, 3, 3>;
 
 		auto sinw = sin(yaw);
 		auto cosw = cos(yaw);
-		return m_t
+		return geometrix::matrix<double, 3, 3>
 		{
 			    cosw,   -sinw,  0
 			,   sinw,   cosw,   0
@@ -95,9 +95,8 @@ namespace stk {
 	inline geometrix::matrix<double,4,4> translate3(const vector3& v)
 	{
 		using namespace geometrix;
-		using m_t = geometrix::matrix<double, 4, 4>;
 
-		return m_t
+		return geometrix::matrix<double, 4, 4>
 			{
 				  1.0, 0.0, 0.0, construct<double>(get<0>(v))
 				, 0.0, 1.0, 0.0, construct<double>(get<1>(v))
