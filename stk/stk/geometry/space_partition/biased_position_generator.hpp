@@ -13,6 +13,7 @@
 
 #include <boost/range/numeric.hpp>
 #include <boost/range/algorithm/for_each.hpp>
+#include <boost/range/algorithm_ext/erase.hpp>
 #include <boost/optional.hpp>
 
 #include <random>
