@@ -259,6 +259,7 @@ namespace stk {
 				}
 				catch (p2t::collinear_points_exception const & e) 
 				{
+			        auto cmp = make_tolerance_policy();
 					auto is_bad_point = [&e, &cmp](const p2t::Point* p)
 					{
 						return (cmp.equals(p->x, e.a.x) && cmp.equals(p->y, e.a.y))
