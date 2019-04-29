@@ -35,8 +35,10 @@
 #ifdef _WIN32
 #include <cfloat>
 #else
+#ifdef LINUX
 #include <fpu_control.h>
 #endif /* LINUX */
+#endif
 
 #include <exact/predicates.hpp>
 #include <geometrix/utility/assert.hpp>
@@ -210,6 +212,7 @@ void exactinit()
  //   _control87(_PC_53, _MCW_PC); /* Set FPU control word for double precision. */
 #endif /* not SINGLE */
 #else
+#ifdef LINUX
     int cword; 
 #ifdef REAL_TYPE_FP32
     cword = 4210; /* Set FPU control word for single precision */
@@ -217,6 +220,7 @@ void exactinit()
     cword = 4722; /* Set FPU control word for double precision */
 #endif
     _FPU_SETCW(cword); 
+#endif//!LINUX
 #endif
 
     every_other = 1;
