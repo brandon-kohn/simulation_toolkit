@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.0.2)
 set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE PATH "Default relative include path.")
 set(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "Default relative lib path.")
 
-find_package(Boost 1.65.1)
+find_package(Boost 1.61)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
