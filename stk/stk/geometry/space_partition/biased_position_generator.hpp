@@ -19,6 +19,7 @@
 #include <random>
 #include <vector>
 #include <mutex>
+#include <exception>
 
 namespace stk {
 
@@ -573,6 +574,9 @@ namespace stk {
 			{
 				generate_points(p, granularity, minDistance, attractiveBSP, wp);
 			});
+
+			if (m_integral.empty() || m_positions.empty()) 
+				throw std::invalid_argument("biased_position_generator specified with invalid geometry.");
 
 			make_integral();
 		}

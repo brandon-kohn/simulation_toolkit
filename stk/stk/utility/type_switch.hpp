@@ -10,6 +10,7 @@
 
 #include <stk/utility/detail/type_switch_generator.hpp>
 #include <boost/polymorphic_cast.hpp>
+#include <boost/detail/workaround.hpp>
 #include <functional>
 #include <type_traits>
 
@@ -117,7 +118,11 @@ namespace stk{
 
         type_switch(Types&&... t)
             : m_state(std::forward<Types>(t)...)
-        {}
+        {
+#if BOOST_WORKAROUND(BOOST_MSVC, <= 1800)
+		    clear_cache();//! Initialize the static in case of threaded access (which doesn't work on vc120.)
+#endif
+        }
 
         template <typename T>
         void operator()(T* x)
