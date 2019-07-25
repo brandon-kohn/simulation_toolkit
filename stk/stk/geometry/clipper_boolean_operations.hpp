@@ -182,6 +182,7 @@ namespace stk {
         return clipper_union_impl(clip, std::forward<Args>(a)...);
     }
 
+/*
     template <typename Geometry1, typename Geometry2>
     inline std::vector<polygon_with_holes2> clipper_difference_impl(ClipperLib::Clipper& clip, Geometry1&& a, Geometry2&& b, unsigned int scale)
     {
@@ -207,7 +208,61 @@ namespace stk {
         clip.StrictlySimple(true);
         return clipper_difference_impl(clip, std::forward<Args>(a)...);
     }
+ */
 
+	template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polygon_with_holes2> clipper_difference_impl(ClipperLib::Clipper& clip, Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        to_clipper(clip, a, ClipperLib::ptSubject, scale);
+        to_clipper(clip, b, ClipperLib::ptClip, scale);
+
+        ClipperLib::PolyTree ptree;
+        clip.Execute(ClipperLib::ctDifference, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
+        return to_polygons_with_holes(ptree, scale);
+    }
+
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polyline2> clipper_difference_impl(ClipperLib::Clipper& clip, Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        to_clipper(clip, a, ClipperLib::ptSubject, scale);
+        to_clipper(clip, b, ClipperLib::ptClip, scale);
+
+        ClipperLib::PolyTree ptree;
+		clip.Execute(ClipperLib::ctDifference, ptree, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
+        return to_polylines(ptree, scale);
+    }
+    
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polyline2> clipper_difference(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        return clipper_difference_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+    
+	template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polygon_with_holes2> clipper_difference(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        return clipper_difference_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+    
+    template <typename Geometry1, typename Geometry2, typename std::enable_if<std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polyline2> clipper_difference_simple(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        clip.StrictlySimple(true);
+        return clipper_difference_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+    
+	template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
+    inline std::vector<polygon_with_holes2> clipper_difference_simple(Geometry1&& a, Geometry2&& b, unsigned int scale)
+    {
+        ClipperLib::Clipper clip;
+        clip.StrictlySimple(true);
+        return clipper_difference_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+
+	//! Intersection
     template <typename Geometry1, typename Geometry2, typename std::enable_if<!std::is_same<polyline2, typename std::decay<Geometry1>::type>::value, int>::type = 0>
     inline std::vector<polygon_with_holes2> clipper_intersection_impl(ClipperLib::Clipper& clip, Geometry1&& a, Geometry2&& b, unsigned int scale)
     {
