@@ -146,6 +146,10 @@ namespace stk { namespace unordered_map_detail {
 
         concurrent_pointer_unordered_map() = default;
 
+		concurrent_pointer_unordered_map(const MemoryReclamationPolicy& mp)
+			: m_map(mp)
+		{}
+
         ~concurrent_pointer_unordered_map()
         {
             clear();
