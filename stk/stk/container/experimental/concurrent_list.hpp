@@ -429,7 +429,7 @@ namespace stk {
             std::unique_ptr<node, decltype(deleter)> pNew{ create_node(std::forward<Args>(args)...), deleter };
             node* pExpected;
             bool mExpected;
-            node_ptr left;
+            //node_ptr left;
 
             while(true)
             {

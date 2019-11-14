@@ -193,7 +193,7 @@ TEST(interval_set_test_suit, vector_interval_construct)
 	auto v3 = comparable_vector{ -1.0, 1.0 };
 	auto v4 = comparable_vector{ -1.0, 0.0 };
     auto i2 = interval_t{v3, v4};
-    auto r = lower_less(i1, i2);
+    lower_less(i1, i2);
 
 	using iset = stk::icl::interval_set<comparable_vector, v_compare, interval_t>;
 
@@ -307,7 +307,7 @@ std::pair<point2, point2> calculate_tangent_points(const circle2& c, const point
 
 struct velocity_obstacle
 {
-	velocity_obstacle(const circle2& a, const velocity2& va, const circle2& b, const velocity2& vb)
+	velocity_obstacle(const circle2& a, const velocity2& /*va*/, const circle2& b, const velocity2& vb)
 	{
 		auto Rb = a.get_radius() + b.get_radius();
 		auto ab = vector2{ b.get_center() - a.get_center() };

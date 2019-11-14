@@ -28,7 +28,7 @@
 
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
 
-auto nOSThreads = std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2);
+auto nOSThreads = std::max<std::uint32_t>(std::thread::hardware_concurrency()-1, 2);
 using counter = stk::thread::scalable_task_counter;
 
 struct singleton_work_stealing_thread_pool_fixture : ::testing::Test

@@ -227,7 +227,7 @@ TEST(weighted_mesh_test_suite, start)
     auto mesh = generate_weighted_mesh(poly, spoints, triangle_area_distance_weight_policy(&holebsp, distSaturation, attractionStrength));
 
     std::vector<polygon2> trigs;
-	auto const& adjMatrx = mesh.get_adjacency_matrix();
+	mesh.get_adjacency_matrix();
     for(auto i = 0; i < mesh.get_number_triangles(); ++i)
     {
         auto& trig = mesh.get_triangle_vertices(i);
@@ -288,7 +288,7 @@ TEST(weighted_mesh_test_suite, multi_polygon_mesh)
 	auto mesh = generate_mesh(pgons);
 
     std::vector<polygon2> trigs;
-	auto const& adjMatrx = mesh.get_adjacency_matrix();
+	mesh.get_adjacency_matrix();
     for(auto i = 0; i < mesh.get_number_triangles(); ++i)
     {
         auto& trig = mesh.get_triangle_vertices(i);

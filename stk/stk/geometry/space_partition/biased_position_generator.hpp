@@ -548,7 +548,6 @@ namespace stk {
 				using namespace stk;
 				using std::exp;
 
-				std::size_t idx;
 				auto d2 = std::max(distanceSqrd.value(), distanceSaturation.value());
 				double f = exp(-attractionStrength * d2);
 				return f;

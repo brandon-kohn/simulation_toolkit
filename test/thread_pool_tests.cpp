@@ -39,7 +39,7 @@ namespace stk {
     }
 }//! namespace stk;
 
-auto nOSThreads = std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2);
+auto nOSThreads = static_cast<std::uint32_t>(std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2));
 using counter = stk::thread::scalable_task_counter;
 
 struct work_stealing_thread_pool_fixture : ::testing::TestWithParam<int>
@@ -161,7 +161,7 @@ TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_par
     thread_pool<mc_queue_traits> pool(nOSThreads);
 	GTEST_MESSAGE("Running timings: ") << nOSThreads;
     std::atomic<std::int64_t> consumed{0};
-    auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
+    auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
 
 	try
 	{
@@ -192,7 +192,7 @@ TEST_F(timing_fixture200, threads_moodycamel_concurrentQ_64k_empty_jobs_with_par
     thread_pool<mc_queue_traits> pool(nOSThreads);
 
     std::atomic<std::int64_t> consumed{0};
-    auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
+    auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.fetch_add(1, std::memory_order_relaxed); };
 
     for (auto i = 0ULL; i < nTimingRuns; ++i)
     {
@@ -249,7 +249,7 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
 	GTEST_MESSAGE("Running timings: ") << nOSThreads;
 	try
 	{
-		auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+		auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
 	    for (auto i = 0ULL; i < nTimingRuns; ++i)
 		{
 			consumed.reset();
@@ -278,7 +278,7 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+	auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
 	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
@@ -301,7 +301,7 @@ TEST_F(timing_fixture200, work_stealing_threads_vyukov_concurrentQ_64k_empty_job
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
+	auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); };
 	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
@@ -324,7 +324,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+	auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
     for (auto i = 0ULL; i < nTimingRuns; ++i)
     {
         consumed.reset();
@@ -346,7 +346,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_64k_1000us_
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+	auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
 	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();
@@ -368,7 +368,7 @@ TEST_F(timing_fixture1, work_stealing_threads_moodycamel_concurrentQ_no_tokens_6
 	pool_t pool(nOSThreads);
 	counter consumed(nOSThreads + 1);
 
-	auto task = [&consumed](std::uint32_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
+	auto task = [&consumed](std::ptrdiff_t) BOOST_NOEXCEPT {consumed.increment(pool_t::get_thread_id()); synthetic_work(std::chrono::microseconds(1000)); };
 	for (auto i = 0ULL; i < nTimingRuns; ++i)
 	{
 		consumed.reset();

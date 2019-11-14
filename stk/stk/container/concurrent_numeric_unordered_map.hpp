@@ -50,8 +50,13 @@ namespace stk {
 		{
 			using Value = T;
 			using IntType = typename turf::util::BestFit<T>::Unsigned;
-			static const IntType NullValue = ULLONG_MAX;// (std::numeric_limits<T>::max)();
-			static const IntType Redirect = NullValue - 1;// (std::numeric_limits<T>::max)() - 1;
+#ifndef STK_NO_CXX11_CONSTEXPR
+			static const IntType NullValue = (std::numeric_limits<T>::max)();
+			static const IntType Redirect = NullValue - 1;
+#else
+			static const IntType NullValue = ULLONG_MAX;
+			static const IntType Redirect = NullValue - 1;
+#endif
 			static bool is_valid(Value v)
 			{
 				return NullValue != (IntType)v && Redirect != (IntType)v;
@@ -63,8 +68,8 @@ namespace stk {
 		{
 			using Value = T;
 			using IntType = typename turf::util::BestFit<T>::Unsigned;
-			static const IntType NullValue = 1;//0;
-			static const IntType Redirect = 2;
+			static const IntType NullValue = static_cast<IntType>(1);//0;
+			static const IntType Redirect = static_cast<IntType>(2);
 			static bool is_valid(Value v)
 			{
 				return NullValue != (IntType)v && Redirect != (IntType)v;

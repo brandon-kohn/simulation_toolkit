@@ -144,7 +144,7 @@ namespace stk { namespace thread {
             return send_impl(std::forward<Action>(x));
         }
 
-        std::size_t number_threads() const BOOST_NOEXCEPT { return m_nThreads.load(std::memory_order_relaxed); }
+        std::uint32_t number_threads() const BOOST_NOEXCEPT { return m_nThreads.load(std::memory_order_relaxed); }
 
         template <typename Pred>
         void wait_for(Pred&& pred) BOOST_NOEXCEPT
@@ -194,7 +194,7 @@ namespace stk { namespace thread {
 		void parallel_for(Range&& range, TaskFn&& task) BOOST_NOEXCEPT
 		{
 			auto nthreads = number_threads();
-			auto npartitions = nthreads * (nthreads-1);
+			std::size_t npartitions = nthreads * (nthreads-1);
 			using value_t = typename boost::range_value<Range>::type;
 #ifndef BOOST_NO_CXX11_NOEXCEPT
 			parallel_for_impl(std::forward<Range>(range), std::forward<TaskFn>(task), nthreads, npartitions, std::integral_constant<bool, BOOST_NOEXCEPT(task(std::declval<value_t>()))>());

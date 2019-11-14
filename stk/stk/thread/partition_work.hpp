@@ -27,7 +27,7 @@ namespace stk { namespace thread {
 		auto portion = std::ptrdiff_t{ total / num };
 		std::vector<boost::iterator_range<iterator>> chunks;
 		chunks.reserve(num);
-		int remainder = total - (num * portion);
+		auto remainder = total - (num * portion);
 		auto portion_end = first;
 		for(auto i = 0;i < num; ++i)
 		{
@@ -51,7 +51,7 @@ namespace stk { namespace thread {
 		auto last = std::end(cont);
 		auto total = std::distance(first, last);
 		auto portion = std::ptrdiff_t{ total / num };
-		int remainder = total - (num * portion);
+		auto remainder = total - (num * portion);
 		auto portion_end = first;
 		for(auto i = 0;i < num; ++i)
 		{
@@ -69,13 +69,13 @@ namespace stk { namespace thread {
 		GEOMETRIX_ASSERT(num != 0);
 		auto portion = nTasks / num;
 		std::ptrdiff_t remainder = nTasks - (num * portion);
-		auto portion_end = 0;
+		auto portion_end = static_cast<std::size_t>(0);
 		std::vector<std::pair<std::size_t, std::size_t>> chunks;
 		chunks.reserve(num);
 		for(auto i = 0;i < num; ++i)
 		{
 			auto portion_start = portion_end;
-			portion_end += portion + (--remainder >= 0 ? 1 : 0);
+			portion_end += portion + (--remainder >= static_cast<std::ptrdiff_t>(0) ? 1 : 0);
 			if (portion_start != portion_end)
 				chunks.emplace_back(portion_start, portion_end);
 			else
@@ -91,11 +91,11 @@ namespace stk { namespace thread {
 		GEOMETRIX_ASSERT(num != 0);
 		auto portion = nTasks / num;
 		std::ptrdiff_t remainder = nTasks - (num * portion);
-		auto portion_end = 0;
+		auto portion_end = static_cast<std::size_t>(0);
 		for(auto i = 0;i < num; ++i)
 		{
 			auto portion_start = portion_end;
-			portion_end += portion + (--remainder >= 0 ? 1 : 0);
+			portion_end += portion + (--remainder >= static_cast<std::ptrdiff_t>(0) ? 1 : 0);
 			if (portion_start != portion_end)
 				fn(portion_start, portion_end);
 			else

@@ -352,7 +352,7 @@ TEST(clipper_test_suite, testFailingCasePlineIntersection)
 	
 	pgonline.push_back(pgon[0]);
 
-	auto v = [](intersection_type iType, std::size_t i1, std::size_t j1, std::size_t i2, std::size_t j2, point2 x1, point2 x2)
+	auto v = [](intersection_type iType, std::size_t , std::size_t , std::size_t , std::size_t , point2 , point2 )
 	{
 		return iType == e_non_crossing;
 	};
@@ -363,7 +363,7 @@ TEST(clipper_test_suite, testFailingCasePlineIntersection)
 	point2 c1, c2;
 	auto cmp = make_tolerance_policy();
 	auto r1 = polyline_polyline_closest_point(pgonline, pline, i1, i2, s, t, c1, c2, cmp);
-	auto r = polyline_polyline_intersect(pgonline, pline, v, cmp);
+	polyline_polyline_intersect(pgonline, pline, v, cmp);
 	auto r3 = polygon_subsequence(pline, c2, 2.0 * units::si::meters, cmp);
 
 	auto ndoors = clipper_intersection(pline, pgon, 10000);

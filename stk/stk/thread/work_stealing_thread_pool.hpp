@@ -424,7 +424,7 @@ namespace stk {
 #endif
             }
 
-            std::size_t number_threads() const BOOST_NOEXCEPT
+            std::uint32_t number_threads() const BOOST_NOEXCEPT
             {
                 return m_nThreads.load(std::memory_order_relaxed);
             }
@@ -533,7 +533,7 @@ namespace stk {
                 {
                     //std::uint32_t threadID = get_rnd_queue_index();//get_spinning_index();
                     //std::uint32_t threadID = get_spinning_index();
-                    std::uint32_t threadID = ++njobs % nthreads + 1;
+                    std::uint32_t threadID = static_cast<std::uint32_t>(++njobs % nthreads + 1);
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i) {
@@ -555,7 +555,7 @@ namespace stk {
                 partition_work(count, npartitions,
                                [nthreads, &njobs, &fs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
                 {
-                    std::uint32_t threadID = ++njobs % nthreads + 1;
+                    std::uint32_t threadID = static_cast<std::uint32_t>(++njobs % nthreads + 1);
                     fs.emplace_back(send(threadID, [&task, from, to]() -> void
                     {
                         for (auto i = from; i != to; ++i) {

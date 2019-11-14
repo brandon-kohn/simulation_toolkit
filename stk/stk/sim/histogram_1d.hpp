@@ -270,15 +270,15 @@ public:
 
 		chi2 /= sum0 * sum1;
 
-		auto p = 0.0;
+		//auto p = 0.0;
 		if (numDegreeFreedom < dfThresh)
 		{
-			boost::math::chi_squared_distribution<> ch2dist(numDegreeFreedom);
+			boost::math::chi_squared_distribution<> ch2dist(static_cast<double>(numDegreeFreedom));
 			auto gammap = boost::math::cdf(ch2dist, chi2);
 			return { chi2, 1.0 - gammap };
 		}
 		
-		boost::math::normal_distribution<> approxDist(numDegreeFreedom, sqrt(2.0 * numDegreeFreedom));
+		boost::math::normal_distribution<> approxDist(static_cast<double>(numDegreeFreedom), sqrt(2.0 * numDegreeFreedom));
 		auto approxGammaP= boost::math::cdf(approxDist, chi2);
 		return { chi2, 1.0 - approxGammaP };
 	}

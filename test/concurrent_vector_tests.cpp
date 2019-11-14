@@ -179,14 +179,14 @@ TEST(lock_free_concurrent_vector, bash_concurrency_test)
 	work_stealing_thread_pool<mc_queue_traits> pool(10);
 
 	auto nItems = 10000UL;
-	auto nRuns = 200;
+	auto nRuns = 200UL;
 
 	concurrent_vector<int> v;
 	for (auto i = 0UL; i < nRuns; ++i)
 	{
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("concurrent_vector");
-			pool.parallel_apply(nItems, [&v](int q) 
+			pool.parallel_apply(nItems, [&v](std::ptrdiff_t q) 
 			{
 				v.push_back(q);
 				v.pop_back();
@@ -208,15 +208,15 @@ TEST(lock_free_concurrent_vector, bash_seq_concurrency_test)
 	work_stealing_thread_pool<mc_queue_traits> pool(10);
 
 	auto nItems = 10000UL;
-	auto nRuns = 200;
+	auto nRuns = 200UL;
 
 	std::mutex mtx;
-	std::vector<int> v;
+	std::vector<std::ptrdiff_t> v;
 	for (auto i = 0UL; i < nRuns; ++i)
 	{
 		{
 			GEOMETRIX_MEASURE_SCOPE_TIME("mutexed_vector");
-			pool.parallel_apply(nItems, [&mtx, &v](int q) {
+			pool.parallel_apply(nItems, [&mtx, &v](std::ptrdiff_t q) {
 				{
 					auto lk = std::unique_lock<std::mutex>{ mtx };
 					v.push_back(q);
@@ -249,7 +249,7 @@ TEST(ref_count_memory_reclaimer_suite, bash_reclaimer)
 	work_stealing_thread_pool<mc_queue_traits> pool;
 	ref_count_memory_reclaimer sut;
 
-	pool.parallel_apply(nItems, [&reclaimed, &sut](int) {
+	pool.parallel_apply(nItems, [&reclaimed, &sut](std::ptrdiff_t) {
 		sut.add_checkout();
 		sut.add([&reclaimed]() { ++reclaimed; });
 		sut.remove_checkout();

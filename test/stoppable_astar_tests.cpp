@@ -95,7 +95,7 @@ public:
     {}
 
     template <class Graph>
-    bool should_stop(Vertex u, Graph& g) const
+    bool should_stop(Vertex u, Graph& /*g*/) const
     {
         GEOMETRIX_ASSERT(!m_visitorTerminated);//! This should only be called when this is false if termination works.
         if (u == m_goal)

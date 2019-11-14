@@ -226,9 +226,9 @@ void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string con
     }
 }
 
-unsigned nTimingRuns = 20;
-int nAccesses = 1000000;
-std::size_t nOSThreads = std::thread::hardware_concurrency() - 1;
+unsigned nTimingRuns = 20UL;
+auto nAccesses = 1000000UL;
+std::uint32_t nOSThreads = std::thread::hardware_concurrency() - 1;
 std::size_t sPartitions = nOSThreads * 100;
 
 TEST(timing, threads_moodycamel_concurrentQ_bash_grid)
@@ -240,10 +240,10 @@ TEST(timing, threads_moodycamel_concurrentQ_bash_grid)
     std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
     xorshift1024starphi_generator gen;
 
-    for (int i = 0; i < nAccesses; ++i)
+    for (auto i = 0UL; i < nAccesses; ++i)
         rndpairs.emplace_back(gen() % extent, gen() % extent);
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto i = 0UL; i < nTimingRuns; ++i)
         bash_grid<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "threads_bash_grid",sPartitions);
 
     EXPECT_TRUE(true);
@@ -259,10 +259,10 @@ TEST(timing, work_stealing_threads_moodycamel_concurrentQ_bash_grid_with_stripin
     std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
     xorshift1024starphi_generator gen;
 
-    for (int i = 0; i < nAccesses; ++i)
+    for (auto i = 0UL; i < nAccesses; ++i)
         rndpairs.emplace_back(gen() % extent, gen() % extent);
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto i = 0UL; i < nTimingRuns; ++i)
         bash_grid_with_striping<tiny_atomic_spin_lock<eager_boost_thread_yield_wait<5000>>>(threads, rndpairs, "work_stealing_threads_bash_grid_with_striping",sPartitions);
 
     EXPECT_TRUE(true);
@@ -311,10 +311,10 @@ TEST(timing, sequential_bash_grid)
     std::vector<std::pair<std::uint32_t, std::uint32_t>> rndpairs;
     xorshift1024starphi_generator gen;
 
-    for (int i = 0; i < nAccesses; ++i)
+    for (auto i = 0UL; i < nAccesses; ++i)
         rndpairs.emplace_back(gen() % extent, gen() % extent);
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto i = 0UL; i < nTimingRuns; ++i)
         bash_sequential_grid(rndpairs, "sequential_bash_grid");
 
     EXPECT_TRUE(true);

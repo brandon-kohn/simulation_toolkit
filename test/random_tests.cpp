@@ -352,7 +352,7 @@ TEST(truncated_normal_test_suite, brute_hueristic_timing)
 	std::mt19937 gen(42UL);
 	std::uniform_real_distribution<> dist;
 
-	auto sum = 0;
+	auto sum = 0.0;
 	{
 		GEOMETRIX_MEASURE_SCOPE_TIME("uniform_normal_trunc");
 		for (auto i = 0ULL; i < nruns; ++i)
@@ -369,14 +369,14 @@ TEST(truncated_normal_test_suite, brute_hueristic_timing)
 TEST(xoroshiro128plus_generator_test_suite, construct)
 {
 	auto sut = stk::xoroshiro128plus_generator{};
-	auto v = sut();
+	sut();
 }
 
 #include <stk/random/xorshift1024starphi_generator.hpp>
 TEST(xorshift1024starphi_test_suite, construct)
 {
 	auto sut = stk::xorshift1024starphi_generator{};
-	auto v = sut();
+	sut();
 	auto l = -4.0;
 	auto h = 4.0;
 	stk::histogram_1d<double> chist(1000, l, h);

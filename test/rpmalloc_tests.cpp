@@ -47,7 +47,7 @@ std::size_t nAllocations = 1000000;
 TEST(rpmalloc_test_suite, cross_thread_bench)
 {
     using namespace stk::thread;
-    std::size_t nOSThreads = std::thread::hardware_concurrency()-1;
+    std::uint32_t nOSThreads = static_cast<std::uint32_t>(std::thread::hardware_concurrency()-1);
 	{
 		using pool_t = work_stealing_thread_pool<mc_queue_traits>;
 		pool_t pool(rpmalloc_thread_initialize, rpmalloc_thread_finalize, nOSThreads);

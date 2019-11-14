@@ -37,7 +37,7 @@ namespace stk {
         }
 
         template <class NewVertexContainer, class Derived, class Config, class Base>
-        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const NewVertexContainer& ag, const boost::vec_adj_list_impl<Derived, Config, Base>& g_)
+        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& /*v*/, const NewVertexContainer& ag, const boost::vec_adj_list_impl<Derived, Config, Base>& g_)
         {
             const Derived& g = static_cast<const Derived&>(g_);
             return g.m_vertices.size() + ag.size();

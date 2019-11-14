@@ -15,8 +15,8 @@
 #include <chrono>
 #include <geometrix/utility/scope_timer.ipp>
 
-int nTimingRuns = 200000;
-auto numberToInsert = 30;
+auto nTimingRuns = 200000UL;
+auto numberToInsert = 30UL;
 template <typename Key>
 Key random_value()
 {
@@ -91,7 +91,7 @@ TEST(timing, std_unordered_set_pointers_insert)
     auto name = std::stringstream{};
     name << "insert " << numberToInsert << " items to std::unordered_set<std::uint64_t>";
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto q = 0UL; q < nTimingRuns; ++q)
     {
         auto c = std::unordered_set<std::uint64_t*>{};
         auto toInsert = std::vector<std::uint64_t*>{};
@@ -108,7 +108,7 @@ TEST(timing, std_unordered_set_pointers_erase)
     auto name = std::stringstream{};
     name << "erase " << numberToInsert << " items from std::unordered_set<std::uint64_t>";
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto q = 0UL; q < nTimingRuns; ++q)
     {
         auto c = std::unordered_set<std::uint64_t*>{};
         auto toErase = std::vector<std::uint64_t*>{};
@@ -127,7 +127,7 @@ TEST(timing, std_set_pointers_insert)
     auto name = std::stringstream{};
     name << "insert " << numberToInsert << " items to std::set<std::uint64_t>";
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto q = 0UL; q < nTimingRuns; ++q)
     {
         auto c = std::set<std::uint64_t*>{};
         auto toInsert = std::vector<std::uint64_t*>{};
@@ -145,7 +145,7 @@ TEST(timing, std_set_pointers_erase)
     auto name = std::stringstream{};
     name << "erase " << numberToInsert << " items from std::set<std::uint64_t>";
 
-    for (int i = 0; i < nTimingRuns; ++i)
+    for (auto q = 0UL; q < nTimingRuns; ++q)
     {
         auto c = std::set<std::uint64_t*>{};
         auto toErase = std::vector<std::uint64_t*>{};

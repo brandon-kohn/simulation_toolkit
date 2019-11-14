@@ -25,7 +25,7 @@ namespace stk {
 		path.reserve(a.size());
 
         for (const auto& p : a)
-            path << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+            path << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
 
         clip.AddPath(path, type, true);
     }
@@ -44,7 +44,7 @@ namespace stk {
         ClipperLib::Path path;
 		path.reserve(a.size());
         for (const auto& p : a)
-            path << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+            path << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
         clip.AddPath(path, ClipperLib::ptSubject, false);
     }
 
@@ -125,7 +125,7 @@ namespace stk {
 		path.reserve(a.size());
 
 		for (const auto& p : a)
-			path.emplace_back(p[0].value() * scale, p[1].value() * scale);
+			path.emplace_back(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
 
 		a.clear();
 		for(const auto& p : path)
@@ -320,7 +320,7 @@ namespace stk {
         ClipperLib::Path boundary;
 
         for (const auto& p : pgon)
-            boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+            boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
 
         ClipperLib::ClipperOffset co;
         co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
@@ -336,14 +336,14 @@ namespace stk {
         
 		ClipperLib::Path boundary;
         for (const auto& p : pgon.get_outer())
-            boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+            boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
         co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
 
 		for (auto const& hole : pgon.get_holes())
 		{
 			boundary.clear();
 			for (const auto& p : hole)
-				boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+				boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>( p[1].value() * scale));
 			co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
 		}
 
@@ -358,7 +358,7 @@ namespace stk {
         ClipperLib::Path boundary;
 
         for (const auto& p : pline)
-            boundary << ClipperLib::IntPoint(p[0].value() * scale, p[1].value() * scale);
+            boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
 
         ClipperLib::ClipperOffset co;
         co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etOpenSquare);

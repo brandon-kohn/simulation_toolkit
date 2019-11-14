@@ -67,7 +67,7 @@ public:
     {}
 
     template <class Graph>
-    bool should_stop(Vertex u, Graph& g) const
+    bool should_stop(Vertex u, Graph& /*g*/) const
     {
         GEOMETRIX_ASSERT(!m_visitorTerminated);//! This should only be called when this is false if termination works.
         if (u == m_goal)
@@ -158,14 +158,14 @@ namespace {
 		{}
 
 		template<typename Graph>
-		void discover_vertex(Vertex u, Graph& g)
+		void discover_vertex(Vertex u, Graph& /*g*/)
 		{
 			if (u != m_source && m_d[u] <= m_maxDistance)
 				m_pool.insert(u);				
 		}
 
 		template<typename Graph>
-		void finish_vertex(Vertex u, Graph& g)
+		void finish_vertex(Vertex u, Graph&)
 		{
 			if (m_d[u] > m_maxDistance)
 				m_stop = true;
@@ -180,7 +180,7 @@ namespace {
 		}
 
 		template <class Graph>
-		bool should_stop(Vertex u, Graph& g) const
+		bool should_stop(Vertex , Graph& ) const
 		{
 			return m_stop;
 		}
