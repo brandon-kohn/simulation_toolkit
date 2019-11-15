@@ -43,14 +43,21 @@ project(simulation_suite)
 if(MSVC)
     CompileCheck(STK_HAS_CONSTEXPR "Checking for constexpr keyword" "static constexpr const char* foo = \"foo\";")
     CompileCheck(STK_HAS_THREAD_LOCAL "Checking for thread_local keyword" "static thread_local const char* foo = \"foo\";")
+    CompileCheck(STK_HAS_CXX17_STD_ALIGNED_ALLOC "Checking for std::aligned_alloc(size, align)" "#include <cstdlib>
+                                                                                                 void* foo = std::aligned_alloc(8, 32); 
+                                                                                                 std::free(foo);")
 else()
     CompileCheckWithFlags(STK_HAS_CONSTEXPR "Checking for constexpr keyword" "-std=c++11" "static constexpr const char* foo = \"foo\";")
     CompileCheckWithFlags(STK_HAS_THREAD_LOCAL "Checking for thread_local keyword" "-std=c++11" "static thread_local const char* foo = \"foo\";")
+    CompileCheckWithFlags(STK_HAS_CXX17_STD_ALIGNED_ALLOC "Checking for std::aligned_alloc(size, align)" "-std=c++17" "#include <cstdlib>
+                                                                                                                       void* foo = std::aligned_alloc(8, 32);
+                                                                                                                       std::free(foo);")
 endif()
 
 if(${STK_HAS_CONSTEXPR})
-set(BUILD_LIBCDS ON CACHE INTERNAL "")
+    set(BUILD_LIBCDS ON CACHE INTERNAL "")
 endif()
+
 add_subdirectory(stk/)
 add_subdirectory(exact/)
 add_subdirectory(clipper-lib/)

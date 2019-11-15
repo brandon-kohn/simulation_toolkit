@@ -398,3 +398,13 @@ TEST(cache_line_padding_suite, test_simple_padding)
 	EXPECT_EQ(STK_CACHE_LINE_SIZE, sizeof(stk::thread::padded<bool>));
 	EXPECT_EQ(STK_CACHE_LINE_SIZE, sizeof(stk::thread::padded<std::atomic<bool>>));
 }
+
+TEST(work_stealing_thread_pool_test_suite, test_aligned_alloc)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	
+	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens>;
+	auto pool = boost::make_unique<pool_t>(nOSThreads);
+}

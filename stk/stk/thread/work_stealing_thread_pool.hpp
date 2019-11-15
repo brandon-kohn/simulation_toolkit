@@ -25,6 +25,7 @@
 #include <stk/thread/cache_line_padding.hpp>
 #include <stk/container/experimental/detail/skip_list.hpp>
 #include <stk/compiler/warnings.hpp>
+#include <stk/utility/aligned_alloc.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #elif defined(STK_USE_RPMALLOC)
@@ -502,6 +503,16 @@ namespace stk {
             {
                 return m_nTasksOutstanding.count() != 0;
             }
+
+			void* operator new(std::size_t i)
+			{
+				return stk::aligned_alloc(i, STK_CACHE_LINE_SIZE);
+			}
+
+			void operator delete(void* p)
+			{
+				return stk::free(p);
+			}
 
         private:
 
