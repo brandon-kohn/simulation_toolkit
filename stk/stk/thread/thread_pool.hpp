@@ -90,7 +90,7 @@ namespace stk { namespace thread {
                     m_active.fetch_sub(1, std::memory_order_relaxed);
                     {
                         unique_lock<mutex_type> lk{ m_mutex };
-                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_stopThread[idx]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
+                        m_cnd.wait(lk, [&task, &hasTasks, idx, this]() { return ((hasTasks = queue_traits::try_pop(m_tasks, task)) == true) || m_stopThread[idx]->load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed); });
                     }
                     m_active.fetch_add(1, std::memory_order_relaxed);
                     if (!hasTasks)

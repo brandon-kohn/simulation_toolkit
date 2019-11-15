@@ -17,11 +17,13 @@
 #include <boost/thread/futures/wait_for_all.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <geometrix/utility/scope_timer.ipp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/thread/task_counter.hpp>
 #include <stk/thread/scalable_task_counter.hpp>
+#include <stk/thread/vyukov_mpmc_queue.hpp>
 
 #include <boost/range/irange.hpp>
 #include "thread_test_utils.hpp"
@@ -107,8 +109,11 @@ TEST_F(timing_fixture200, test_partition_work_empty)
     auto schedule = partition_work(items, npartitions);
     std::size_t count = 0;
     for (auto range : schedule)
-        for (auto i : range)
-            ++count;
+		for (auto i : range)
+		{
+			geometrix::ignore_unused_warning_of(i);
+			++count;
+		}
     EXPECT_EQ(njobs, count);
 }
 
@@ -124,8 +129,11 @@ TEST_F(timing_fixture200, test_partition_work_one_item)
     auto schedule = partition_work(items, npartitions);
     std::size_t count = 0;
     for (auto range : schedule)
-        for (auto i : range)
-            ++count;
+		for (auto i : range)
+		{
+			geometrix::ignore_unused_warning_of(i);
+			++count;
+		}
     EXPECT_EQ(njobs, count);
 }
 
@@ -143,8 +151,11 @@ TEST_F(timing_fixture200, test_partition_work_fewer_items_than_partitions)
     EXPECT_EQ(njobs, schedule.size());
     std::size_t count = 0;
     for (auto range : schedule)
-        for (auto i : range)
-            ++count;
+		for (auto i : range)
+		{
+			geometrix::ignore_unused_warning_of(i);
+			++count;
+		}
     EXPECT_EQ(njobs, count);
 }
 
@@ -290,7 +301,6 @@ TEST_F(timing_fixture200, work_stealing_threads_moodycamel_concurrentQ_64k_empty
 	}
 }
 
-#include <stk/thread/vyukov_mpmc_queue.hpp>
 TEST_F(timing_fixture200, work_stealing_threads_vyukov_concurrentQ_64k_empty_jobs_with_parallel_for)
 {
 	using namespace ::testing;

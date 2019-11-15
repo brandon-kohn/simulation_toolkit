@@ -24,6 +24,7 @@
 #include <stk/thread/bind/bind_processor.hpp>
 #include <stk/thread/cache_line_padding.hpp>
 #include <stk/container/experimental/detail/skip_list.hpp>
+#include <stk/compiler/warnings.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #elif defined(STK_USE_RPMALLOC)
@@ -33,6 +34,10 @@
 #include <boost/range/algorithm/for_each.hpp>
 #include <algorithm>
 #include <memory>
+
+#pragma STK_WARNING_PUSH()
+#define STK_DISABLE STK_WARNING_PADDED
+#include STK_DO_DISABLE_WARNING()
 
 namespace stk {
     namespace thread {
@@ -217,7 +222,7 @@ namespace stk {
                             auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                             m_pollingCnd.wait(lk, [tIndex, &lastStolenIndex, &hasTask, &task, this]()
                             {
-                                return (hasTask = poll(tIndex, lastStolenIndex, task)) || m_stopThread[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed);
+                                return ((hasTask = poll(tIndex, lastStolenIndex, task)) == true) || m_stopThread[tIndex].load(std::memory_order_relaxed) || m_done.load(std::memory_order_relaxed);
                             });
                         }
                         m_active.fetch_add(1, std::memory_order_relaxed);
@@ -701,5 +706,6 @@ namespace stk {
 
     }
 }//! namespace stk::thread;
+#pragma STK_WARNING_POP()
 
 #endif // STK_THREAD_WORK_STEALING_THREAD_POOL_HPP

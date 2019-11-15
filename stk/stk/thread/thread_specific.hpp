@@ -192,10 +192,10 @@ namespace stk { namespace thread {
                 auto lk = std::unique_lock<std::mutex> { m_mutex };
                 for(auto pMap : m_maps)
                 {
-                    auto r = map_policy::find(*pMap, key);
-                    if (r)
+                    auto r2 = map_policy::find(*pMap, key);
+                    if (r2)
                     {
-                        m_deinitializer(*r);
+                        m_deinitializer(*r2);
                         map_policy::erase(*pMap, key);
                     }
                 }

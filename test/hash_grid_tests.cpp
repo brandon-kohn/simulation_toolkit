@@ -189,7 +189,7 @@ void bash_grid(Pool& pool, Inputs const& rndpairs, std::string const& name, std:
 }
 
 template <typename Mutex, typename Pool, typename Inputs>
-void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string const& name, std::size_t partitionSize)
+void bash_grid_with_striping(Pool& pool, Inputs const& rndpairs, std::string const& name, std::size_t /*partitionSize*/)
 {
     using namespace geometrix;
     using namespace stk;

@@ -305,15 +305,9 @@ TEST(bsp_test_suite, point_in_solid_classification_test)
 		auto pis = bsp.point_in_solid_space(p, make_tolerance_policy());
 		if (inHole(p)) {
 			EXPECT_TRUE(pis == point_in_solid_classification::in_solid);
-			if (pis != point_in_solid_classification::in_solid) {
-				int i = 0;
-			}
 		}
 		else {
 			EXPECT_TRUE(pis == point_in_solid_classification::in_empty_space);
-			if (pis != point_in_solid_classification::in_empty_space) {
-				int i = 0;
-			}
 		}
 	}
 

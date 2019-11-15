@@ -11,6 +11,7 @@
 #include <boost/config.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <stk/thread/cache_line_padding.hpp>
+#include <stk/compiler/warnings.hpp>
 #include <atomic>
 #include <cstdint>
 #include <thread>
@@ -20,12 +21,16 @@ namespace stk { namespace thread {
 
     class scalable_task_counter
     {
+#pragma STK_WARNING_PUSH()
+#define STK_WARNING STK_WARNING_PADDED
+#include STK_DO_DISABLE_WARNING()
         struct BOOST_ALIGNMENT(STK_CACHE_LINE_SIZE) padded_atomic_counter : std::atomic<std::int64_t>
         {
             padded_atomic_counter()
                 : std::atomic<std::int64_t>(0)
             {}
         };
+#pragma STK_WARNING_POP()
 
     public:
 

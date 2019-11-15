@@ -174,7 +174,7 @@ TEST(thread_specific_tests, thread_specific_threads_go_out_of_scope)
         boost::for_each(thds, [](std::thread& thd) { thd.join(); });
     }
 
-	sut.for_each_thread_value([](int*& p)
+	sut.for_each_thread_value([](int*&)
 	{
 		//! There shouldn't be any.
 		ASSERT_FALSE(true);

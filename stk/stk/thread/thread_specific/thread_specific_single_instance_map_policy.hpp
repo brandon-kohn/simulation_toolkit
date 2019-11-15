@@ -22,11 +22,11 @@ namespace stk { namespace thread {
         };
 
         template <typename Map>
-        static void initialize(Map& m)
+        static void initialize(Map&)
         {}
 
         template <typename Map, typename Key>
-        static Value* find(Map& m, const Key& k)
+        static Value* find(Map& m, const Key&)
         {
             auto& v = m.second;
             if(v.is_initialized())

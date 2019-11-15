@@ -35,10 +35,10 @@ namespace stk {
 
         template <typename ColorExpr>
         BOOST_CONSTEXPR color_rgba(ColorExpr const& p)
-            : red(geometrix::get<0>(p))
-            , green(geometrix::get<1>(p))
-            , blue(geometrix::get<2>(p))
-            , alpha(geometrix::get<3>(p))
+            : red(static_cast<std::uint8_t>(geometrix::get<0>(p)))
+            , green(static_cast<std::uint8_t>(geometrix::get<1>(p)))
+            , blue(static_cast<std::uint8_t>(geometrix::get<2>(p)))
+            , alpha(static_cast<std::uint8_t>(geometrix::get<3>(p)))
         {}
 
         BOOST_CONSTEXPR bool operator ==(const color_rgba& rhs) const BOOST_NOEXCEPT

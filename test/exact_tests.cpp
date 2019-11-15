@@ -66,7 +66,7 @@ TEST_F(exact_test_suite, simple)
 	EXPECT_GT(orientation(p1, p2, p4), 0);
 	EXPECT_GT(orientation(p2, p3, p4), 0);
 
-	auto go = get_orientation(p3, p1, p4, direct_comparison_policy());
+	//auto go = get_orientation(p3, p1, p4, direct_comparison_policy());
 	auto eo = orientation(p3, p1, p4);
 	auto mpo = get_Orientation(mp3, mp1, mp4);
 	EXPECT_EQ(eo, mpo);

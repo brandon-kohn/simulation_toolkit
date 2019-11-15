@@ -126,7 +126,7 @@ namespace stk { namespace thread {
 
 				{
                     unique_lock<mutex_type> lk{ m_mutex };
-                    m_cnd.wait(lk, [&task, &hasTasks, this]() { return (hasTasks = queue_traits::try_pop(m_tasks, task)) || m_done.load(std::memory_order_relaxed); });
+                    m_cnd.wait(lk, [&task, &hasTasks, this]() { return ((hasTasks = queue_traits::try_pop(m_tasks, task))==true) || m_done.load(std::memory_order_relaxed); });
                 }
                 if (!hasTasks)
                     return;

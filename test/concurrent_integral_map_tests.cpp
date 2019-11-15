@@ -267,8 +267,8 @@ TEST(concurrent_numeric_unordered_map_test_suite, pointer_key_insert)
 	using ::testing::NotNull;
 	auto sut = concurrent_numeric_unordered_map<int*, int*>{};
 
-	int* key0 = reinterpret_cast<int*>(0xBAADF00D);
-	int* data = reinterpret_cast<int*>(0xBAADF00D);
+	int* key0 = reinterpret_cast<int*>(static_cast<std::size_t>(0xBAADF00D));
+	int* data = reinterpret_cast<int*>(static_cast<std::size_t>(0xBAADF00D));
 	sut.insert(key0, data);
 	sut.erase(key0);
 	EXPECT_FALSE(sut.find(key0));
@@ -282,7 +282,7 @@ TEST(concurrent_numeric_unordered_map_test_suite, iterator_compare)
 		using sut_t = concurrent_numeric_unordered_map<int*, int*>;
 		auto sut = sut_t{};
 
-		for (int i = 3; i < extent; ++i) 
+		for (std::size_t i = 3; i < extent; ++i) 
 		{
 			sut.insert((int*)i, (int*)i);
 		}

@@ -28,7 +28,7 @@
 //! For example
 //! /code
 //! #pragma STK_WARNING_PUSH()
-//! #define STK_WARNING STK_WARNING_SIGN_UNSIGNED_COMPARE
+//! #define STK_DISABLE STK_WARNING_SIGN_UNSIGNED_COMPARE
 //! #include STK_DO_DISABLE_WARNING()
 //! ... <code which emits warning> ...
 //! #pragma STK_WARNING_POP()
@@ -45,6 +45,16 @@
     #define STK_WARNING_SIGN_UNSIGNED_COMPARE 
 #endif//! STK_WARNING_SIGN_UNSIGNED_COMPARE
 
+//! Padding due to alignment.
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_PADDED 4324
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_PADDED "-Wpadded"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_PADDED "-Wpadded"
+#else
+    #define STK_WARNING_PADDED
+#endif//! STK_WARNING_PADDED
 
 //! Warning C4003 not enough arguments for function-like macro invocation
 #if defined(BOOST_MSVC)
@@ -60,3 +70,13 @@
     #define STK_WARNING_ASSIGNMENT_WITHIN_CONDITIONAL_EXPR 
 #endif//! STK_WARNING_ASSIGNMENT_WITHIN_CONDITIONAL_EXPR
 
+//! Unreachable code
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_UNREACHABLE_CODE 4702
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNREACHABLE_CODE "-Wunreachable-code"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNREACHABLE_CODE "-Wunreachable-code"
+#else
+    #define STK_WARNING_UNREACHABLE_CODE
+#endif//! STK_WARNING_UNREACHABLE_CODE
