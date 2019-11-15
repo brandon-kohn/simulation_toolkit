@@ -51,6 +51,17 @@ struct work_stealing_thread_pool_fixture : ::testing::TestWithParam<int>
     {
     }
 
+	//! Because fixtures are heap allocated and the pool is aligned due to padded members, the fixture must be allocated with cache line size alignment.
+	void* operator new(std::size_t i)
+	{
+		return stk::aligned_alloc(i, STK_CACHE_LINE_SIZE);
+	}
+
+	void operator delete(void* p)
+	{
+		stk::free(p);
+	}
+
 	static const std::size_t nTimingRuns = 200;
     stk::thread::work_stealing_thread_pool<mc_queue_traits> pool;
 };
