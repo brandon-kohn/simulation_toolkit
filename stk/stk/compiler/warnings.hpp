@@ -80,3 +80,55 @@
 #else
     #define STK_WARNING_UNREACHABLE_CODE
 #endif//! STK_WARNING_UNREACHABLE_CODE
+
+//! Derived type destructor defined as deleted because base dtor was not accessible/available.
+#if defined(BOOST_MSVC)
+#define STK_WARNING_DERIVED_DTOR_DELETED_BASE_INACCESSIBLE 4624
+#else
+#define STK_WARNING_DERIVED_DTOR_DELETED_BASE_INACCESSIBLE 
+#endif//! STK_WARNING_DERIVED_DTOR_DELETED_BASE_INACCESSIBLE
+
+//! Unreferenced formal parameter
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER 4100
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused_parameter"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused_parameter"
+#else
+    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER
+#endif//! STK_WARNING_UNREFERENCED_FORMAL_PARAMETER
+
+//! Unreferenced variable 
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_UNREFERENCED_VARIABLE 4101
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused_variable"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused_variable"
+#else
+    #define STK_WARNING_UNREFERENCED_VARIABLE
+#endif//! STK_WARNING_UNREFERENCED_VARIABLE
+
+//! Declaration hides function parameter. 
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER 4457
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER "-Wshadow"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER "-Wshadow"
+#else
+    #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER
+#endif//! STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER
+
+//! Local declaration hides global declaration. 
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL 4459
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL "-Wshadow"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL "-Wshadow"
+#else
+    #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL
+#endif//! STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL
+
