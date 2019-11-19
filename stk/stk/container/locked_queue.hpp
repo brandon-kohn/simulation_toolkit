@@ -200,7 +200,7 @@ namespace stk {
 		using queue_info = none_type;
 
 		template <typename T, typename Alloc, typename Mutex>
-		static queue_info get_queue_info(queue_type<T, Alloc, Mutex>&q)
+		static queue_info get_queue_info(queue_type<T, Alloc, Mutex>&)
 		{
 			return none;
 		}
