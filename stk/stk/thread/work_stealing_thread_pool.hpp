@@ -36,7 +36,7 @@
 #include <algorithm>
 #include <memory>
 
-#pragma STK_WARNING_PUSH()
+STK_WARNING_PUSH()
 #define STK_DISABLE STK_WARNING_PADDED
 #include STK_DO_DISABLE_WARNING()
 
@@ -717,6 +717,6 @@ namespace stk {
 
     }
 }//! namespace stk::thread;
-#pragma STK_WARNING_POP()
+STK_WARNING_POP()
 
 #endif // STK_THREAD_WORK_STEALING_THREAD_POOL_HPP

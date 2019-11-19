@@ -11,14 +11,14 @@
 #include <boost/config.hpp>
 
 #if defined(BOOST_MSVC)
-    #define STK_WARNING_PUSH() warning(push) 
-    #define STK_WARNING_POP() warning(pop) 
+    #define STK_WARNING_PUSH() __pragma(warning(push))
+    #define STK_WARNING_POP() __pragma(warning(pop))
 #elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
-    #define STK_WARNING_PUSH() GCC diagnostic push
-    #define STK_WARNING_POP() GCC diagnostic pop
+    #define STK_WARNING_PUSH() _Pragma("GCC diagnostic push")
+    #define STK_WARNING_POP() _Pragma("GCC diagnostic pop")
 #elif defined(BOOST_COMP_CLANG)
-    #define STK_WARNING_PUSH() clang diagnostic push
-    #define STK_WARNING_POP() clang diagnostic pop
+    #define STK_WARNING_PUSH() _Pragma("clang diagnostic push")
+    #define STK_WARNING_POP() _Pragma("clang diagnostic pop")
 #else
     #define STK_WARNING_PUSH() 
     #define STK_WARNING_POP() 
