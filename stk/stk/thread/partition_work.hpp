@@ -46,7 +46,6 @@ namespace stk { namespace thread {
 	inline void partition_work(Container& cont, const std::ptrdiff_t num, Fn&& fn)
 	{
 		GEOMETRIX_ASSERT(num != 0);
-		using iterator = typename boost::range_iterator<Container>::type;
 		auto first = std::begin(cont);
 		auto last = std::end(cont);
 		auto total = std::distance(first, last);
