@@ -40,6 +40,6 @@
 #endif//! If there is a warning.
 
 #ifdef STK_DISABLE
-#undef STK_DISABLE
-#undef
+    #undef STK_DISABLE
+#endif
 
