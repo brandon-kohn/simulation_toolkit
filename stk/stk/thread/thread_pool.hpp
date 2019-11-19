@@ -163,7 +163,6 @@ namespace stk { namespace thread {
 		void wait_or_work(std::vector<future<void>>&fs) BOOST_NOEXCEPT
 		{
 			fun_wrapper tsk;
-			std::uint32_t lastIndexHit = 0;
 			for (auto it = fs.begin(); it != fs.end();)
 			{
 				if (!thread_traits::is_ready(*it))
