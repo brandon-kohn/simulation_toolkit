@@ -10,25 +10,25 @@ struct moodycamel_concurrent_queue_traits_no_tokens
 	using queue_info = stk::none_type;
 
 	template <typename T>
-	static queue_info get_queue_info(queue_type<T>&q)
+	static queue_info get_queue_info(queue_type<T>&)
 	{
 		return stk::none;
 	}
 
 	template <typename T, typename Value>
-	static bool try_push(queue_type<T>& q, queue_info queueInfo, Value&& value)
+	static bool try_push(queue_type<T>& q, queue_info, Value&& value)
 	{
 		return q.enqueue(std::forward<Value>(value));
 	}
 
 	template <typename T>
-	static bool try_pop(queue_type<T>& q, queue_info queueInfo, T& value)
+	static bool try_pop(queue_type<T>& q, queue_info, T& value)
 	{
 		return q.try_dequeue(value);
 	}
 
 	template <typename T>
-	static bool try_steal(queue_type<T>& q, queue_info queueInfo, T& value)
+	static bool try_steal(queue_type<T>& q, queue_info, T& value)
 	{
 		return q.try_dequeue(value);
 	}
