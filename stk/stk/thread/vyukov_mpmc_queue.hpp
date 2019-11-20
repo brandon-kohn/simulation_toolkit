@@ -154,7 +154,7 @@ namespace stk { namespace thread {
         using queue_info = none_type;
 
         template <typename T>
-        static queue_info get_queue_info(queue_type<T>&q)
+        static queue_info get_queue_info(queue_type<T>&)
         {
             return none;
         }
