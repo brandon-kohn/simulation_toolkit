@@ -107,7 +107,7 @@ namespace stk { namespace thread {
 		}
 
 		template <typename T>
-        std::tuple<queue_ptr, stamp_type> add_checkout(T*dummy=nullptr)
+        std::tuple<queue_ptr, stamp_type> add_checkout(T* /*dummy*/ = nullptr)
         {
             queue_ptr p;
             stamp_type s;
@@ -117,7 +117,7 @@ namespace stk { namespace thread {
         }
 
 		template <typename T>
-        void remove_checkout(T*dummy=nullptr)
+        void remove_checkout(T* /*dummy*/ = nullptr)
         {
             queue_ptr p;
             stamp_type s;
