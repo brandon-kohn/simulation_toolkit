@@ -9,6 +9,7 @@
 #pragma once
 
 #include <stk/container/type_storage.hpp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 
 namespace stk { namespace thread {
 	
@@ -47,6 +48,7 @@ namespace stk { namespace thread {
         template <typename Map, typename Key>
         static void erase(Map& m, const Key& k)
         {
+            geometrix::ignore_unused_warning_of(k);
             if(m.second.is_initialized())
             {
 				GEOMETRIX_ASSERT(m.first == k);

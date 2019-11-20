@@ -22,7 +22,7 @@ namespace stk { namespace thread {
         };
 
         template <typename Map>
-        static void initialize(Map& m)
+        static void initialize(Map&)
         {}
 
         template <typename Map, typename Key>
