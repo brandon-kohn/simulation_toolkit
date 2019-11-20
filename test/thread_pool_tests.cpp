@@ -244,7 +244,7 @@ TEST_P(work_stealing_thread_pool_fixture, work_stealing_threads_moodycamel_concu
         consumed.reset();
         {
             GEOMETRIX_MEASURE_SCOPE_TIME(name.str().c_str());
-            for (auto q = 0; q < qjobs; ++q)
+            for (auto q = decltype(qjobs){}; q < qjobs; ++q)
             {
 				std::uint32_t threadID = q % (GetParam() - 1) + 1;
                 pool.send_no_future(threadID, task);
