@@ -409,8 +409,8 @@ public:
 
     lock_free_concurrent_skip_list( std::uint8_t topLevel = 1, const key_compare& pred = key_compare(), const allocator_type& al = allocator_type() )
         : detail::lf_skip_list_node_manager<AssociativeTraits>( pred, al )
-        , m_selector()
         , m_pHead(create_node(value_type(), topLevel, true))
+        , m_selector()
     {
         GEOMETRIX_ASSERT( m_pHead );
     }
