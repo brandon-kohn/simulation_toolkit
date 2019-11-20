@@ -16,6 +16,7 @@
   Breadth First Search Algorithm (Cormen, Leiserson, and Rivest p. 470)
 */
 #include <boost/graph/breadth_first_search.hpp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 
 namespace boost {
 
@@ -33,6 +34,7 @@ namespace boost {
       vis.black_target(e, g);
       vis.finish_vertex(u, g);
       bool result = vis.should_stop(u, g);
+      geometrix::ignore_unused_warning_of(result);
     }
     Visitor vis;
     Graph g;

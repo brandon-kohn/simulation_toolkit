@@ -22,6 +22,7 @@ namespace boost {
         {
             BOOST_CONCEPT_ASSERT((AStarVisitorConcept<Visitor, Graph>));
             bool b = vis.should_stop(u, g);
+            geometrix::ignore_unused_warning_of(b);
         }
 
         Visitor vis;
@@ -49,9 +50,9 @@ namespace boost {
 
     private:
         template <class Edge, class Graph>
-        void tree_edge(Edge e, const Graph& g) {}
+        void tree_edge(Edge, const Graph&) {}
         template <class Edge, class Graph>
-        void non_tree_edge(Edge e, const Graph& g) {}
+        void non_tree_edge(Edge, const Graph&) {}
     };
 
     template <class Visitors>
