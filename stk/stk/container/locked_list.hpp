@@ -90,7 +90,7 @@ namespace stk {
 			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
             node* next = nullptr;
             auto current = &head;
-            while (next = current->next.get())
+            while ((next = current->next.get()) != nullptr)
             {
                 std::unique_lock<mutex_type> next_lk{ next->m };
 				GEOMETRIX_ASSERT(lk.owns_lock());
@@ -113,7 +113,7 @@ namespace stk {
 			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
             node* next = nullptr;
             auto current = &head;
-            while (next = current->next.get())
+            while ((next = current->next.get()) != nullptr)
             {
                 std::unique_lock<mutex_type> next_lk{ next->m };
 				GEOMETRIX_ASSERT(lk.owns_lock());
@@ -137,7 +137,7 @@ namespace stk {
 			GEOMETRIX_ASSERT(lk.mutex() == &head.m);
             node* next = nullptr;
             auto current = &head;
-            while (next = current->next.get())
+            while ((next = current->next.get()) != nullptr)
             {
                 std::unique_lock<mutex_type> next_lk{ next->m };
 				GEOMETRIX_ASSERT(lk.owns_lock());
