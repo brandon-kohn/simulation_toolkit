@@ -45,7 +45,7 @@ private:
         return ((((storage_type)ptr) & ~(storage_type)1) | (mark));
     }
 
-    BOOST_CONSTEXPR std::memory_order failure_order(std::memory_order order) BOOST_NOEXCEPT
+    BOOST_CONSTEXPR std::memory_order failure_order(std::memory_order order) const BOOST_NOEXCEPT
     {
         return order == std::memory_order_acq_rel ? std::memory_order_acquire : (order == std::memory_order_release ? std::memory_order_relaxed : order);
     }
