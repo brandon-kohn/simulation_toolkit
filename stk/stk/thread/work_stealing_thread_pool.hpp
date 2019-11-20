@@ -327,9 +327,9 @@ namespace stk {
                 //, m_spinning(nthreads)
                 , m_poolQ(1024)
                 , m_localQs(nthreads)
+                , m_nTasksOutstanding(nthreads + 1)
                 , m_onThreadStart(onThreadStart)
                 , m_onThreadStop(onThreadStop)
-                , m_nTasksOutstanding(nthreads + 1)
             {
                 init(bindToProcs);
             }
@@ -600,7 +600,7 @@ namespace stk {
                 {
                     ++njobs;
                     std::uint32_t threadID = njobs % nthreads + 1;
-                    send_no_future(threadID, [&consumed, &task, from, to, this]() BOOST_NOEXCEPT -> void
+                    send_no_future(threadID, [&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
                                    {
                                        STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
                                        for (auto i = from; i != to; ++i) {
@@ -626,7 +626,7 @@ namespace stk {
                 {
                     ++njobs;
                     std::uint32_t threadID = njobs % nthreads + 1;
-                    send_no_future(threadID, [&consumed, &task, from, to, this]() BOOST_NOEXCEPT -> void
+                    send_no_future(threadID, [&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
                                    {
                                        STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
                                        for (auto i = from; i != to; ++i) {

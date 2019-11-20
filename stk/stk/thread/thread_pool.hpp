@@ -348,7 +348,7 @@ namespace stk { namespace thread {
 				[&consumed, &njobs, &task, this](iterator_t from, iterator_t to) -> void
 				{
 					++njobs;
-					send_no_future([&consumed, &task, from, to, this]() BOOST_NOEXCEPT -> void
+					send_no_future([&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
 					{
 						STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
 						for (auto i = from; i != to; ++i)
@@ -372,7 +372,7 @@ namespace stk { namespace thread {
 				[&consumed, &njobs, &task, this](std::ptrdiff_t from, std::ptrdiff_t to) -> void
 				{
 					++njobs;
-					send_no_future([&consumed, &task, from, to, this]() BOOST_NOEXCEPT -> void
+					send_no_future([&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
 					{
 						STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
 						for (auto i = from; i != to; ++i)
