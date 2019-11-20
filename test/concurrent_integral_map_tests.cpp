@@ -282,7 +282,7 @@ TEST(concurrent_numeric_unordered_map_test_suite, iterator_compare)
 		using sut_t = concurrent_numeric_unordered_map<int*, int*>;
 		auto sut = sut_t{};
 
-		for (std::size_t i = 3; i < extent; ++i) 
+		for (std::ptrdiff_t i = 3; i < extent; ++i) 
 		{
 			sut.insert((int*)i, (int*)i);
 		}
