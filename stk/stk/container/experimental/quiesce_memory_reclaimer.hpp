@@ -59,13 +59,13 @@ namespace stk { namespace thread {
 		}
 
 		template <typename T>
-        void add_checkout(T*dummy=nullptr)
+        void add_checkout(T* /*dummy*/ = nullptr)
         {
 
         }
 
 		template <typename T>
-        void remove_checkout(T*dummy=nullptr)
+        void remove_checkout(T* /*dummy*/ = nullptr)
         {
         }
 
