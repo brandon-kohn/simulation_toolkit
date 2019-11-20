@@ -16,6 +16,7 @@
 #include <geometrix/primitive/point_sequence_utilities.hpp>
 #include <stk/geometry/transformer.hpp>
 #include <geometrix/algorithm/point_sequence/is_polygon_simple.hpp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 
 namespace stk {
 
@@ -40,6 +41,7 @@ namespace stk {
 	//! Add a polyline to clipper. NOTE: Must be a subject type.
     inline void to_clipper(ClipperLib::Clipper& clip, const polyline2& a, ClipperLib::PolyType type, unsigned int scale)
     {
+        geometrix::ignore_unused_warning_of(type);
 		GEOMETRIX_ASSERT(type == ClipperLib::ptSubject);
         ClipperLib::Path path;
 		path.reserve(a.size());
