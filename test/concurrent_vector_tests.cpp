@@ -88,7 +88,7 @@ TEST(lock_free_concurrent_vector, pop_back)
 	concurrent_vector<int> v;
 	v.push_back(10);
 	int val;
-	auto r = v.pop_back(val);
+	v.pop_back(val);
 	EXPECT_EQ(10, val);
 	EXPECT_EQ(0, v.size());
 }
