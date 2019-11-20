@@ -348,9 +348,9 @@ void bash_lf_concurrent_map_remove_odd(Pool& pool, const char* name)
 			{
 				for (unsigned int q = 0; q < nsubwork; ++q)
 				{
-					m.insert_or_update(i, [i](bool isNew, std::pair<const int, int>& item) { item.second = i * 20; });
+					m.insert_or_update(i, [i](bool , std::pair<const int, int>& item) { item.second = i * 20; });
 					m.erase(i);
-					m.insert_or_update(i, [i](bool isNew, std::pair<const int, int>& item) { item.second = i * 20; });
+					m.insert_or_update(i, [i](bool , std::pair<const int, int>& item) { item.second = i * 20; });
 					if (i % 2)
 						m.erase(i);
 				}
