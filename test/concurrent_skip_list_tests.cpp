@@ -222,7 +222,7 @@ TEST(lf_concurrent_skip_list_tests, insert_two_no_replication)
 		EXPECT_EQ(it, it2);
 		EXPECT_FALSE(inserted);
 	}
-	auto ref = m[20];
+	//auto ref = m[20];
 }
 
 TEST(lf_concurrent_skip_list_tests, insert_two_remove_first)
