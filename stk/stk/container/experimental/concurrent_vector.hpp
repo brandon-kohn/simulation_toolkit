@@ -465,7 +465,7 @@ namespace stk { namespace detail {
 
         template <typename InputIt>
         concurrent_vector(InputIt first, InputIt last, const allocator_type& al = allocator_type())
-            : concurrent_vector(generator_arg, std::distance(first, last), [&first, last]() { return *(first++); }, al)
+            : concurrent_vector(generator_arg, std::distance(first, last), [&first]() { return *(first++); }, al)
         {}
 
         concurrent_vector(std::initializer_list<T> init, const allocator_type& al = allocator_type())
