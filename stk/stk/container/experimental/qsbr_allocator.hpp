@@ -60,7 +60,7 @@ namespace stk {
             std::allocator_traits<base_t>::construct(*this, p, std::forward<Args>(a)...);
         }
 
-        void destroy(T* const p)
+        void destroy(T* const /*p*/)
         {
             //! This is deferred into the reclaimer.
             //base_t::destroy(p);
