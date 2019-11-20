@@ -250,7 +250,7 @@ stk::polyline2 to_polyline(Polygon&& pgon)
 {
 	stk::polyline2 r(pgon.begin(), pgon.end());
 	r.push_back(pgon.front());
-	return std::move(r);
+	return r;
 }
 
 #include <stk/geometry/geometry_kernel.hpp>

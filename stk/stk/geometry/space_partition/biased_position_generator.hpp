@@ -198,7 +198,7 @@ namespace stk {
         }
 
         template <typename Polygon, typename Executor>
-        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy, Executor&& exec)
+        std::unique_ptr<mesh_type> generate_weighted_mesh(const Polygon& polygon, const stk::units::length& granularity, const solid_bsp2& bsp, const triangle_area_distance_weight_policy& weightPolicy, Executor&& /*exec*/)
         {
             using namespace stk;
             using namespace geometrix;
@@ -527,7 +527,7 @@ namespace stk {
 			for (const auto& p : pgons)
 				add_segments(p, segments);
 
-			return std::move(segments);
+			return segments;
 		}
 	}//! namespace detail;
 
