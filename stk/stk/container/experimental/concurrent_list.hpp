@@ -247,7 +247,6 @@ namespace stk {
             bool mDesired = false;
             node* pExpected = tail();
             bool mExpected = false;
-            ptr_mark_pair right;
             node_ptr left;
 
             while(true)
