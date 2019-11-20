@@ -12,6 +12,8 @@
 
 #include <clipper/clipper.hpp>
 
+#include <geometrix/utility/ignore_unused_warnings.hpp>
+
 TEST(ClipperSuite, testCriticalPolygon)
 {
     using namespace ::testing;
@@ -363,6 +365,7 @@ TEST(clipper_test_suite, testFailingCasePlineIntersection)
 	point2 c1, c2;
 	auto cmp = make_tolerance_policy();
 	auto r1 = polyline_polyline_closest_point(pgonline, pline, i1, i2, s, t, c1, c2, cmp);
+    geometrix::ignore_unused_warning_of(r1);
 	polyline_polyline_intersect(pgonline, pline, v, cmp);
 	auto r3 = polygon_subsequence(pline, c2, 2.0 * units::si::meters, cmp);
 
