@@ -228,7 +228,7 @@ TEST(weighted_mesh_test_suite, start)
 
     std::vector<polygon2> trigs;
 	mesh.get_adjacency_matrix();
-    for(auto i = 0; i < mesh.get_number_triangles(); ++i)
+    for(auto i = std::size_t{}; i < mesh.get_number_triangles(); ++i)
     {
         auto& trig = mesh.get_triangle_vertices(i);
         trigs.push_back(polygon2({trig[0], trig[1], trig[2]}));
@@ -289,7 +289,7 @@ TEST(weighted_mesh_test_suite, multi_polygon_mesh)
 
     std::vector<polygon2> trigs;
 	mesh.get_adjacency_matrix();
-    for(auto i = 0; i < mesh.get_number_triangles(); ++i)
+    for(auto i = std::size_t{}; i < mesh.get_number_triangles(); ++i)
     {
         auto& trig = mesh.get_triangle_vertices(i);
         trigs.push_back(polygon2({trig[0], trig[1], trig[2]}));
@@ -450,7 +450,7 @@ TEST(mesh_test_suite, bugging)
 	heal_non_simple_polygons(geometry);
 	auto mesh = generate_mesh(geometry);
     std::vector<polygon2> trigs;
-    for(auto i = 0; i < mesh.get_number_triangles(); ++i)
+    for(auto i = std::size_t{}; i < mesh.get_number_triangles(); ++i)
     {
         auto& trig = mesh.get_triangle_vertices(i);
         trigs.push_back(polygon2({trig[0], trig[1], trig[2]}));

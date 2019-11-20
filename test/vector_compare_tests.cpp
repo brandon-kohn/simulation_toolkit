@@ -310,7 +310,7 @@ struct velocity_obstacle
 	velocity_obstacle(const circle2& a, const velocity2& /*va*/, const circle2& b, const velocity2& vb)
 	{
 		auto Rb = a.get_radius() + b.get_radius();
-		auto ab = vector2{ b.get_center() - a.get_center() };
+		//auto ab = vector2{ b.get_center() - a.get_center() };
 
 		point2 tl, tr;
 		std::tie(tl, tr) = calculate_tangent_points(circle2{ b.get_center(), Rb }, a.get_center());
