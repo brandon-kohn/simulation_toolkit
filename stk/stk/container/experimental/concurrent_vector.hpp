@@ -329,7 +329,7 @@ namespace stk { namespace detail {
             {
                 if (m_pMyVector)
                 {
-                    bool hadNode = m_pNode != nullptr;
+                    //bool hadNode = m_pNode != nullptr;
 
                     //! node deletion is disabled here. So even if the size changes between
                     //! the time of this acquisition; the node will be valid. Even if the
@@ -352,7 +352,7 @@ namespace stk { namespace detail {
             {
                 if (m_pMyVector)
                 {
-                    bool hadNode = m_pNode != nullptr;
+                    //bool hadNode = m_pNode != nullptr;
                     //! node deletion is disabled here. So even if the size changes between
                     //! the time of this acquisition; the node will be valid. Even if the
                     //! size is not.
