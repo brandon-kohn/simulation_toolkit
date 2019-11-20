@@ -49,7 +49,7 @@ class histogram_1d
 			return invalid_bin;
 		}
 		
-		T get_bin_width(std::size_t bin) const
+		T get_bin_width(std::size_t /*bin*/) const
 		{
 			return m_binWidth;
 		}
@@ -233,7 +233,6 @@ public:
 		if (!m_axis.equals(o.m_axis, make_tolerance_policy(1e-6)))
 			return { std::numeric_limits<double>::infinity(), 0.0 };
 
-		auto cmp = make_tolerance_policy();
 		auto nbins = get_number_bins();
 		auto chi2 = 0.0;
 		auto sum0 = 0.0;
