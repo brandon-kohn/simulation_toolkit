@@ -188,7 +188,6 @@ TEST(DynamicNavigationTestSuite, edge_properties)
 
     auto p3 = point2{ 3.* units::si::meters, 1.*units::si::meters };
     temporary_vertex_graph_adaptor<Graph> ag(g, VertexProperties(p3, true, VertexType::Target), { { v1, props },{ v2, props } });
-    auto v3 = ag.get_new_vertices()[0];
 
     auto w = boost::get(&EdgeProperties::weight, ag, e);
     EXPECT_EQ(weight, w);

@@ -289,8 +289,8 @@ TEST(TransformerTestSuite, test3DTransform)
 
 	//auto originA = point2{ 414348.862273 * units::si::meters, 3705824.230245 * units::si::meters };
 	//auto originB = point2{ 414368.746286 * units::si::meters, 3705860.557236 * units::si::meters };
-	auto originA3 = point3{ 414348.862273 * units::si::meters, 3705824.230245 * units::si::meters, 350.0 * units::si::meters };
-	auto originB3 = point3{ 414368.746286 * units::si::meters, 3705860.557236 * units::si::meters, 350.0 * units::si::meters };
+	//auto originA3 = point3{ 414348.862273 * units::si::meters, 3705824.230245 * units::si::meters, 350.0 * units::si::meters };
+	//auto originB3 = point3{ 414368.746286 * units::si::meters, 3705860.557236 * units::si::meters, 350.0 * units::si::meters };
 
 	auto UTMtoA = vector3{ -414348.862273 * units::si::meters, -3705824.230245 * units::si::meters, 0.0 * units::si::meters };
 	auto UTMtoB = vector3{ -414368.746286 * units::si::meters, -3705860.557236 * units::si::meters, 0.0 * units::si::meters };
