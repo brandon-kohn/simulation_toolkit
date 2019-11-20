@@ -142,7 +142,7 @@ TEST(thread_specific_tests, const_thread_specific_int)
     std::vector<std::thread> thds;
     for (int i = 0; i < 10; ++i)
     {
-        thds.emplace_back([i, &sut]()
+        thds.emplace_back([&sut]()
         {
             int v = *sut;
             EXPECT_EQ(10, v);
@@ -273,7 +273,7 @@ TEST(thread_specific_tests, fixed_map_thread_specific)
     std::vector<std::thread> thds;
     for (int i = 0; i < 10; ++i)
     {
-        thds.emplace_back([i, &sut1, &sut2]()
+        thds.emplace_back([&sut1, &sut2]()
         {
             int v = *sut1;
             EXPECT_EQ(10, v);
@@ -295,7 +295,7 @@ TEST(thread_specific_tests, single_instance_thread_specific)
     std::vector<std::thread> thds;
     for (int i = 0; i < 10; ++i)
     {
-        thds.emplace_back([i, &sut1]()
+        thds.emplace_back([&sut1]()
         {
             int v = *sut1;
             EXPECT_EQ(10, v);
