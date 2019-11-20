@@ -43,6 +43,7 @@
 #endif
 
 #include <stk/container/experimental/detail/skip_list.hpp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 
 //! A concurrent skip list implementation with map and set versions.
 
@@ -328,6 +329,7 @@ public:
             , m_pNodeManager(pNodeManager)
 #endif
         {
+            geometrix::ignore_unused_warning_of(pNodeManager);
 #ifdef STK_DEBUG_QUIESCE_CONCURRENT_SKIP_LIST
             if (m_pNode)
                 pNodeManager->add_checkout();
