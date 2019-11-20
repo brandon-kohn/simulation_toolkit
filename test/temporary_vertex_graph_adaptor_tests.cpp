@@ -193,8 +193,6 @@ TEST(DynamicNavigationTestSuite, edge_properties)
     auto w = boost::get(&EdgeProperties::weight, ag, e);
     EXPECT_EQ(weight, w);
 
-    auto e31 = boost::edge(v3, v1, ag).first;
-
     w = boost::get(&EdgeProperties::weight, ag, e);
     EXPECT_EQ(weight, w);
 }
@@ -222,8 +220,6 @@ TEST(DynamicNavigationTestSuite, vertex_properties)
 
     t = boost::get(&VertexProperties::type, ag, v3);
     EXPECT_EQ(VertexType::Obstacle, t);
-
-    auto imap = boost::get(boost::vertex_index, ag);
 }
 
 TEST(DynamicNavigationTestSuite, add_edge_OldVertex)
