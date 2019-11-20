@@ -12,6 +12,7 @@
 #include <vector>
 #include <array>
 #include <stk/container/experimental/concurrent_list.hpp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 
 struct concurrent_list_test_fixture : ::testing::Test
 {
@@ -120,7 +121,7 @@ TEST_F(concurrent_list_test_fixture, erase_if)
 	concurrent_list<int> v(qsbr);
 	using node = concurrent_list<int>::node;
 	v.push_front(10);
-	auto n = v.push_front(20);
+	v.push_front(20);
 	v.push_front(30);
 
 	v.erase_if([](node* pNode) { return pNode->data == 20; });
@@ -170,9 +171,9 @@ TEST_F(concurrent_list_test_fixture, pop_front)
 	using namespace stk;
 	int count = 0;
 	concurrent_list<a_type> v(qsbr);
-	auto v1 = v.emplace_front(&count);
-	auto v2 = v.emplace_front(&count);
-	auto v3 = v.emplace_front(&count);
+	v.emplace_front(&count);
+	v.emplace_front(&count);
+	v.emplace_front(&count);
 
 	EXPECT_EQ(3, count);
 	v.pop_front();
