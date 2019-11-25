@@ -15,12 +15,14 @@
 
 #include "geometry_kernel.hpp"
 #include <geometrix/algorithm/point_sequence/curvature.hpp>
+#include <geometrix/utility/ignore_unused_warnings.hpp>
 
 namespace stk { 
 
 inline std::vector<polyline2> decompose_polyline_by_curvature(const polyline2& poly, const units::angle& totalCurvature)
 {
     using namespace geometrix;
+    ignore_unused_warning_of(totalCurvature);
 
     std::vector<polyline2> results;
     using access = point_sequence_traits<polyline2>;
