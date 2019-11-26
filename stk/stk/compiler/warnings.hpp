@@ -132,3 +132,14 @@
     #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL
 #endif//! STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL
 
+//! Int conversion loses precision.
+#if defined(BOOST_MSVC)
+    #define STK_WARNING_UNSAFE_INT_CONVERSION 4267
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNSAFE_INT_CONVERSION "-Wint-conversion"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_UNSAFE_INT_CONVERSION "-Wint-conversion"
+#else
+    #define STK_WARNING_UNSAFE_INT_CONVERSION 
+#endif//! STK_WARNING_UNSAFE_INT_CONVERSION
+
