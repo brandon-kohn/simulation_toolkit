@@ -92,9 +92,9 @@
 #if defined(BOOST_MSVC)
     #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER 4100
 #elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
-    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused_parameter"
+    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused-parameter"
 #elif defined(BOOST_COMP_CLANG)
-    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused_parameter"
+    #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused-parameter"
 #else
     #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER
 #endif//! STK_WARNING_UNREFERENCED_FORMAL_PARAMETER
@@ -103,9 +103,9 @@
 #if defined(BOOST_MSVC)
     #define STK_WARNING_UNREFERENCED_VARIABLE 4101
 #elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
-    #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused_variable"
+    #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused-variable"
 #elif defined(BOOST_COMP_CLANG)
-    #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused_variable"
+    #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused-variable"
 #else
     #define STK_WARNING_UNREFERENCED_VARIABLE
 #endif//! STK_WARNING_UNREFERENCED_VARIABLE
@@ -142,4 +142,30 @@
 #else
     #define STK_WARNING_UNSAFE_INT_CONVERSION 
 #endif//! STK_WARNING_UNSAFE_INT_CONVERSION
+
+//! Suppress #pragma message(xxx) warnings. NOTE: This is a rather broad stroke. Use wisely.
+#if defined(BOOST_MSVC)
+    //! Doesn't seem to be a means of doing this on visual studio yet.
+    #define STK_WARNING_DISABLE_PRAGMA_MESSAGES 
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_DISABLE_PRAGMA_MESSAGES "-W#pragma-messages"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_DISABLE_PRAGMA_MESSAGES "-W#pragma-messages"
+#else
+    #define STK_WARNING_DISABLE_PRAGMA_MESSAGES 
+#endif//! STK_WARNING_DISABLE_PRAGMA_MESSAGES
+
+//! Suppress warning from attribute
+//
+#if defined(BOOST_MSVC)
+    //! Doesn't seem to be a means of doing this on visual studio yet.
+    #define STK_WARNING_IGNORED_ATTRIBUTES
+#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_IGNORED_ATTRIBUTES "-Wignored-attributes"
+#elif defined(BOOST_COMP_CLANG)
+    #define STK_WARNING_IGNORED_ATTRIBUTES "-Wignored-attributes"
+#else
+    #define STK_WARNING_IGNORED_ATTRIBUTES 
+#endif//! STK_WARNING_IGNORED_ATTRIBUTES
+
 
