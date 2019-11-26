@@ -17,13 +17,13 @@
 #if(!BOOST_PP_IS_EMPTY(STK_DISABLE))
     #if defined(BOOST_MSVC)
         #pragma warning(disable: STK_DISABLE)
-    #elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+    #elif defined(__GNUC__) && !defined(__clang__)
         #define STK_PRAGMA_IMPL_(p) _Pragma(#p)
         #define STK_DO_PRAGMA_(p) STK_PRAGMA_IMPL_(p)
         STK_DO_PRAGMA_(GCC diagnostic ignored STK_DISABLE)
         #undef STK_PRAGMA_IMPL_
         #undef STK_DO_PRAGMA_
-    #elif defined(BOOST_COMP_CLANG)
+    #elif defined(__clang__)
         #if defined(__has_warning) 
             #define STK_HAS_WARNING_IMPL_(w) __has_warning(w)
             #if STK_HAS_WARNING_IMPL_(STK_DISABLE)

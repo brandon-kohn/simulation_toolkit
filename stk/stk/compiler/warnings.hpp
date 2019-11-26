@@ -13,10 +13,10 @@
 #if defined(BOOST_MSVC)
     #define STK_WARNING_PUSH() __pragma(warning(push))
     #define STK_WARNING_POP() __pragma(warning(pop))
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_PUSH() _Pragma("GCC diagnostic push")
     #define STK_WARNING_POP() _Pragma("GCC diagnostic pop")
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_PUSH() _Pragma("clang diagnostic push")
     #define STK_WARNING_POP() _Pragma("clang diagnostic pop")
 #else
@@ -37,9 +37,9 @@
 //! Sign/unsigned comparison
 #if defined(BOOST_MSVC)
     #define STK_WARNING_SIGN_UNSIGNED_COMPARE 4388
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_SIGN_UNSIGNED_COMPARE "-Wsign-compare"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_SIGN_UNSIGNED_COMPARE "-Wsign-compare"
 #else
     #define STK_WARNING_SIGN_UNSIGNED_COMPARE 
@@ -48,9 +48,9 @@
 //! Padding due to alignment.
 #if defined(BOOST_MSVC)
     #define STK_WARNING_PADDED 4324
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_PADDED "-Wpadded"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_PADDED "-Wpadded"
 #else
     #define STK_WARNING_PADDED
@@ -73,9 +73,9 @@
 //! Unreachable code
 #if defined(BOOST_MSVC)
     #define STK_WARNING_UNREACHABLE_CODE 4702
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_UNREACHABLE_CODE "-Wunreachable-code"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_UNREACHABLE_CODE "-Wunreachable-code"
 #else
     #define STK_WARNING_UNREACHABLE_CODE
@@ -91,9 +91,9 @@
 //! Unreferenced formal parameter
 #if defined(BOOST_MSVC)
     #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER 4100
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused-parameter"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER "-Wunused-parameter"
 #else
     #define STK_WARNING_UNREFERENCED_FORMAL_PARAMETER
@@ -102,9 +102,9 @@
 //! Unreferenced variable 
 #if defined(BOOST_MSVC)
     #define STK_WARNING_UNREFERENCED_VARIABLE 4101
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused-variable"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_UNREFERENCED_VARIABLE "-Wunused-variable"
 #else
     #define STK_WARNING_UNREFERENCED_VARIABLE
@@ -113,9 +113,9 @@
 //! Declaration hides function parameter. 
 #if defined(BOOST_MSVC)
     #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER 4457
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER "-Wshadow"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER "-Wshadow"
 #else
     #define STK_WARNING_DECLARATION_HIDES_FUNCTION_PARAMETER
@@ -124,9 +124,9 @@
 //! Local declaration hides global declaration. 
 #if defined(BOOST_MSVC)
     #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL 4459
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL "-Wshadow"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL "-Wshadow"
 #else
     #define STK_WARNING_LOCAL_DECLARATION_HIDES_GLOBAL
@@ -135,9 +135,9 @@
 //! Int conversion loses precision.
 #if defined(BOOST_MSVC)
     #define STK_WARNING_UNSAFE_INT_CONVERSION 4267
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_UNSAFE_INT_CONVERSION "-Wint-conversion"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_UNSAFE_INT_CONVERSION "-Wint-conversion"
 #else
     #define STK_WARNING_UNSAFE_INT_CONVERSION 
@@ -147,9 +147,9 @@
 #if defined(BOOST_MSVC)
     //! Doesn't seem to be a means of doing this on visual studio yet.
     #define STK_WARNING_DISABLE_PRAGMA_MESSAGES 
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_DISABLE_PRAGMA_MESSAGES "-W#pragma-messages"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_DISABLE_PRAGMA_MESSAGES "-W#pragma-messages"
 #else
     #define STK_WARNING_DISABLE_PRAGMA_MESSAGES 
@@ -160,9 +160,9 @@
 #if defined(BOOST_MSVC)
     //! Doesn't seem to be a means of doing this on visual studio yet.
     #define STK_WARNING_IGNORED_ATTRIBUTES
-#elif defined(BOOST_COMP_GNUC) && !defined(BOOST_COMP_CLANG)
+#elif defined(__GNUC__) && !defined(__clang__)
     #define STK_WARNING_IGNORED_ATTRIBUTES "-Wignored-attributes"
-#elif defined(BOOST_COMP_CLANG)
+#elif defined(__clang__)
     #define STK_WARNING_IGNORED_ATTRIBUTES "-Wignored-attributes"
 #else
     #define STK_WARNING_IGNORED_ATTRIBUTES 
