@@ -22,25 +22,10 @@
 #include <stk/thread/boost_thread_kernel.hpp>
 #include <stk/thread/scalable_task_counter.hpp>
 #include <stk/utility/synthetic_work.hpp>
-
+#include <stk/utility/time_execution.hpp>
 #include <stk/thread/optimize_partition.hpp>
 
-#include <algorithm>
-
-#include <boost/range/irange.hpp>
-
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
-
-namespace stk {
-    template <typename Fn, typename ... Ts>
-    inline std::chrono::duration<double> time_execution(Fn&& fn, Ts&&... args)
-    {
-        auto start = std::chrono::high_resolution_clock::now();
-        fn(std::forward<Ts>(args)...);
-        auto end = std::chrono::high_resolution_clock::now();
-        return std::chrono::duration<double>{ end - start };
-    }
-}//! namespace stk;
 
 auto nOSThreads = static_cast<std::uint32_t>(std::max<std::size_t>(std::thread::hardware_concurrency()-1, 2));
 using counter = stk::thread::scalable_task_counter;
@@ -69,8 +54,9 @@ struct work_stealing_thread_pool_fixture : ::testing::Test
 
 TEST_F(work_stealing_thread_pool_fixture, optimize_partition)
 {
-    
-
+	auto step = [](std::size_t n) { return n * 2; };
+	auto job = [](std::size_t) { stk::synthetic_work(std::chrono::microseconds(50)); };
+	auto result = stk::optimize_partition(pool, 10000, job, pool.number_threads()+1, step);
 
 }
 

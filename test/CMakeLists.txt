@@ -15,6 +15,7 @@ if(Boost_FOUND)
   if(NOT ${STK_HAS_CXX17_STD_ALIGNED_ALLOC})
       add_definitions(-DSTK_NO_CXX17_STD_ALIGNED_ALLOC)
   endif()
+
   message("Boost found: ${Boost_INCLUDE_DIRS}")
 endif()
 
@@ -68,8 +69,8 @@ if(Boost_FOUND)
 
     # Concurrency tests.
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND)
-        set(partition_tests
-            concurrency_test_suite
+        set(concurrency_test_suite
+            partition_tests
             static_thread_pool_exit_tests
             type_switch_tests
             thread_specific_tests
@@ -98,7 +99,6 @@ if(Boost_FOUND)
     endif()
 
     # Google Test using modules and a test runner.
-    find_package(Boost 1.61.0 COMPONENTS thread system filesystem)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_FILESYSTEM_FOUND)
         add_executable(local_gtest_runner ${CMAKE_SOURCE_DIR}/gtest_runner/gtest_runner.cpp)
         target_link_libraries(local_gtest_runner ${CMAKE_DL_LIBS} ${Boost_LIBRARIES})
