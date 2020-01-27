@@ -99,6 +99,7 @@ if(Boost_FOUND)
     endif()
 
     # Google Test using modules and a test runner.
+    find_package(Boost 1.61.0 COMPONENTS thread system filesystem)
     if(Boost_THREAD_FOUND AND Boost_SYSTEM_FOUND AND Boost_FILESYSTEM_FOUND)
         add_executable(local_gtest_runner ${CMAKE_SOURCE_DIR}/gtest_runner/gtest_runner.cpp)
         target_link_libraries(local_gtest_runner ${CMAKE_DL_LIBS} ${Boost_LIBRARIES})
