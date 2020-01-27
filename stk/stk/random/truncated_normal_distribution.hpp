@@ -27,7 +27,7 @@ namespace stk {
                 , m_min(lower)
                 , m_max(upper)
             {
-                GEOMETRIX_ASSERT(lower < upper);
+                GEOMETRIX_ASSERT(lower <= upper);
                 boost::math::normal_distribution<T> dist(mean, sigma);
                 m_min_quantile = boost::math::cdf(dist, m_min);
                 m_max_quantile = boost::math::cdf(dist, m_max);
@@ -84,11 +84,15 @@ namespace stk {
 
     	explicit truncated_normal_distribution(T lower, T upper, T mean = 0, T sigma = 1) 
 		    : m_parameters(mean, sigma, lower, upper)
-		{}
+		{
+            GEOMETRIX_ASSERT(m_parameters.lower() <= m_parameters.upper());
+        }
 
 	    explicit truncated_normal_distribution(const param_type& params)
 	    	: m_parameters(params)
-		{}
+		{
+            GEOMETRIX_ASSERT(m_parameters.lower() <= m_parameters.upper());
+        }
 
 	    T mean() const { return m_parameters.mean(); }
 
