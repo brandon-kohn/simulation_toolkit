@@ -23,9 +23,10 @@ CALL :lo_case CONFIG
 set CONFIG
 echo running %CONFIG% tests.
 set CMAKE_GENERATOR=%2
-
+set ARCHITECTURE=""
+if "%~3" neq "" (set ARCITECTURE=-A"%~3")
 REM Build the release
-cmake -H. -Bcmake.build.%CONFIG% -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE=%CONFIG% -DCMAKE_INSTALL_PREFIX="cmake.install" -G%CMAKE_GENERATOR%
+cmake -H. -Bcmake.build.%CONFIG% -DBUILD_TESTS=1 -DCMAKE_BUILD_TYPE=%CONFIG% -DCMAKE_INSTALL_PREFIX="cmake.install" -G%CMAKE_GENERATOR% %ARCHITECTURE%
 if ERRORLEVEL 1 goto error
 
 REM Build it

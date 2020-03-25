@@ -20,11 +20,11 @@ if ERRORLEVEL 1 goto error
 
 set INSTALL_PATH=%1
 set CMAKE_GENERATOR=%2
-set FORCE_MSVC_RUNTIME=""
-if "%~3" neq "" (set FORCE_MSVC_RUNTIME=%3)
+set ARCHITECTURE=""
+if "%~3" neq "" (set ARCHITECTURE=-A"%~3")
 
 REM Build the release
-cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -DFORCE_MSVC_RUNTIME=%FORCE_MSVC_RUNTIME% -G%CMAKE_GENERATOR%
+cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR% %ARCHITECTURE%
 if ERRORLEVEL 1 goto error
 
 REM Build it
@@ -32,7 +32,7 @@ cmake --build "cmake.build.release" --config release --target install
 if ERRORLEVEL 1 goto error
 
 REM Build the debug
-cmake -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -DFORCE_MSVC_RUNTIME=%FORCE_MSVC_RUNTIME% -G%CMAKE_GENERATOR% 
+cmake -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR% %ARCHITECTURE%
 if ERRORLEVEL 1 goto error
 
 REM Build it
