@@ -15,10 +15,43 @@
 #include <type_traits>
 
 namespace stk{
+	
+	namespace detail {
+		template <typename Fn>
+		struct fn_traits;
+		template <typename R, typename C, typename Arg>
+		struct fn_traits<R(C::*)(Arg) const>
+		{
+			using type = Arg;
+			using result_type = R;
+		};
+		template <typename R, typename C, typename Arg>
+		struct fn_traits<R(C::*)(Arg)>
+		{
+			using type = Arg;
+			using result_type = R;
+		};
+
+		template <typename Lambda>
+		struct lambda_traits
+		{
+		private:
+			using fn_type = decltype(&Lambda::operator());
+			using arg1_type = typename fn_traits<fn_type>::type;
+			static_assert(std::is_pointer<arg1_type>::value, "type_switch cases must operate on a pointer type.");
+		public:
+
+			using type = typename std::remove_pointer<arg1_type>::type;
+			using result_type = typename fn_traits<fn_type>::result_type;
+		};
+	}//! namespace detail;
+
 
     template <typename T, typename Fn>
     struct type_switch_case
     {
+		using result_type = typename detail::lambda_traits<Fn>::result_type;
+
         type_switch_case(Fn&& op)
             : op(std::forward<Fn>(op))
         {}
@@ -30,11 +63,11 @@ namespace stk{
         }
 
         template <typename U>
-        void invoke(U* v)
+        result_type invoke(U* v)
         {
 			//GEOMETRIX_ASSERT(dynamic_cast<T*>(v) == v);
 			auto x = (T*)v;// boost::polymorphic_downcast<T*>(v);
-            op(x);
+            return op(x);
         }
 
         Fn op; 
@@ -46,42 +79,17 @@ namespace stk{
         return type_switch_case<T, Fn>{std::forward<Fn>(fn)};
     }
 
-	namespace detail {
-		template <typename Fn>
-		struct get_arg;
-		template <typename R, typename C, typename Arg>
-		struct get_arg<R(C::*)(Arg) const>
-		{
-			using type = Arg;
-		};
-		template <typename R, typename C, typename Arg>
-		struct get_arg<R(C::*)(Arg)>
-		{
-			using type = Arg;
-		};
-
-		template <typename Lambda>
-		struct arg_type
-		{
-		private:
-			using fn_type = decltype(&Lambda::operator());
-			using arg1_type = typename get_arg<fn_type>::type;// typename boost::function_traits<fn_type>::arg1_type;
-			static_assert(std::is_pointer<arg1_type>::value, "type_switch cases must operate on a pointer type.");
-		public:
-
-			using type = typename std::remove_pointer<arg1_type>::type;
-		};
-	}//! namespace detail;
-
     template <typename Fn>
-    inline type_switch_case<typename detail::arg_type<Fn>::type, Fn> type_case(Fn&& fn)
+    inline type_switch_case<typename detail::lambda_traits<Fn>::type, Fn> type_case(Fn&& fn)
     {
-        return type_switch_case<typename detail::arg_type<Fn>::type, Fn>{std::forward<Fn>(fn)};
+        return type_switch_case<typename detail::lambda_traits<Fn>::type, Fn>{std::forward<Fn>(fn)};
     }
     
 	template <typename T, typename Fn>
 	struct type_switch_default 
     {
+		using result_type = typename detail::lambda_traits<Fn>::result_type;
+
         type_switch_default(Fn&& op)
             : op(std::forward<Fn>(op))
         {}
@@ -93,28 +101,32 @@ namespace stk{
         }
 
         template <typename U>
-        void invoke(U* v)
+        result_type invoke(U* v)
         {
 			//GEOMETRIX_ASSERT(dynamic_cast<T*>(v) == v);
 			auto x = (T*)v;// boost::polymorphic_downcast<T*>(v);
-            op(x);
+            return op(x);
         }
 
         Fn op; 
     };
     
 	template <typename Fn>
-    inline type_switch_default<typename detail::arg_type<Fn>::type, Fn> type_default(Fn&& fn)
+    inline type_switch_default<typename detail::lambda_traits<Fn>::type, Fn> type_default(Fn&& fn)
     {
-        return type_switch_default<typename detail::arg_type<Fn>::type, Fn>{std::forward<Fn>(fn)};
+        return type_switch_default<typename detail::lambda_traits<Fn>::type, Fn>{std::forward<Fn>(fn)};
     }
 
     template <typename... Types>
     class type_switch : detail::type_switch_base<type_switch<Types...>, sizeof...(Types)>
     {
+		static_assert(sizeof...(Types) > 0, "Cannot create an empty type_switch.");
         using base_type = detail::type_switch_base<type_switch<Types...>, sizeof...(Types)>;
+		using first_type = typename std::decay<decltype(std::get<0>(std::declval<std::tuple<Types...>>()))>::type;
 
     public:
+	
+		using result_type = typename first_type::result_type;
 
         type_switch(Types&&... t)
             : m_state(std::forward<Types>(t)...)
@@ -125,7 +137,7 @@ namespace stk{
         }
 
         template <typename T>
-        void operator()(T* x)
+        result_type operator()(T* x)
         {
             return base_type::eval(x, m_state);
         }

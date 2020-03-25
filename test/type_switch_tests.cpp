@@ -69,6 +69,53 @@ TEST(memoization_device_suite, test)
     EXPECT_EQ(1, count[3]);
 }
 
+TEST(memoization_device_suite, return_test)
+{
+    using namespace stk;
+    auto t1 = d1_type{};
+    auto t2 = d2_type{};
+    auto t3 = d3_type{};
+    auto t4 = d4_type{};
+    std::array<int, 4> count = { 0, 0, 0, 0 };
+    auto sw = make_switch(
+        type_case([&](const d1_type* p)
+        {
+            ++count[0];
+            EXPECT_EQ(&t1, p);
+			return 0;
+        })
+      , type_case([&](d2_type* p)
+        {
+            ++count[1];
+            EXPECT_EQ(&t2, p);
+			return 1;
+        })
+      , type_case([&](d3_type* p)
+        {
+            ++count[2];
+            EXPECT_EQ(&t3, p);
+			return 2;
+        })
+      , type_case([&](d4_type* p)
+        {
+            ++count[3];
+            EXPECT_EQ(&t4, p);
+			return 3;
+        })
+    );
+
+    EXPECT_EQ(0,sw((base_type*)&t1));
+    EXPECT_EQ(1,sw((base_type*)&t2));
+    EXPECT_EQ(2,sw((base_type*)&t3));
+    EXPECT_EQ(1,sw((base_type*)&t2));
+    EXPECT_EQ(3,sw((base_type*)&t4));
+    sw.clear_cache();
+
+    EXPECT_EQ(1, count[0]);
+    EXPECT_EQ(2, count[1]);
+    EXPECT_EQ(1, count[2]);
+    EXPECT_EQ(1, count[3]);
+}
 
 #include <geometrix/utility/scope_timer.ipp>
 auto nruns = 10000000UL;

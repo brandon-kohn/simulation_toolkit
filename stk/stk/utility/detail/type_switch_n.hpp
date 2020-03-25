@@ -28,7 +28,7 @@ namespace stk { namespace detail {
 		}
 
 		template <typename T, typename States>
-		void eval(T* x, States& state)
+		typename std::decay<decltype(std::get<0>(std::declval<States>()))>::type::result_type eval(T* x, States& state)
 		{
 			auto key = (std::intptr_t)&typeid(*x);// vtbl(x);
 			auto it = jump_targets().find(key);
@@ -36,13 +36,13 @@ namespace stk { namespace detail {
 			switch (case_n) 
 			{
 				default:
-					#define BOOST_PP_LOCAL_MACRO(n)                               \
-						if (std::get<n>(state).matches(x))                        \
-						{                                                         \
-						    if(case_n == 0)                                       \
-						       jump_targets().assign(key, BOOST_PP_ADD(n,1));     \
-						    case BOOST_PP_ADD(n,1): std::get<n>(state).invoke(x); \
-						} else                                                    \
+					#define BOOST_PP_LOCAL_MACRO(n)                                      \
+						if (std::get<n>(state).matches(x))                               \
+						{                                                                \
+						    if(case_n == 0)                                              \
+						       jump_targets().assign(key, BOOST_PP_ADD(n,1));            \
+						    case BOOST_PP_ADD(n,1): return std::get<n>(state).invoke(x); \
+						} else                                                           \
 					/***/
 					#define BOOST_PP_LOCAL_LIMITS (0, DIMENSION-1)
 					#include BOOST_PP_LOCAL_ITERATE()
