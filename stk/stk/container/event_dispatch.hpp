@@ -55,7 +55,7 @@ namespace stk {
 
         using function_storage = typename detail::function_chooser<FunctionStorage>::template apply<Signature>::type;
 
-        template <typename ObserverKey, typaname Fn>
+        template <typename ObserverKey, typename Fn>
         void add_listener(const ObserverKey& key, Fn&& fn)
         {
             m_listeners.emplace(std::make_pair(reinterpret_cast<Key>(key), std::forward<Fn>(fn)));
