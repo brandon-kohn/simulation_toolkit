@@ -56,9 +56,10 @@ namespace stk {
         using function_storage = typename detail::function_chooser<FunctionStorage>::template apply<Signature>::type;
 
         template <typename ObserverKey, typename Fn>
-        void add_listener(const ObserverKey& key, Fn&& fn)
+        void add_listener(ObserverKey key, Fn&& fn)
         {
-            m_listeners.emplace(std::make_pair(reinterpret_cast<Key>(key), std::forward<Fn>(fn)));
+            static_assert(sizeof(ObserverKey) == sizeof(Key), "The ObserverKey must be c-style cast convertible to the Key type (i.e. ptr to uintptr_t.)");
+            m_listeners.emplace(std::make_pair((Key)(key), std::forward<Fn>(fn)));
         }
         
         template <typename Key>
@@ -66,11 +67,11 @@ namespace stk {
         {
             m_listeners.erase(key);
         }
-
+        
         template <typename ... Args>
         void operator()(Args&&...a) const
         {
-            for(const auto& item : m_listeners)
+            for(auto& item : m_listeners)
                 item.second(std::forward<Args>(a)...);
         }
 

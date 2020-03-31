@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 
 #include <stk/random/truncated_normal_distribution.hpp>
+#include <stk/random/linear_distribution.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/numeric/constants.hpp>
 #include <geometrix/utility/scope_timer.ipp>
@@ -406,4 +407,33 @@ TEST(xorshift1024starphi_test_suite, construct)
 	std::tie(d, p) = nhist.chi_squared_test(chist);
 	GTEST_MESSAGE("Test: ") << l << "_" << h << " Chi2: " << d << " P-value: " << p;
 	EXPECT_GT(p, 0.05);
+}
+
+TEST(linear_distribution_test_suite, verify_range)
+{
+	auto l = 5.0, h = 10.0;
+	auto sut = stk::linear_distribution<>{ l, h, 0.0, 33.0 };
+
+	std::mt19937 gen(42UL);
+	
+#if defined(STK_EXPORT_HISTS)
+	stk::histogram_1d<double> chist(1000, l, h);
+#endif
+
+	for (auto i = 0UL; i < 1000000; ++i)
+	{
+		auto v = sut(gen);
+		EXPECT_GT(v, 5.0);
+		EXPECT_LT(v, 10.0);
+#if defined(STK_EXPORT_HISTS)
+		chist.fill(v);
+#endif
+	}
+	
+#if defined(STK_EXPORT_HISTS)
+	std::stringstream nname;
+	nname << "d:/linear_dist.csv";
+	std::ofstream ofs(nname.str());
+	write_hist(ofs, chist);
+#endif
 }

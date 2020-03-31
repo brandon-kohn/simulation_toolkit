@@ -129,11 +129,11 @@ namespace stk
          * @brief operator () Execute stored functional object.
          * @throws std::runtime_error if no functional object is stored.
          */
-        BOOST_FORCEINLINE R operator()(ARGS... args)
+        BOOST_FORCEINLINE R operator()(ARGS... args) const
         {
             if(!m_method_ptr) 
                 throw std::runtime_error("call of empty functor");
-            return m_method_ptr(&m_storage, m_function_ptr, args...);
+            return m_method_ptr((void*)&m_storage, m_function_ptr, args...);
         }
 
         bool empty() const 
