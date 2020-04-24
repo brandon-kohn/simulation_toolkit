@@ -76,8 +76,8 @@ namespace stk {
 
         void param(const param_type& params) { m_parameters = params; }
 
-        result_type(min)() const { return m_parameters.xmin(); } 
-        result_type(max)() const { return m_parameters.xmax(); } 
+        result_type(min)() const { return m_parameters.xmin(); }
+        result_type(max)() const { return m_parameters.xmax(); }
         void reset() { }
 
         template<typename Engine>
@@ -96,12 +96,12 @@ namespace stk {
             auto y0 = params.ymin();
             auto y1 = params.ymax();
 
-			if (y0 != y1)
-				x = static_cast<T>((sqrt(y0 * y0 * (1.0 - x) + y1 * y1 * x) - y0) / (y1 - y0));
+            if (y0 != y1)
+                x = static_cast<T>((sqrt(y0 * y0 * (1.0 - x) + y1 * y1 * x) - y0) / (y1 - y0));
 
             auto x0 = params.xmin();
             auto x1 = params.xmax();
-			return x0 + x * (x1 - x0);
+            return x0 + x * (x1 - x0);
         }
 
         template<typename CharT, typename Traits>

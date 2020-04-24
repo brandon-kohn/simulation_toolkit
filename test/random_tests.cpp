@@ -437,3 +437,33 @@ TEST(linear_distribution_test_suite, verify_range)
 	write_hist(ofs, chist);
 #endif
 }
+
+#define STK_EXPORT_HISTS 1
+TEST(linear_distribution_test_suite, verify_range_neg_slope)
+{
+	auto l = 5.0, h = 10.0;
+	auto sut = stk::linear_distribution<>{ l, h, 33.0, 0.0 };
+
+	std::mt19937 gen(42UL);
+	
+#if defined(STK_EXPORT_HISTS)
+	stk::histogram_1d<double> chist(1000, l, h);
+#endif
+
+	for (auto i = 0UL; i < 1000000; ++i)
+	{
+		auto v = sut(gen);
+		EXPECT_GT(v, 5.0);
+		EXPECT_LT(v, 10.0);
+#if defined(STK_EXPORT_HISTS)
+		chist.fill(v);
+#endif
+	}
+	
+#if defined(STK_EXPORT_HISTS)
+	std::stringstream nname;
+	nname << "d:/linear_dist2.csv";
+	std::ofstream ofs(nname.str());
+	write_hist(ofs, chist);
+#endif
+}
