@@ -97,7 +97,8 @@ namespace stk {
                 }
             }
 
-            results.emplace_back(std::move(contour));
+            if(!contour.get_outer().empty())
+                results.emplace_back(std::move(contour));
         }
 
         return results;
@@ -114,7 +115,8 @@ namespace stk {
 				polyline2 pline;
 				for (const auto& p : ptree.Childs[i]->Contour)
 					pline.emplace_back((p.X / static_cast<double>(scale)) * units::si::meters, (p.Y / static_cast<double>(scale)) * units::si::meters);
-				results.emplace_back(std::move(pline));
+                if(!pline.empty())
+				    results.emplace_back(std::move(pline));
 			}
 		}
 
