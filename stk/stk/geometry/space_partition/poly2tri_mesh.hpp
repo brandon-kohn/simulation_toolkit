@@ -46,7 +46,6 @@ namespace stk {
         };
 
         STK_SCOPE_EXIT( for( auto p : memory ) delete p; );
-		auto i = 0;
         for (const auto& polygon : polygons)
         {
             std::vector<p2t::Point*> polygon_;
