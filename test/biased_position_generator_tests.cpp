@@ -314,7 +314,7 @@ TEST(bsp_test_suite, point_in_solid_classification_test)
 	EXPECT_TRUE(true);
 }
 
-TEST(poly2tri_test_suite, test_crash)
+TEST(poly2tri_test_suite, DISABLED_test_crash)
 {
 	using namespace stk;
 	using namespace geometrix;
@@ -333,7 +333,7 @@ TEST(poly2tri_test_suite, test_crash)
 
 #include "bugged_geometry.hpp"
 #include <stk/geometry/space_partition/poly2tri_mesh.hpp>
-TEST(poly2tri_test_suite, test_crash2)
+TEST(poly2tri_test_suite, DISABLED_test_crash2)
 {
     using namespace stk;
     using namespace geometrix;
