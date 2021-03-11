@@ -76,7 +76,7 @@ matrix:
     #  env: UNIT_TESTS=true BOOST_VERSION=default
     #  osx_image: xcode8.3
 
-    # Xcode 9.1
+    # Xcode 10.2
     - os: osx
       env: UNIT_TESTS=true BOOST_VERSION=default
       osx_image: xcode10.2
