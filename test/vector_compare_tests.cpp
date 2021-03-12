@@ -52,7 +52,6 @@ struct comparable_vector_access_policy
 	static void set(comparable_vector& p, double v) { p[Index] = v; }
 };
 
-//GENERATIVE_GEOMETRY_DEFINE_SEQUENCE_TRAITS( GKVector, (double), 2 );//
 // Here is a macro declaration that turns this simple struct into a GGA enabled point type with
 // a cartesian reference frame and a preference for compile time access semantics.
 GEOMETRIX_DEFINE_VECTOR_TRAITS
