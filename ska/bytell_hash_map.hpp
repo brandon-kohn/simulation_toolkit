@@ -15,16 +15,16 @@
 #include <vector>
 #include <array>
 
-namespace stk 
+namespace ska 
 {
 
 namespace detailv8
 {
-using stk::detailv3::functor_storage;
-using stk::detailv3::KeyOrValueHasher;
-using stk::detailv3::KeyOrValueEquality;
-using stk::detailv3::AssignIfTrue;
-using stk::detailv3::HashPolicySelector;
+using ska::detailv3::functor_storage;
+using ska::detailv3::KeyOrValueHasher;
+using ska::detailv3::KeyOrValueEquality;
+using ska::detailv3::AssignIfTrue;
+using ska::detailv3::HashPolicySelector;
 
 template<typename = void>
 struct sherwood_v8_constants
@@ -1257,4 +1257,4 @@ public:
     }
 };
 
-} // end namespace stk
+} // end namespace ska

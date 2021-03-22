@@ -19,7 +19,7 @@
 #define SKA_NOINLINE(...) __VA_ARGS__ __attribute__((noinline))
 #endif
 
-namespace stk
+namespace ska
 {
 struct prime_number_hash_policy;
 struct power_of_two_hash_policy;
@@ -1490,7 +1490,7 @@ public:
 template<typename T>
 struct power_of_two_std_hash : std::hash<T>
 {
-    typedef stk::power_of_two_hash_policy hash_policy;
+    typedef ska::power_of_two_hash_policy hash_policy;
 };
 
-} // end namespace stk
+} // end namespace ska

@@ -14,7 +14,7 @@
 #include <type_traits>
 #include "flat_hash_map.hpp"
 
-namespace stk
+namespace ska
 {
 
 namespace detailv10
@@ -44,11 +44,11 @@ struct sherwood_v10_entry
     }
 };
 
-using stk::detailv3::functor_storage;
-using stk::detailv3::KeyOrValueHasher;
-using stk::detailv3::KeyOrValueEquality;
-using stk::detailv3::AssignIfTrue;
-using stk::detailv3::HashPolicySelector;
+using ska::detailv3::functor_storage;
+using ska::detailv3::KeyOrValueHasher;
+using ska::detailv3::KeyOrValueEquality;
+using ska::detailv3::AssignIfTrue;
+using ska::detailv3::HashPolicySelector;
 
 template<typename T, typename FindKey, typename ArgumentHash, typename Hasher, typename ArgumentEqual, typename Equal, typename ArgumentAlloc, typename EntryAlloc, typename BucketAllocator>
 class sherwood_v10_table : private EntryAlloc, private Hasher, private Equal, private BucketAllocator
@@ -882,4 +882,4 @@ public:
     }
 };
 
-} // end namespace stk
+} // end namespace ska
