@@ -48,6 +48,19 @@ inline polygon2 make_polygon( const Polygon& polygon, geometrix::polygon_winding
     return clean_polygon(poly, make_tolerance_policy());
 }
 
+template <typename Polygon>
+inline polygon2 make_polygon_with_no_changes( const Polygon& polygon )
+{
+    using namespace geometrix;
+    using namespace boost::adaptors;
+    BOOST_CONCEPT_ASSERT( (PointSequenceConcept<Polygon>) );
+    using access = geometrix::point_sequence_traits<Polygon>;
+    polygon2 poly;
+    auto to_point2 = [](const typename access::point_type& p) { return point2{ p }; };
+    boost::copy(polygon | transformed(to_point2), std::back_inserter( poly ));
+    return poly;
+}
+
 template <typename PolygonRange>
 inline std::vector<polygon2> make_polygons( const PolygonRange& range, geometrix::polygon_winding winding )
 {

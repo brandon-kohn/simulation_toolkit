@@ -33,7 +33,7 @@ namespace stk {
 
             bool operator ==(const param_type& rhs) const
             {
-                return m_xmin == rhs.m_xmin && m_xmax == rhs.m_xmax;
+                return m_xmin == rhs.m_xmin && m_xmax == rhs.m_xmax
                     && m_ymin == rhs.m_ymin && m_ymax == rhs.m_ymax;
             }
 

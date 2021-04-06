@@ -11,6 +11,8 @@
 #include <random>
 #include <cmath>
 
+#define STK_EXPORT_HISTS 0
+
 inline double erf(double z0, double z1)
 {
 	return std::erf(z1) - std::erf(z0);
@@ -277,7 +279,7 @@ INSTANTIATE_TEST_CASE_P(time_chopin, time_chopin_fixture, ::testing::Values(
   , std::make_pair(-100.0, -3.49)
 ));
 
-TEST(truncated_normal_test_suite, brute_normal_distribution)
+TEST(truncated_normal_test_suite, DISABLED_brute_normal_distribution)
 {
 	stk::histogram_1d<double> hist(1000, -9.1, -1.8);
 	std::normal_distribution<> dist;
@@ -348,6 +350,7 @@ TEST(truncated_normal_test_suite, brute_hueristic_rayleigh_reject)
 	}
 }
 
+/*
 TEST(truncated_normal_test_suite, brute_hueristic_timing)
 {
 	std::mt19937 gen(42UL);
@@ -365,6 +368,7 @@ TEST(truncated_normal_test_suite, brute_hueristic_timing)
 
 	EXPECT_TRUE(sum > 0.0);
 }
+*/
 
 #include <stk/random/xoroshiro128plus_generator.hpp>
 TEST(xoroshiro128plus_generator_test_suite, construct)
@@ -397,7 +401,7 @@ TEST(xorshift1024starphi_test_suite, construct)
 		nhist.fill(v);
 	}
 
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 	std::stringstream nname;
 	nname << "e:/data_xoshiro_chopin" << l << "_" << h << ".csv";
 	std::ofstream ofs(nname.str());
@@ -416,7 +420,7 @@ TEST(linear_distribution_test_suite, verify_range)
 
 	std::mt19937 gen(42UL);
 	
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 	stk::histogram_1d<double> chist(1000, l, h);
 #endif
 
@@ -425,12 +429,12 @@ TEST(linear_distribution_test_suite, verify_range)
 		auto v = sut(gen);
 		EXPECT_GT(v, 5.0);
 		EXPECT_LT(v, 10.0);
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 		chist.fill(v);
 #endif
 	}
 	
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 	std::stringstream nname;
 	nname << "d:/linear_dist.csv";
 	std::ofstream ofs(nname.str());
@@ -438,15 +442,14 @@ TEST(linear_distribution_test_suite, verify_range)
 #endif
 }
 
-#define STK_EXPORT_HISTS 1
 TEST(linear_distribution_test_suite, verify_range_neg_slope)
 {
 	auto l = 5.0, h = 10.0;
-	auto sut = stk::linear_distribution<>{ l, h, 33.0, 0.0 };
+	auto sut = stk::linear_distribution<>{ l, h, 0.0, 33.0 };
 
 	std::mt19937 gen(42UL);
 	
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 	stk::histogram_1d<double> chist(1000, l, h);
 #endif
 
@@ -455,14 +458,43 @@ TEST(linear_distribution_test_suite, verify_range_neg_slope)
 		auto v = sut(gen);
 		EXPECT_GT(v, 5.0);
 		EXPECT_LT(v, 10.0);
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 		chist.fill(v);
 #endif
 	}
 	
-#if defined(STK_EXPORT_HISTS)
+#if(STK_EXPORT_HISTS)
 	std::stringstream nname;
 	nname << "d:/linear_dist2.csv";
+	std::ofstream ofs(nname.str());
+	write_hist(ofs, chist);
+#endif
+}
+
+#include <stk/random/maxwell_boltzmann_distribution.hpp>
+TEST(maxwell_boltzmann_distribution_test_suite, basic)
+{
+	auto l = 0.0, h = 20.0;
+    auto sut = stk::maxwell_boltzmann_distribution<> { 2.0 };
+
+	std::mt19937 gen(42UL);
+	
+#if(STK_EXPORT_HISTS)
+	stk::histogram_1d<double> chist(1000, l, h);
+#endif
+
+	for (auto i = 0UL; i < 1000000; ++i)
+	{
+		auto v = sut(gen);
+#if(STK_EXPORT_HISTS)
+        if (v >= l && v <= h)
+            chist.fill(v);
+#endif
+	}
+	
+#if(STK_EXPORT_HISTS)
+	std::stringstream nname;
+	nname << "d:/mb_dist2.0.csv";
 	std::ofstream ofs(nname.str());
 	write_hist(ofs, chist);
 #endif
