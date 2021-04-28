@@ -1,0 +1,70 @@
+﻿
+---
+BasedOnStyle: WebKit
+Language: Cpp
+Standard: Latest
+IndentWidth: 4
+TabWidth: 4
+UseTab: 'AlignWithSpaces' 
+ColumnLimit: 0
+MaxEmptyLinesToKeep: 2
+
+AlignTrailingComments: true
+AlignEscapedNewlines: Left 
+AlignConsecutiveDeclarations: true 
+
+AllowShortLambdasOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+
+BinPackArguments: false
+BinPackParameters: false
+
+BreakBeforeBraces: 'Custom' 
+BraceWrapping: {
+    AfterCaseLabel: 'true',
+    AfterClass: 'true',
+    AfterControlStatement: 'true',
+    AfterEnum: 'true',
+    AfterFunction: 'true',
+    AfterNamespace: 'false',
+    AfterStruct: 'true',
+    AfterUnion: 'true',
+    AfterExternBlock: 'true',
+    BeforeCatch: 'true',
+    BeforeElse: 'true',
+    BeforeLambdaBody: 'true',
+    SplitEmptyFunction: 'false',
+    SplitEmptyRecord: 'false',
+    SplitEmptyNamespace: 'true'
+}
+
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+CompactNamespaces: true
+FixNamespaceComments: true
+ForEachMacros: [ foreach, Q_FOREACH, BOOST_FOREACH ]
+IndentPPDirectives: BeforeHash
+NamespaceIndentation: All
+PointerAlignment: Left
+SortIncludes: false
+SortUsingDeclarations: false
+
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeParens: Never
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyParentheses: false
+SpaceInEmptyBlock: false
+SpacesInAngles: false
+SpacesInConditionalStatement: true
+SpacesInContainerLiterals: true
+SpacesInParentheses: true
+SpacesInSquareBrackets: false 
+
+StatementMacros: ['Q_UNUSED']
+---
+
