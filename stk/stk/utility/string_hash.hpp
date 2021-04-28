@@ -111,6 +111,11 @@ namespace stk {
 
 } // namespace stk
 
+#include <boost/preprocessor/stringize.hpp>
+#define STK_STRING_HASH( X ) stk::make_string_hash<std::size_t>( BOOST_PP_STRINGIZE(X) )
+#define STK_STRING_HASH32( X ) stk::make_string_hash32( BOOST_PP_STRINGIZE(X) )
+#define STK_STRING_HASH64( X ) stk::make_string_hash64( BOOST_PP_STRINGIZE(X) )
+
 namespace std {
 
 	template <typename HashedType, typename Char>
