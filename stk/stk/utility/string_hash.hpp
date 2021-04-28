@@ -73,18 +73,18 @@ namespace stk {
 	}
 
 	template <typename HashedType = std::size_t, typename Char = char>
-	class string_hash
+	class basic_string_hash
 	{
 	public:
-		constexpr string_hash( const Char* s ) BOOST_NOEXCEPT
+		constexpr basic_string_hash( const Char* s ) BOOST_NOEXCEPT
 			: m_string( s )
 			, m_hash( fnv1a_hash<HashedType>( s ) )
 		{}
 
 		constexpr HashedType  hash() const { return m_hash; }
 		constexpr const Char* key() const { return m_string; }
-		constexpr bool        operator<( const string_hash& rhs ) const { return m_hash < rhs.m_hash; }
-		constexpr bool        operator==( const string_hash& rhs ) const { return m_hash == rhs.m_hash; }
+		constexpr bool        operator<( const basic_string_hash& rhs ) const { return m_hash < rhs.m_hash; }
+		constexpr bool        operator==( const basic_string_hash& rhs ) const { return m_hash == rhs.m_hash; }
 
 	private:
 		const Char*      m_string;
@@ -92,22 +92,29 @@ namespace stk {
 	};
 
 	template <typename HashType, typename Char>
-	constexpr string_hash<HashType, Char> make_string_hash( const Char* s )
+	constexpr basic_string_hash<HashType, Char> make_string_hash( const Char* s )
 	{
-		return string_hash<HashType, Char>{ s };
+		return basic_string_hash<HashType, Char>{ s };
 	}
 
 	template <typename Char>
-	constexpr string_hash<std::uint32_t, Char> make_string_hash32( const Char* s )
+	constexpr basic_string_hash<std::uint32_t, Char> make_string_hash32( const Char* s )
 	{
-		return string_hash<std::uint32_t, Char>{ s };
+		return basic_string_hash<std::uint32_t, Char>{ s };
 	}
 
 	template <typename Char>
-	constexpr string_hash<std::uint64_t, Char> make_string_hash64( const Char* s )
+	constexpr basic_string_hash<std::uint64_t, Char> make_string_hash64( const Char* s )
 	{
-		return string_hash<std::uint64_t, Char>{ s };
+		return basic_string_hash<std::uint64_t, Char>{ s };
 	}
+
+	using string_hash = basic_string_hash<>;
+	using string_hash32 = basic_string_hash<std::uint32_t>;
+	using string_hash64 = basic_string_hash<std::uint64_t>;
+	using wstring_hash = basic_string_hash<std::size_t, wchar_t>;
+	using wstring_hash32 = basic_string_hash<std::uint32_t, wchar_t>;
+	using wstring_hash64 = basic_string_hash<std::uint64_t, wchar_t>;
 
 } // namespace stk
 
@@ -116,13 +123,18 @@ namespace stk {
 #define STK_STRING_HASH32( X ) stk::make_string_hash32( BOOST_PP_STRINGIZE(X) )
 #define STK_STRING_HASH64( X ) stk::make_string_hash64( BOOST_PP_STRINGIZE(X) )
 
+#include <boost/preprocessor/wstringize.hpp>
+#define STK_WSTRING_HASH( X ) stk::make_wstring_hash<std::size_t>( BOOST_PP_WSTRINGIZE(X) )
+#define STK_WSTRING_HASH32( X ) stk::make_wstring_hash32( BOOST_PP_WSTRINGIZE(X) )
+#define STK_WSTRING_HASH64( X ) stk::make_wstring_hash64( BOOST_PP_WSTRINGIZE(X) )
+
 namespace std {
 
 	template <typename HashedType, typename Char>
-	class hash<stk::string_hash<HashedType, Char>>
+	class hash<stk::basic_string_hash<HashedType, Char>>
 	{
 	public:
-		HashedType operator()( const stk::string_hash<HashedType, Char>& s ) const
+		HashedType operator()( const stk::basic_string_hash<HashedType, Char>& s ) const
 		{
 			return s.hash();
 		}
