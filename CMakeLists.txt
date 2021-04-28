@@ -61,6 +61,7 @@ if(${STK_HAS_CONSTEXPR})
 endif()
 
 add_subdirectory(stk/)
+add_subdirectory(ska/)
 add_subdirectory(exact/)
 add_subdirectory(clipper-lib/)
 add_subdirectory(geometrix/)
