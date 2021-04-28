@@ -52,6 +52,8 @@ if(Boost_FOUND)
         clipper_tests
         timing_tests
         color_tests
+        hash_tests
+        container_tests
        )
 
     foreach(test ${tests})
