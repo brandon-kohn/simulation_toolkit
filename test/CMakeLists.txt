@@ -84,6 +84,7 @@ if(Boost_FOUND)
             concurrent_vector_tests
             concurrent_list_tests
             rpmalloc_tests
+            message_queue_tests
             )
 
         foreach(test ${concurrency_test_suite})
