@@ -70,6 +70,12 @@ namespace stk {
 		//! Only certain during quiescent periods (no producers or consumers active.)
 		bool empty() const { return m_q.size_approx() == 0u; }
 
+		//! Only certain during quiescent periods (no producers or consumers active.)
+		void clear()
+		{
+			m_q.consume_bulk( +[]( Message&& ) {}, m_q.size_approx() );
+		}
+
 	private:
 		queue_type m_q;
 	};

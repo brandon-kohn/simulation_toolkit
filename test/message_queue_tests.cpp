@@ -110,3 +110,16 @@ TEST( message_queue_test_suite, generate_move_only_10_consume_all )
 
 	EXPECT_TRUE( sut.empty() );
 }
+
+TEST( message_queue_test_suite, clear )
+{
+	using move_only = std::unique_ptr<int>;
+	auto sut = message_queue<move_only>{};
+
+	auto gen = []() mutable { return move_only{}; };
+	sut.send( gen, 10 );
+
+	sut.clear();
+
+	EXPECT_TRUE( sut.empty() );
+}
