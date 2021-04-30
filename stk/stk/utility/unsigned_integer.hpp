@@ -19,7 +19,9 @@ namespace stk {
     //! This happens whenever the value is uninitialized or over/under flows the value of the underlying type T
     //! through arithmetic or increment/decrement operations.
     //! Once the instance reaches an invalid state, it can only be returned to a valid state through assignment.
-    using size  = unsigned_integer<std::size_t>;
     using index = unsigned_integer<std::size_t>;
+    using index32 = unsigned_integer<std::uint32_t>;
+    using index64 = unsigned_integer<std::uint64_t>;
+
 }//! namespace stk;
 

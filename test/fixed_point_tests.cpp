@@ -268,7 +268,7 @@ TYPED_TEST( unsigned_integer_typed_test_fixture, unsigned_integer_comparison_tes
 	{
 		TypeParam minus1 = -1;
 		EXPECT_LT(minus1, ten);
-		EXPECT_GT(ten, minus1);     
+		EXPECT_GT(ten, minus1);
 		EXPECT_NE(ten, minus1);
 		EXPECT_NE(minus1, ten);
 	}
@@ -417,6 +417,6 @@ TYPED_TEST(unsigned_integer_typed_test_fixture, test_addition)
 	if (std::is_floating_point<TypeParam>::value)
 	{
 		TypeParam fraction = static_cast<TypeParam>(1) / static_cast<TypeParam>(2);
-		EXPECT_EQ(zero + fraction, zero);            
+		EXPECT_EQ(zero + fraction, zero);
 	}
 }
