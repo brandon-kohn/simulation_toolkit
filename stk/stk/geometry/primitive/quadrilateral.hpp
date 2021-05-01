@@ -19,7 +19,8 @@
 
 namespace stk {
 
-using quad2 = geometrix::quad<point2>;
+using quad2 = geometrix::quadrilateral<point2>;
+using quadrilateral2 = geometrix::quadrilateral<point2>;
 
 }//! namespace stk;
 

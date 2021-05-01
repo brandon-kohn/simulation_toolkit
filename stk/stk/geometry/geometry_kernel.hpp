@@ -25,6 +25,7 @@
 #include "primitive/sphere.hpp"
 #include "primitive/line.hpp"
 #include "primitive/rectangle.hpp"
+#include "primitive/quadrilateral.hpp"
 #include "primitive/triangle.hpp"
 #include "primitive/oriented_bounding_box.hpp"
 #include "primitive/axis_aligned_bounding_box.hpp"
