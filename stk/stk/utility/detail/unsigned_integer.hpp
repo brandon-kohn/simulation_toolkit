@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
+#include <ostream>
 
 #if defined(__WAVE__) && defined(STK_CREATE_PREPROCESSED_FILES)
 #pragma wave option(preserve: 2, line: 0, output: "preprocessed/unsigned_integer.hpp")
@@ -529,6 +530,12 @@ namespace stk {
         STK_IMPLEMENT_ORDERED_FIELD_OPERATORS_SELF(unsigned_integer<T>);
         STK_INCREMENTABLE_OPERATOR(unsigned_integer<T>);
         STK_DECREMENTABLE_OPERATOR(unsigned_integer<T>);
+
+        friend std::ostream& operator<<(std::ostream& os, const stk::unsigned_integer<T>& ui)
+        {
+            os << ui.get_value();
+            return os;
+        }
 
     private:
 

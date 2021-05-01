@@ -3,6 +3,7 @@
 #include <geometrix/utility/assert.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <limits>
+#include <ostream>
 
 namespace stk {
 	namespace detail {
@@ -926,6 +927,12 @@ namespace stk {
 			--x;
 			return nrv;
 		};
+
+        friend std::ostream& operator<<(std::ostream& os, const stk::unsigned_integer<T>& ui)
+        {
+            os << ui.get_value();
+            return os;
+        }
 
 	private:
 		unsigned_integer<T> operator-() const
