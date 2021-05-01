@@ -162,7 +162,7 @@ TEST(interval_set_test_suit, test)
 	std::cout << sut << std::endl;
 	std::cout << *it << std::endl;
 }
-#define STK_DONT_USE_PREPROCESSED_FILES
+//#define STK_DONT_USE_PREPROCESSED_FILES
 #include <stk/utility/unsigned_integer.hpp>
 using namespace stk;
 TEST(unsigned_integer_test_suite, cast_test)
@@ -419,4 +419,12 @@ TYPED_TEST(unsigned_integer_typed_test_fixture, test_addition)
 		TypeParam fraction = static_cast<TypeParam>(1) / static_cast<TypeParam>(2);
 		EXPECT_EQ(zero + fraction, zero);
 	}
+}
+
+TEST(unsigned_integer_test_suite, DISABLED_test_assigned_from_pointer)
+{
+	using namespace ::testing;
+	int   junk;
+	int*  iptr = &junk;
+	//index no = iptr;
 }

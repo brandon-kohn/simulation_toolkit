@@ -145,63 +145,63 @@ namespace stk {
 		{}
 
 		//! Generate constructors for each fundamental numeric type.
-		unsigned_integer( const unsigned char& n )
+		explicit unsigned_integer( const unsigned char& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const unsigned short& n )
+		explicit unsigned_integer( const unsigned short& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const unsigned long& n )
+		explicit unsigned_integer( const unsigned long& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const unsigned int& n )
+		explicit unsigned_integer( const unsigned int& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const unsigned long long& n )
+		explicit unsigned_integer( const unsigned long long& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const bool& n )
+		explicit unsigned_integer( const bool& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const char& n )
+		explicit unsigned_integer( const char& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const signed char& n )
+		explicit unsigned_integer( const signed char& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const short& n )
+		explicit unsigned_integer( const short& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const long& n )
+		explicit unsigned_integer( const long& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const int& n )
+		explicit unsigned_integer( const int& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const long long& n )
+		explicit unsigned_integer( const long long& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const float& n )
+		explicit unsigned_integer( const float& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const double& n )
+		explicit unsigned_integer( const double& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 
-		unsigned_integer( const long double& n )
+		explicit unsigned_integer( const long double& n )
 			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
 		{}
 

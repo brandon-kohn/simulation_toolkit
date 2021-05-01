@@ -180,7 +180,7 @@ namespace stk {
         {}
 
         #define STK_UNSIGNED_CTOR(r, data, elem)    \
-        unsigned_integer(const elem& n)             \
+        explicit unsigned_integer(const elem& n)    \
             : m_value(boost::numeric_cast<T>(n))    \
         {}                                          \
         /***/
@@ -199,7 +199,7 @@ namespace stk {
         #undef STK_UNSIGNED_CTOR
 
         #define STK_SIGNED_CTOR(r, data, elem)                     \
-        unsigned_integer(const elem& n)                            \
+        explicit unsigned_integer(const elem& n)                   \
             : m_value(n < 0 ? invalid : boost::numeric_cast<T>(n)) \
         {}                                                         \
         /***/
