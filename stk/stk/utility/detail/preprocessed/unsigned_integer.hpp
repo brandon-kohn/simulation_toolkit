@@ -144,65 +144,14 @@ namespace stk {
 			: m_value( n.is_valid() ? boost::numeric_cast<T>( n.m_value ) : invalid )
 		{}
 
-		//! Generate constructors for each fundamental numeric type.
-		explicit unsigned_integer( const unsigned char& n )
+		template <typename U, typename std::enable_if<std::is_unsigned<U>::value, int>::type = 0>
+		unsigned_integer( const U& n )
 			: m_value( boost::numeric_cast<T>( n ) )
 		{}
 
-		explicit unsigned_integer( const unsigned short& n )
-			: m_value( boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const unsigned long& n )
-			: m_value( boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const unsigned int& n )
-			: m_value( boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const unsigned long long& n )
-			: m_value( boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const bool& n )
-			: m_value( boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const char& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const signed char& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const short& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const long& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const int& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const long long& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const float& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const double& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
-		{}
-
-		explicit unsigned_integer( const long double& n )
-			: m_value( n < 0 ? invalid : boost::numeric_cast<T>( n ) )
+		template <typename U, typename std::enable_if<std::is_signed<U>::value, int>::type = 0>
+		unsigned_integer( const U& n )
+			: m_value( n >= 0 ? boost::numeric_cast<T>( n ) : invalid )
 		{}
 
 		~unsigned_integer() = default;

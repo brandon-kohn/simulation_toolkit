@@ -179,38 +179,20 @@ namespace stk {
             : m_value(invalid)
         {}
 
-        #define STK_UNSIGNED_CTOR(r, data, elem)    \
-        explicit unsigned_integer(const elem& n)    \
-            : m_value(boost::numeric_cast<T>(n))    \
-        {}                                          \
-        /***/
-
         template <typename U>
         unsigned_integer(const unsigned_integer<U>& n)
             : m_value(n.is_valid() ? boost::numeric_cast<T>(n.m_value) : invalid)
         {}
 
-        //! Generate constructors for each fundamental numeric type.
-        #if defined(__WAVE__) && defined(STK_CREATE_PREPROCESSED_FILES)
-        #pragma wave option(preserve: 1)
-        #endif
-        BOOST_PP_SEQ_FOR_EACH(STK_UNSIGNED_CTOR, _, STK_UNSIGNED_SEQ)
+		template <typename U, typename std::enable_if<std::is_unsigned<U>::value, int>::type = 0>
+		unsigned_integer( const U& n )
+			: m_value( boost::numeric_cast<T>( n ) )
+		{}
 
-        #undef STK_UNSIGNED_CTOR
-
-        #define STK_SIGNED_CTOR(r, data, elem)                     \
-        explicit unsigned_integer(const elem& n)                   \
-            : m_value(n < 0 ? invalid : boost::numeric_cast<T>(n)) \
-        {}                                                         \
-        /***/
-
-        //! Generate constructors for each fundamental numeric type.
-        #if defined(__WAVE__) && defined(STK_CREATE_PREPROCESSED_FILES)
-        #pragma wave option(preserve: 1)
-        #endif
-        BOOST_PP_SEQ_FOR_EACH(STK_SIGNED_CTOR, _, STK_SIGNED_SEQ)
-
-        #undef STK_SIGNED_CTOR
+		template <typename U, typename std::enable_if<std::is_signed<U>::value, int>::type = 0>
+		unsigned_integer( const U& n )
+			: m_value( n >= 0 ? boost::numeric_cast<T>( n ) : invalid )
+		{}
 
         ~unsigned_integer()
         {}
