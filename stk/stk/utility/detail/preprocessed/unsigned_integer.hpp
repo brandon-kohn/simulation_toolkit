@@ -165,180 +165,139 @@ namespace stk {
 		{
 			return m_value == invalid;
 		}
-
-		unsigned_integer& operator=( const unsigned char& n )
+        
+		unsigned_integer& operator=( T n )
 		{
+			m_value = n;
+			return *this;
+		}
+    
+        unsigned_integer& operator=( const unsigned_integer<T>& n )
+		{
+			m_value = n.m_value;
+			return *this;
+		}
+
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_unsigned<U>::value && !std::is_same<U,T>::value, int>::type = 0>
+        unsigned_integer& operator=(U n)
+        {
 			m_value = boost::numeric_cast<T>( n );
 			return *this;
-		}
+        }
 
-		unsigned_integer& operator=( const unsigned short& n )
-		{
-			m_value = boost::numeric_cast<T>( n );
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value, int>::type = 0>
+        unsigned_integer& operator =(const unsigned_integer<U>& n)
+        {
+            m_value = (n.is_valid() ? boost::numeric_cast<T>(n.m_value) : invalid);
+            return *this;
+        }
+        
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        unsigned_integer& operator=(U n)
+        {
+            m_value = n >= 0 ? boost::numeric_cast<T>(n) : invalid;
 			return *this;
-		}
+        }
+        
+        bool operator < ( T rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+			return m_value < rhs;
+        }
 
-		unsigned_integer& operator=( const unsigned long& n )
-		{
-			m_value = boost::numeric_cast<T>( n );
-			return *this;
-		}
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_arithmetic<U>::value && std::is_unsigned<U>::value, int>::type = 0>
+        bool operator < ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return detail::safe_compare_cast<T,U>(m_value) < detail::safe_compare_cast<T,U>(rhs);
+        }
 
-		unsigned_integer& operator=( const unsigned int& n )
-		{
-			m_value = boost::numeric_cast<T>( n );
-			return *this;
-		}
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        bool operator < ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return rhs >= 0 && detail::safe_compare_cast<T,U>(m_value) < detail::safe_compare_cast<T,U>(rhs);
+        }
 
-		unsigned_integer& operator=( const unsigned long long& n )
-		{
-			m_value = boost::numeric_cast<T>( n );
-			return *this;
-		}
+        bool operator < ( const unsigned_integer<T>& rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid() && rhs.is_valid());
+            return m_value < rhs.m_value;
+        }
+        
+        bool operator > ( T rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+			return m_value > rhs;
+        }
 
-		unsigned_integer& operator=( const bool& n )
-		{
-			m_value = boost::numeric_cast<T>( n );
-			return *this;
-		}
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_arithmetic<U>::value && std::is_unsigned<U>::value, int>::type = 0>
+        bool operator > ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return detail::safe_compare_cast<T,U>(m_value) > detail::safe_compare_cast<T,U>(rhs);
+        }
 
-		unsigned_integer& operator=( const char& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        bool operator > ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return rhs < 0 || detail::safe_compare_cast<T,U>(m_value) > detail::safe_compare_cast<T,U>(rhs);
+        }
 
-		unsigned_integer& operator=( const signed char& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        bool operator > ( const unsigned_integer<T>& rhs ) const
+        {
+            GEOMETRIX_ASSERT(rhs.is_valid());
+            return m_value > rhs.m_value;
+        }
+        
+        bool operator == ( T rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid() || rhs == invalid);
+			return m_value == rhs;
+        }
 
-		unsigned_integer& operator=( const short& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_arithmetic<U>::value && std::is_unsigned<U>::value, int>::type = 0>
+        bool operator == ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return detail::safe_compare_cast<T,U>(m_value) == detail::safe_compare_cast<T,U>(rhs);
+        }
 
-		unsigned_integer& operator=( const long& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        bool operator == ( const U& rhs ) const
+        {
+            return ( rhs < 0 && ( rhs == U(-1) && is_invalid() )) || detail::safe_compare_cast<T,U>(m_value) == detail::safe_compare_cast<T,U>(rhs);
+        }
 
-		unsigned_integer& operator=( const int& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        bool operator == ( const unsigned_integer<T>& rhs ) const
+        {
+            return m_value == rhs.m_value;
+        }
 
-		unsigned_integer& operator=( const long long& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        bool operator == ( bool rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return static_cast<bool>(m_value != 0) == rhs;
+        }
+        
+        template <typename U>
+        bool operator != ( const U& rhs ) const
+        {
+            return !operator==(rhs);
+        }
 
-		unsigned_integer& operator=( const float& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
+        bool operator != ( bool rhs ) const
+        {   
+            GEOMETRIX_ASSERT(is_valid());
+            return static_cast<bool>(m_value != 0) != rhs;
+        }
 
-		unsigned_integer& operator=( const double& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
-
-		unsigned_integer& operator=( const long double& n )
-		{
-			m_value = n < 0 ? invalid : boost::numeric_cast<T>( n );
-			return *this;
-		}
-
-		template <typename U>
-		unsigned_integer& operator=( const unsigned_integer<U>& n )
-		{
-			m_value = ( n.is_valid() ? boost::numeric_cast<T>( n.m_value ) : invalid );
-			return *this;
-		}
-
-		template <typename U>
-		bool operator<( U rhs ) const
-		{
-			GEOMETRIX_ASSERT( is_valid() );
-			if( rhs < 0 )
-				return false;
-			return detail::safe_compare_cast<T, U>( m_value ) < detail::safe_compare_cast<T, U>( rhs );
-		}
-
-		template <>
-		bool operator<( const unsigned_integer<T>& rhs ) const
-		{
-			GEOMETRIX_ASSERT( is_valid() && rhs.is_valid() );
-			return m_value < rhs.m_value;
-		}
-
-		template <typename U>
-		bool operator>( U rhs ) const
-		{
-			GEOMETRIX_ASSERT( is_valid() );
-			if( rhs < 0 )
-				return true;
-			return detail::safe_compare_cast<T, U>( m_value ) > detail::safe_compare_cast<T, U>( rhs );
-		}
-
-		template <>
-		bool operator>( const unsigned_integer<T>& rhs ) const
-		{
-			GEOMETRIX_ASSERT( rhs.is_valid() );
-			return m_value > rhs.m_value;
-		}
-
-		template <typename U>
-		bool operator==( const U& rhs ) const
-		{
-			if( rhs < 0 )
-				return rhs == U( -1 ) && is_invalid();
-
-			return detail::safe_compare_cast<T, U>( m_value ) == detail::safe_compare_cast<T, U>( rhs );
-		}
-
-		template <>
-		bool operator==( const unsigned_integer<T>& rhs ) const
-		{
-			return m_value == rhs.m_value;
-		}
-
-		bool operator==( bool rhs ) const
-		{
-			GEOMETRIX_ASSERT( is_valid() );
-			return static_cast<bool>( m_value != 0 ) == rhs;
-		}
-
-		template <typename U>
-		bool operator!=( const U& rhs ) const
-		{
-			return !operator==( rhs );
-		}
-
-		template <>
-		bool operator!=( const unsigned_integer<T>& rhs ) const
-		{
-			return !operator==( rhs );
-		}
-
-		bool operator!=( bool rhs ) const
-		{
-			GEOMETRIX_ASSERT( is_valid() );
-			return static_cast<bool>( m_value != 0 ) != rhs;
-		}
-
-		bool operator!() const
-		{
-			GEOMETRIX_ASSERT( is_valid() );
-			return m_value == 0;
-		}
+        bool operator !() const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return m_value == 0; 
+        }
 
 		unsigned_integer<T>& operator++()
 		{
