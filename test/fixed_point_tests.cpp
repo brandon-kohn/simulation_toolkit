@@ -162,6 +162,7 @@ TEST(interval_set_test_suit, test)
 	std::cout << sut << std::endl;
 	std::cout << *it << std::endl;
 }
+
 //#define STK_DONT_USE_PREPROCESSED_FILES
 #include <stk/utility/unsigned_integer.hpp>
 using namespace stk;

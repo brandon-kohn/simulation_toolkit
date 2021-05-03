@@ -27,7 +27,7 @@
 #pragma wave option(preserve: 2, line: 0, output: "preprocessed/unsigned_integer.hpp")
 #endif
 
-namespace stk { 
+namespace stk {
 
     #define STK_SIGNED_SEQ    (char)                \
                               (signed char)         \
@@ -51,7 +51,7 @@ namespace stk {
     namespace detail
     {
         template <typename T, typename Enable = void>
-        struct make_unsigned 
+        struct make_unsigned
         {
             using type = T;
         };
@@ -60,7 +60,7 @@ namespace stk {
         struct make_unsigned<T, typename std::enable_if< std::is_integral<T>::value >::type>
             : std::make_unsigned<T>
         {};
-       
+
         //! A policy selector to choose how to convert numeric types for comparison.
         template <typename T, typename U, typename EnableIf = void>
         struct safe_compare_cast_policy_selector
@@ -68,9 +68,9 @@ namespace stk {
 
         //! A policy to convert using the implicit conversion rules specified by ansi.
         //! This happens when the types are the same, or both are signed, or both are unsigned, or either is floating point.
-        struct use_ansi_conversion{};        
+        struct use_ansi_conversion{};
         template <typename T, typename U>
-        struct safe_compare_cast_policy_selector 
+        struct safe_compare_cast_policy_selector
         <
             T
           , U
@@ -80,7 +80,7 @@ namespace stk {
                 std::numeric_limits<T>::is_signed == std::numeric_limits<U>::is_signed ||
                 std::is_floating_point<T>::value ||
                 std::is_floating_point<U>::value
-            >::type 
+            >::type
         >
         {
             typedef use_ansi_conversion type;
@@ -90,7 +90,7 @@ namespace stk {
         //! This happens when one type is signed and the other is not and both are integral types, and size of U is less than size of T.
         struct convert_to_unsigned_T{};
         template <typename T, typename U>
-        struct safe_compare_cast_policy_selector 
+        struct safe_compare_cast_policy_selector
         <
             T
           , U
@@ -125,7 +125,7 @@ namespace stk {
         {
             typedef convert_to_unsigned_U type;
         };
-        
+
         //! Same type or both signed or one is a floating point (let default casting deal with it) - return arg by ref
         template < typename T , typename U , typename Arg >
         inline Arg safe_compare_cast_impl(const Arg& u, use_ansi_conversion)
@@ -135,7 +135,7 @@ namespace stk {
 
         //! Not the same type, T is wider and is not signed, the other is.
         //! Safe to convert to T.
-        template 
+        template
         <
             typename T
           , typename U
@@ -145,7 +145,7 @@ namespace stk {
         {
             return static_cast<typename make_unsigned<T>::type>(u);
         }
-    
+
         //! Not the same type, U is wider and is not signed, the other is.
         //! Safe to convert to U.
         template < typename T , typename U , typename Arg >
@@ -184,22 +184,22 @@ namespace stk {
             : m_value(n.is_valid() ? boost::numeric_cast<T>(n.m_value) : invalid)
         {}
 
-		template <typename U, typename std::enable_if<std::is_unsigned<U>::value, int>::type = 0>
-		unsigned_integer( const U& n )
-			: m_value( boost::numeric_cast<T>( n ) )
-		{}
+        template <typename U, typename std::enable_if<std::is_unsigned<U>::value, int>::type = 0>
+        unsigned_integer( const U& n )
+            : m_value( boost::numeric_cast<T>( n ) )
+        {}
 
-		template <typename U, typename std::enable_if<std::is_signed<U>::value, int>::type = 0>
-		unsigned_integer( const U& n )
-			: m_value( n >= 0 ? boost::numeric_cast<T>( n ) : invalid )
-		{}
+        template <typename U, typename std::enable_if<std::is_signed<U>::value, int>::type = 0>
+        unsigned_integer( const U& n )
+            : m_value( n >= 0 ? boost::numeric_cast<T>( n ) : invalid )
+        {}
 
         ~unsigned_integer()
         {}
 
-        bool is_valid() const 
-        { 
-            return m_value != invalid; 
+        bool is_valid() const
+        {
+            return m_value != invalid;
         }
 
         bool is_invalid() const
@@ -207,118 +207,129 @@ namespace stk {
             return m_value == invalid;
         }
 
-        #if defined(__WAVE__) && defined(STK_CREATE_PREPROCESSED_FILES)
-        #pragma wave option(preserve: 1)
-        #endif
-        #define STK_UNSIGNEDINTEGER_ASSIGNOP(r, data, elem)   \
-        unsigned_integer& operator = (const elem& n)          \
-        {                                                     \
-            m_value = boost::numeric_cast<T>(n);              \
-            return *this;                                     \
-        }                                                     \
-        /***/
+        unsigned_integer& operator=( T n )
+        {
+            m_value = n;
+            return *this;
+        }
 
-        //! Generate constructors for each fundamental numeric type.
-        #if defined(__WAVE__) && defined(STK_CREATE_PREPROCESSED_FILES)
-        #pragma wave option(preserve: 1)
-        #endif
-        BOOST_PP_SEQ_FOR_EACH(STK_UNSIGNEDINTEGER_ASSIGNOP, _, STK_UNSIGNED_SEQ)
+        unsigned_integer& operator=( const unsigned_integer<T>& n )
+        {
+            m_value = n.m_value;
+            return *this;
+        }
 
-        #undef STK_UNSIGNEDINTEGER_ASSIGNOP
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_unsigned<U>::value && !std::is_same<U,T>::value, int>::type = 0>
+        unsigned_integer& operator=(U n)
+        {
+            m_value = boost::numeric_cast<T>( n );
+            return *this;
+        }
 
-        #define STK_SIGNEDINTEGER_ASSIGNOP(r, data, elem)          \
-        unsigned_integer& operator = (const elem& n)               \
-        {                                                          \
-            m_value = n < 0 ? invalid : boost::numeric_cast<T>(n); \
-            return *this;                                          \
-        }                                                          \
-        /***/
-
-        //! Generate constructors for each fundamental numeric type.
-        #if defined(__WAVE__) && defined(STK_CREATE_PREPROCESSED_FILES)
-        #pragma wave option(preserve: 1)
-        #endif
-        BOOST_PP_SEQ_FOR_EACH(STK_SIGNEDINTEGER_ASSIGNOP, _, STK_SIGNED_SEQ)
-
-        #undef STK_SIGNEDINTEGER_ASSIGNOP
-
-        template <typename U>
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value, int>::type = 0>
         unsigned_integer& operator =(const unsigned_integer<U>& n)
         {
             m_value = (n.is_valid() ? boost::numeric_cast<T>(n.m_value) : invalid);
             return *this;
         }
 
-        template <typename U>
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        unsigned_integer& operator=(U n)
+        {
+            m_value = n >= 0 ? boost::numeric_cast<T>(n) : invalid;
+            return *this;
+        }
+
+        bool operator < ( T rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return m_value < rhs;
+        }
+
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_arithmetic<U>::value && std::is_unsigned<U>::value, int>::type = 0>
         bool operator < ( U rhs ) const
         {
             GEOMETRIX_ASSERT(is_valid());
-            if( rhs < 0 )
-                return false;
-
             return detail::safe_compare_cast<T,U>(m_value) < detail::safe_compare_cast<T,U>(rhs);
         }
 
-        template <>
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        bool operator < ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return rhs >= 0 && detail::safe_compare_cast<T,U>(m_value) < detail::safe_compare_cast<T,U>(rhs);
+        }
+
         bool operator < ( const unsigned_integer<T>& rhs ) const
         {
             GEOMETRIX_ASSERT(is_valid() && rhs.is_valid());
             return m_value < rhs.m_value;
         }
 
-        template <typename U>
+        bool operator > ( T rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return m_value > rhs;
+        }
+
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_arithmetic<U>::value && std::is_unsigned<U>::value, int>::type = 0>
         bool operator > ( U rhs ) const
         {
             GEOMETRIX_ASSERT(is_valid());
-
-            if( rhs < 0 )
-                return true;
-
             return detail::safe_compare_cast<T,U>(m_value) > detail::safe_compare_cast<T,U>(rhs);
         }
 
-        template <>
-        bool operator > ( const unsigned_integer<T>& rhs ) const        
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        bool operator > ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
+            return rhs < 0 || detail::safe_compare_cast<T,U>(m_value) > detail::safe_compare_cast<T,U>(rhs);
+        }
+
+        bool operator > ( const unsigned_integer<T>& rhs ) const
         {
             GEOMETRIX_ASSERT(rhs.is_valid());
             return m_value > rhs.m_value;
         }
 
-        template <typename U>
-        bool operator == ( const U& rhs ) const
+        bool operator == ( T rhs ) const
         {
-            if(rhs < 0)
-                return rhs == U(-1) && is_invalid();
-            
+            GEOMETRIX_ASSERT(is_valid() || rhs == invalid);
+            return m_value == rhs;
+        }
+
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_arithmetic<U>::value && std::is_unsigned<U>::value, int>::type = 0>
+        bool operator == ( U rhs ) const
+        {
+            GEOMETRIX_ASSERT(is_valid());
             return detail::safe_compare_cast<T,U>(m_value) == detail::safe_compare_cast<T,U>(rhs);
         }
 
-        template <>
+        template <typename U, typename std::enable_if<std::is_arithmetic<U>::value && std::is_signed<U>::value, int>::type = 0>
+        bool operator == ( const U& rhs ) const
+        {
+            return ( rhs < 0 && ( rhs == U(-1) && is_invalid() )) || detail::safe_compare_cast<T,U>(m_value) == detail::safe_compare_cast<T,U>(rhs);
+        }
+
         bool operator == ( const unsigned_integer<T>& rhs ) const
-        {            
+        {
             return m_value == rhs.m_value;
         }
 
         bool operator == ( bool rhs ) const
-        {   
+        {
             GEOMETRIX_ASSERT(is_valid());
             return static_cast<bool>(m_value != 0) == rhs;
         }
-        
+
         template <typename U>
         bool operator != ( const U& rhs ) const
         {
             return !operator==(rhs);
         }
 
-        template <>
-        bool operator != ( const unsigned_integer<T>& rhs ) const
-        {
-            return !operator==(rhs);
-        }
-
         bool operator != ( bool rhs ) const
-        {   
+        {
             GEOMETRIX_ASSERT(is_valid());
             return static_cast<bool>(m_value != 0) != rhs;
         }
@@ -326,7 +337,7 @@ namespace stk {
         bool operator !() const
         {
             GEOMETRIX_ASSERT(is_valid());
-            return m_value == 0; 
+            return m_value == 0;
         }
 
         unsigned_integer<T>& operator ++()
@@ -373,7 +384,7 @@ namespace stk {
         unsigned_integer<T>& operator -=( U v )
         {
             if( is_valid() )
-            {                
+            {
                 T diff = (std::numeric_limits<T>::max)() - m_value;
                 if( (v >= 0 && detail::safe_compare_cast<T,U>(m_value) >= detail::safe_compare_cast<T,U>(v)) || (v < 0 && detail::safe_compare_cast<T,U>(-v) <= detail::safe_compare_cast<T,U>(diff)) )
                     m_value -= v;
@@ -409,7 +420,7 @@ namespace stk {
 
         unsigned_integer<T>& operator /=( const unsigned_integer<T>& v )
         {
-            return *this /= v.m_value;            
+            return *this /= v.m_value;
         }
 
         template <typename U>
@@ -481,10 +492,10 @@ namespace stk {
 
         //! Access the underlying value of type T which can be used in switches etc.
         T get_value() const { return m_value; }
-        
+
         operator T() const { GEOMETRIX_ASSERT(is_valid()); return m_value; }
 
-        explicit operator bool() const 
+        explicit operator bool() const
         {
             GEOMETRIX_ASSERT(is_valid());
             return m_value ? true : false;
@@ -521,7 +532,6 @@ namespace stk {
 
     private:
 
-        //! Hide this...
         unsigned_integer<T> operator -() const
         {
             return unsigned_integer<T>(invalid);
@@ -575,7 +585,7 @@ namespace std
 
         static stk::unsigned_integer<T> (max)()
         {
-            return stk::unsigned_integer<T>( (std::numeric_limits<T>::max)()-1 );            
+            return stk::unsigned_integer<T>( (std::numeric_limits<T>::max)()-1 );
         }
     };
 }
