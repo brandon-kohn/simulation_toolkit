@@ -136,15 +136,21 @@ namespace stk {
         static constexpr T invalid = static_cast<T>( -1 );
 
         unsigned_integer()
-            : m_value( invalid )
+            : m_value{invalid}
         {}
 
-        template <typename U>
-        unsigned_integer( const unsigned_integer<U>& n )
-            : m_value( n.is_valid() ? boost::numeric_cast<T>( n.m_value ) : invalid )
+        unsigned_integer( const unsigned_integer<T>& n ) = default;
+
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value, int>::type = 0>
+        unsigned_integer(const unsigned_integer<U>& n)
+            : m_value(n.is_valid() ? boost::numeric_cast<T>(n.m_value) : invalid)
+        {}
+        
+        constexpr unsigned_integer( T n )
+            : m_value{ n }
         {}
 
-        template <typename U, typename std::enable_if<std::is_unsigned<U>::value, int>::type = 0>
+        template <typename U, typename std::enable_if<!std::is_same<T,U>::value && std::is_unsigned<U>::value, int>::type = 0>
         unsigned_integer( const U& n )
             : m_value( boost::numeric_cast<T>( n ) )
         {}
