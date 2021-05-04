@@ -163,7 +163,7 @@ TEST(interval_set_test_suit, test)
 	std::cout << *it << std::endl;
 }
 
-//#define STK_DONT_USE_PREPROCESSED_FILES
+#define STK_DONT_USE_PREPROCESSED_FILES
 #include <stk/utility/unsigned_integer.hpp>
 using namespace stk;
 TEST(unsigned_integer_test_suite, cast_test)

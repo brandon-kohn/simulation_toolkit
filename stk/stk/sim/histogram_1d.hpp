@@ -269,7 +269,6 @@ public:
 
         chi2 /= sum0 * sum1;
 
-        //auto p = 0.0;
         if (numDegreeFreedom < dfThresh)
         {
             boost::math::chi_squared_distribution<> ch2dist(static_cast<double>(numDegreeFreedom));
