@@ -24,3 +24,6 @@
 [submodule "rpmalloc"]
 	path = rpmalloc
 	url = https://github.com/brandon-kohn/rpmalloc.git
+[submodule "entt"]
+	path = entt
+	url = https://github.com/brandon-kohn/entt.git
