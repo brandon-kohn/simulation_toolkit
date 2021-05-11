@@ -16,20 +16,21 @@ namespace stk {
 		template <typename Integer, typename EnableIf = void>
 		struct hash_traits;
 
-		template <>
-		struct hash_traits<std::uint32_t>
+		template <typename T>
+		struct hash_traits<T, typename std::enable_if<std::is_integral<T>::value && sizeof(T) == 4>::type>
 		{
 			BOOST_STATIC_CONSTEXPR std::uint32_t prime = 16777619u;
 			BOOST_STATIC_CONSTEXPR std::uint32_t offset_basis = 2166136261u;
 		};
 
-		template <>
-		struct hash_traits<std::uint64_t>
+		template <typename T>
+		struct hash_traits<T, typename std::enable_if<std::is_integral<T>::value && sizeof(T) == 8>::type>
 		{
 			BOOST_STATIC_CONSTEXPR std::uint64_t prime = 1099511628211u;
 			BOOST_STATIC_CONSTEXPR std::uint64_t offset_basis = 14695981039346656037u;
 		};
-	} // namespace detail
+
+	}//! namespace detail;
 
 	template <typename HashType, typename Char>
 	constexpr HashType fnv1a_hash( const Char* s ) BOOST_NOEXCEPT
