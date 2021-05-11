@@ -263,6 +263,7 @@ TYPED_TEST_CASE(unsigned_integer_typed_test_fixture, unsigned_integer_typed_test
 TYPED_TEST( unsigned_integer_typed_test_fixture, unsigned_integer_comparison_tests )
 {
 	using namespace ::testing;
+	using namespace stk;
 	index ten(10);
 	index zero(0);
 	if (std::is_signed<TypeParam>::value)
@@ -310,6 +311,7 @@ TYPED_TEST( unsigned_integer_typed_test_fixture, unsigned_integer_comparison_tes
 TEST(unsigned_integer_test_suite, test_invalid_states)
 {
 	using namespace ::testing;
+	using namespace stk;
 	index invalid;
 	EXPECT_TRUE(invalid.is_invalid());
 	EXPECT_FALSE(invalid.is_valid());
@@ -324,6 +326,7 @@ TEST(unsigned_integer_test_suite, test_invalid_states)
 TEST(unsigned_integer_test_suite, test_overflow)
 {
 	using namespace ::testing;
+	using namespace stk;
 	index i((std::numeric_limits<index>::max)());
 	EXPECT_TRUE(i.is_valid());
 	++i;
@@ -348,6 +351,7 @@ TEST(unsigned_integer_test_suite, test_overflow)
 TEST(unsigned_integer_test_suite, test_underflow)
 {
 	using namespace ::testing;
+	using namespace stk;
 	index i(0);
 	EXPECT_TRUE(i.is_valid());
 	--i;
@@ -365,6 +369,7 @@ TEST(unsigned_integer_test_suite, test_underflow)
 TEST(unsigned_integer_test_suite, test_bool_conversion)
 {
 	using namespace ::testing;
+	using namespace stk;
 	index i(0);
 	EXPECT_TRUE(i == false);
 	EXPECT_TRUE(false == (bool)i);
@@ -386,6 +391,7 @@ TEST(unsigned_integer_test_suite, test_bool_conversion)
 TEST(unsigned_integer_test_suite, test_conversion)
 {
 	using namespace ::testing;
+	using namespace stk;
 	unsigned_integer<unsigned int> ui;
 	unsigned_integer<unsigned long long> ull;
 
@@ -399,6 +405,7 @@ TEST(unsigned_integer_test_suite, test_conversion)
 TYPED_TEST(unsigned_integer_typed_test_fixture, test_addition)
 {
 	using namespace ::testing;
+	using namespace stk;
 	index zero(0);
 	index ten(10);
 	index five(5);
@@ -425,6 +432,7 @@ TYPED_TEST(unsigned_integer_typed_test_fixture, test_addition)
 TEST(unsigned_integer_test_suite, DISABLED_test_assigned_from_pointer)
 {
 	using namespace ::testing;
+	using namespace stk;
 	int   junk;
 	int*  iptr = &junk;
 	//index no = iptr;
