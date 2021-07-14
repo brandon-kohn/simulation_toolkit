@@ -263,8 +263,9 @@ TYPED_TEST_CASE(unsigned_integer_typed_test_fixture, unsigned_integer_typed_test
 TYPED_TEST( unsigned_integer_typed_test_fixture, unsigned_integer_comparison_tests )
 {
 	using namespace ::testing;
-	index ten(10);
-	index zero(0);
+	using namespace stk;
+	stk::index ten(10);
+	stk::index zero(0);
 	if (std::is_signed<TypeParam>::value)
 	{
 		TypeParam minus1 = -1;
@@ -310,13 +311,14 @@ TYPED_TEST( unsigned_integer_typed_test_fixture, unsigned_integer_comparison_tes
 TEST(unsigned_integer_test_suite, test_invalid_states)
 {
 	using namespace ::testing;
-	index invalid;
+	using namespace stk;
+	stk::index invalid;
 	EXPECT_TRUE(invalid.is_invalid());
 	EXPECT_FALSE(invalid.is_valid());
 
 	//! Except can compare invalid with other invalid values.
 	EXPECT_EQ(invalid, invalid);
-	EXPECT_EQ(invalid, index::invalid);
+	EXPECT_EQ(invalid, stk::index::invalid);
 	EXPECT_EQ(invalid, -1);
 	EXPECT_FALSE(invalid != invalid);
 }
@@ -324,12 +326,13 @@ TEST(unsigned_integer_test_suite, test_invalid_states)
 TEST(unsigned_integer_test_suite, test_overflow)
 {
 	using namespace ::testing;
-	index i((std::numeric_limits<index>::max)());
+	using namespace stk;
+	stk::index i((std::numeric_limits<stk::index>::max)());
 	EXPECT_TRUE(i.is_valid());
 	++i;
 	EXPECT_TRUE(i.is_invalid());
 
-	index zero(0);
+	stk::index zero(0);
 	EXPECT_TRUE((i * zero).is_invalid());
 	EXPECT_TRUE((zero * i).is_invalid());
 	EXPECT_TRUE((i + zero).is_invalid());
@@ -341,14 +344,15 @@ TEST(unsigned_integer_test_suite, test_overflow)
 	EXPECT_TRUE((i + 2).is_invalid());
 	EXPECT_TRUE((2 + i).is_invalid());
 
-	index hi = i / 2;
+	stk::index hi = i / 2;
 	EXPECT_EQ(i, hi * 2);
 }
 
 TEST(unsigned_integer_test_suite, test_underflow)
 {
 	using namespace ::testing;
-	index i(0);
+	using namespace stk;
+	stk::index i(0);
 	EXPECT_TRUE(i.is_valid());
 	--i;
 	EXPECT_TRUE(i.is_invalid());
@@ -365,7 +369,8 @@ TEST(unsigned_integer_test_suite, test_underflow)
 TEST(unsigned_integer_test_suite, test_bool_conversion)
 {
 	using namespace ::testing;
-	index i(0);
+	using namespace stk;
+	stk::index i(0);
 	EXPECT_TRUE(i == false);
 	EXPECT_TRUE(false == (bool)i);
 	EXPECT_FALSE(i);
@@ -386,6 +391,7 @@ TEST(unsigned_integer_test_suite, test_bool_conversion)
 TEST(unsigned_integer_test_suite, test_conversion)
 {
 	using namespace ::testing;
+	using namespace stk;
 	unsigned_integer<unsigned int> ui;
 	unsigned_integer<unsigned long long> ull;
 
@@ -399,9 +405,10 @@ TEST(unsigned_integer_test_suite, test_conversion)
 TYPED_TEST(unsigned_integer_typed_test_fixture, test_addition)
 {
 	using namespace ::testing;
-	index zero(0);
-	index ten(10);
-	index five(5);
+	using namespace stk;
+	stk::index zero(0);
+	stk::index ten(10);
+	stk::index five(5);
 
 	TypeParam tten = 10;
 	TypeParam tfive = 5;
@@ -425,7 +432,8 @@ TYPED_TEST(unsigned_integer_typed_test_fixture, test_addition)
 TEST(unsigned_integer_test_suite, DISABLED_test_assigned_from_pointer)
 {
 	using namespace ::testing;
+	using namespace stk;
 	int   junk;
 	int*  iptr = &junk;
-	//index no = iptr;
+	//stk::index no = iptr;
 }

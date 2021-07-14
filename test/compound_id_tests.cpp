@@ -1,73 +1,91 @@
 
-#include <exact/predicates.hpp>
-#include <stk/geometry/tolerance_policy.hpp>
-#include <stk/geometry/primitive/segment.hpp>
-#include <geometrix/algorithm/orientation.hpp>
-#include <boost/multiprecision/cpp_dec_float.hpp>
+#include <stk/utility/compound_id.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-struct exact_test_suite : ::testing::Test
-{
-	exact_test_suite()
-	{
-		exact::init();
-	}
-};
 
-using mpfloat = boost::multiprecision::cpp_dec_float_100;
-using mppoint2 = geometrix::point<mpfloat, 2>;
-using mpvector2 = geometrix::vector<mpfloat, 2>;
-
-inline geometrix::orientation_type Orientation(mpfloat x0, mpfloat x1)
-{
-	using namespace geometrix;
-	if (x0 < x1)
-		return oriented_right;
-	else if (x0 > x1)
-		return oriented_left;
-	else
-		return oriented_collinear;
-}
-
-//! Orientation test to check the orientation of B relative to A.
-//! @precondition A and B are vectors which share a common origin.
-inline geometrix::orientation_type get_Orientation(mpvector2 A, mpvector2 B)
-{
-	using namespace geometrix;
-	return Orientation(get<0>(A) * get<1>(B), get<1>(A) * get<0>(B));
-}
-
-inline geometrix::orientation_type get_Orientation( const mppoint2& A, const mppoint2& B, const mppoint2& C)
-{
-	using namespace geometrix;
-	mpvector2 x0 = mpvector2{ B[0] - A[0], B[1] - A[1] };
-	mpvector2 x1 = mpvector2{ C[0] - A[0], C[1] - A[1] };
-	return get_Orientation(x0, x1);
-}
-
-TEST_F(exact_test_suite, simple)
+TEST(compound_id_test_suite, simple)
 {
 	using namespace stk;
-	using namespace geometrix;
-	using namespace exact;
 
-	auto mp1 = mppoint2(7.3000000000000194, 7.3000000000000167 );
-	//auto mp2 = mppoint2(24.000000000000068, 24.000000000000071 );
-	auto mp3 = mppoint2(24.00000000000005, 24.000000000000053 );
-	auto mp4 = mppoint2(0.50000000000001621, 0.50000000000001243 );
+	struct id_state
+	{
+		std::uint32_t hi;
+		std::uint32_t lo;
+	};
+	union
+	{
+		id_state      id;
+		std::uint64_t v;
+	};
+	id.lo = 0;
+	id.hi = std::numeric_limits<std::uint32_t>::max();
+	auto id_ = compound_id_impl<std::uint64_t, 32>{ v };
+
+	auto r = get<0>( id_ );
+	EXPECT_EQ( id.hi, r );
+	r = get<1>( id_ );
+	EXPECT_EQ( id.lo, r );
+
+	set<0>( 0, id_ );
+	r = get<0>( id_ );
+	EXPECT_EQ( 0, r );
+	r = get<1>( id_ );
+	EXPECT_EQ( id.lo, r );
+	set<1>( 0, id_ );
+	r = get<1>( id_ );
+	EXPECT_EQ( 0, r );
+}
+
+TEST(compound_id_test_suite, three_components)
+{
+	using namespace stk;
+
+	struct id_state
+	{
+		std::uint32_t hi;
+		std::uint16_t mid;
+		std::uint16_t lo;
+	};
+	union
+	{
+		id_state      id;
+		std::uint64_t v;
+	};
+	id.lo = 22;
+	id.mid = 69; 
+	id.hi = std::numeric_limits<std::uint32_t>::max();
+	auto id_ = compound_id_impl<std::uint64_t, 32, 48>{ v };
+
+	auto r = get<0>( id_ );
+	EXPECT_EQ( id.hi, r );
+	r = get<1>( id_ );
+	EXPECT_EQ( id.mid, r );
+	r = get<2>( id_ );
+	EXPECT_EQ( id.lo, r );
 	
-	auto p1 = point2(7.3000000000000194 * boost::units::si::meters, 7.3000000000000167 * boost::units::si::meters);
-	auto p2 = point2(24.000000000000068 * boost::units::si::meters, 24.000000000000071 * boost::units::si::meters);
-	auto p3 = point2(24.00000000000005 * boost::units::si::meters, 24.000000000000053 * boost::units::si::meters);
-	auto p4 = point2(0.50000000000001621 * boost::units::si::meters, 0.50000000000001243 * boost::units::si::meters);
-	EXPECT_GT(orientation(p1, p2, p3), 0);
-	EXPECT_GT(orientation(p1, p2, p4), 0);
-	EXPECT_GT(orientation(p2, p3, p4), 0);
+	set<0>( 33, id_ );
+	r = get<0>( id_ );
+	EXPECT_EQ( 33, r );
+	r = get<1>( id_ );
+	EXPECT_EQ( id.mid, r );
+	r = get<2>( id_ );
+	EXPECT_EQ( id.lo, r );
 
-	//auto go = get_orientation(p3, p1, p4, direct_comparison_policy());
-	auto eo = orientation(p3, p1, p4);
-	auto mpo = get_Orientation(mp3, mp1, mp4);
-	EXPECT_EQ(eo, mpo);
+	set<1>( 70, id_ );
+	r = get<1>( id_ );
+	EXPECT_EQ( 70, r );
+	r = get<0>( id_ );
+	EXPECT_EQ( 33, r );
+	r = get<2>( id_ );
+	EXPECT_EQ( id.lo, r );
+	
+	set<2>( 99, id_ );
+	r = get<2>( id_ );
+	EXPECT_EQ( 99, r );
+	r = get<0>( id_ );
+	EXPECT_EQ( 33, r );
+	r = get<1>( id_ );
+	EXPECT_EQ( 70, r );
 }

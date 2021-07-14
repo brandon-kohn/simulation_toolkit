@@ -19,7 +19,7 @@ if(Boost_FOUND)
   message("Boost found: ${Boost_INCLUDE_DIRS}")
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
