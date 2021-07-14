@@ -54,6 +54,7 @@ if(Boost_FOUND)
         color_tests
         hash_tests
         container_tests
+        compound_id_tests
        )
 
     foreach(test ${tests})
