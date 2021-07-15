@@ -8,7 +8,7 @@
 //
 #pragma once
 
-#include <boost/hana.hpp>
+#include <stk/utility/make_integer_range.hpp>
 #include <cstdint>
 #include <type_traits>
 #include <limits>
@@ -16,21 +16,6 @@
 #include <array>
 
 namespace stk {
-
-	namespace detail {
-
-		template<typename IntegralType, IntegralType Begin, typename ISeq>
-		struct integer_range_impl;
-
-		template<typename IntegralType, IntegralType Begin, IntegralType... N>
-		struct integer_range_impl<IntegralType, Begin, std::integer_sequence<IntegralType, N...>>
-		{
-			using type = std::integer_sequence<IntegralType, N + Begin...>;
-		};
-	}//! namespace detail;
-
-	template<typename IntegralType, IntegralType Begin, IntegralType End>
-	using make_integer_range = typename detail::integer_range_impl<IntegralType, Begin, std::make_integer_sequence<IntegralType, End - Begin>>::type;
 
 	template <typename U, std::uint8_t ... MaskIndices>
 	class compound_id_impl
@@ -51,30 +36,51 @@ namespace stk {
 			return ( ( static_cast<U>( 1 ) << Indices ) | ... | static_cast<U>( 0 ) );
 		}
 		
-		template <std::uint8_t ... Indices>
-		static constexpr std::bitset<NumberBits> make_inv_mask( const std::integer_sequence<std::uint8_t, Indices...>& _ )
+		template <std::size_t I, typename Tuple>
+		static void assign( std::bitset<NumberBits>& bits, Tuple&& values )
 		{
-			return ~make_mask( _ );
+			using std::get;
+
+			static_assert( I < NumberElements + 1, "index is out of bounds" );
+			if constexpr( I == 0 )
+			{
+				auto m = make_mask( make_integer_range<std::uint8_t, 0, get_index( 0 )>() );
+				bits &= ~m;
+				bits |= ( std::bitset<NumberBits>{ get<I>(values) } & m );
+			}
+			else if constexpr( I == NumberElements ) 
+			{
+				auto m = make_mask( make_integer_range<std::uint8_t, get_index( I - 1 ), NumberBits>() );
+				bits &= ~m;
+				bits |= ( std::bitset<NumberBits>{ get<I>(values) } << get_index( I - 1 ) & m );
+			}
+			else
+			{
+				auto m = make_mask( make_integer_range<std::uint8_t, get_index( I - 1 ), get_index( I )>() );
+				bits &= ~m;
+				bits |= ( std::bitset<NumberBits>{ get<I>(values) } << get_index( I - 1 ) & m );
+			}
 		}
+
+		template <typename Tuple, std::size_t... I>
+		static std::bitset<NumberBits> create(Tuple&& values, std::index_sequence<I...>)
+		{
+			auto bits = std::bitset<NumberBits>{};
+
+			((void)assign<I>( bits, values ),...);
+
+			return bits;
+		}
+
 
 	public:
-
-		compound_id_impl() = default;
-		template <typename T>
-		compound_id_impl(T v)
-			: m_data(v)
-		{
-			static_assert( std::is_convertible<T, U>::value, "Cannot construct compound_id from type T." );
-		}
 	
-		/*
 		template <typename... Args>
 		compound_id_impl(Args... a)
-			: m_data(v)
+			: m_data{ create( std::make_tuple( a... ), std::index_sequence_for<Args...>{} ) }
 		{
-			static_assert( sizeof...(Args) == NumberElements + 1, "Cannot construct compound_id; too few inputs." );
+
 		}
-		*/
 
 		template <std::size_t I>
 		U get() const
@@ -121,7 +127,17 @@ namespace stk {
 			}
 		}
 
+		U value() const { return static_cast<U>( m_data.to_ullong() ); }
+		std::bitset<NumberBits> const& data() const { return m_data; }
+
 	private:
+
+		friend bool operator<=( const compound_id_impl<U, MaskIndices...>& x, const compound_id_impl<U, MaskIndices...>& y ) { return x.m_data.to_ullong() <= y.m_data.to_ullong(); }
+		friend bool operator>=( const compound_id_impl<U, MaskIndices...>& x, const compound_id_impl<U, MaskIndices...>& y ) { return x.m_data.to_ullong() >= y.m_data.to_ullong(); }
+		friend bool operator>( const compound_id_impl<U, MaskIndices...>& x, const compound_id_impl<U, MaskIndices...>& y ) { return x.m_data.to_ullong() > y.m_data.to_ullong(); }
+		friend bool operator<( const compound_id_impl<U, MaskIndices...>& x, const compound_id_impl<U, MaskIndices...>& y ) { return x.m_data.to_ullong() < y.m_data.to_ullong(); }
+		friend bool operator==( const compound_id_impl<U, MaskIndices...>& x, const compound_id_impl<U, MaskIndices...>& y ) { return x.m_data.to_ullong() == y.m_data.to_ullong(); }
+		friend bool operator!=( const compound_id_impl<U, MaskIndices...>& x, const compound_id_impl<U, MaskIndices...>& y ) { return x.m_data.to_ullong() != y.m_data.to_ullong(); }
 
 		std::bitset<NumberBits> m_data;
 
@@ -138,5 +154,8 @@ namespace stk {
 	{
 		id.template set<I>(value);
 	}
+
+	template <typename std::uint8_t ... Indices>
+	using compound_id = compound_id_impl<std::uint64_t, Indices...>;
 
 }//! namespace stk;

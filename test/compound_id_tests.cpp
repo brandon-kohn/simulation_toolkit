@@ -4,8 +4,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-
-TEST(compound_id_test_suite, simple)
+TEST( compound_id_test_suite, construct_default )
 {
 	using namespace stk;
 
@@ -21,7 +20,49 @@ TEST(compound_id_test_suite, simple)
 	};
 	id.lo = 0;
 	id.hi = std::numeric_limits<std::uint32_t>::max();
-	auto id_ = compound_id_impl<std::uint64_t, 32>{ v };
+	auto id_ = compound_id_impl<std::uint64_t, 32>{};
+
+	EXPECT_EQ( 0, id_.value() );
+}
+
+TEST( compound_id_test_suite, construct_hi )
+{
+	using namespace stk;
+
+	struct id_state
+	{
+		std::uint32_t hi;
+		std::uint32_t lo;
+	};
+	union
+	{
+		id_state      id;
+		std::uint64_t v;
+	};
+	id.lo = 0;
+	id.hi = std::numeric_limits<std::uint32_t>::max();
+	auto id_ = compound_id<32>{ id.hi };
+
+	EXPECT_EQ( id.hi, get<0>(id_) );
+}
+
+TEST(compound_id_test_suite, construct_hi_lo )
+{
+	using namespace stk;
+
+	struct id_state
+	{
+		std::uint32_t hi;
+		std::uint32_t lo;
+	};
+	union
+	{
+		id_state      id;
+		std::uint64_t v;
+	};
+	id.lo = 0;
+	id.hi = std::numeric_limits<std::uint32_t>::max();
+	auto id_ = compound_id<32>{ id.hi, id.lo };
 
 	auto r = get<0>( id_ );
 	EXPECT_EQ( id.hi, r );
@@ -38,7 +79,7 @@ TEST(compound_id_test_suite, simple)
 	EXPECT_EQ( 0, r );
 }
 
-TEST(compound_id_test_suite, three_components)
+TEST(compound_id_test_suite, construct_three_components)
 {
 	using namespace stk;
 
@@ -56,7 +97,7 @@ TEST(compound_id_test_suite, three_components)
 	id.lo = 22;
 	id.mid = 69; 
 	id.hi = std::numeric_limits<std::uint32_t>::max();
-	auto id_ = compound_id_impl<std::uint64_t, 32, 48>{ v };
+	auto id_ = compound_id<32, 48>{ id.hi, id.mid, id.lo };
 
 	auto r = get<0>( id_ );
 	EXPECT_EQ( id.hi, r );
