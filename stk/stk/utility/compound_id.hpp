@@ -31,7 +31,7 @@ namespace stk {
 		}
 		
 		template <std::uint8_t ... Indices>
-		static constexpr std::bitset<NumberBits> make_mask( const std::integer_sequence<std::uint8_t, Indices...>& _ )
+		static constexpr std::bitset<NumberBits> make_mask( [[maybe_unused]] const std::integer_sequence<std::uint8_t, Indices...>& _ )
 		{
 			return ( ( static_cast<U>( 1 ) << Indices ) | ... | static_cast<U>( 0 ) );
 		}
