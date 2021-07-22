@@ -46,19 +46,19 @@ namespace stk {
 			{
 				auto m = make_mask( make_integer_range<std::uint8_t, 0, get_index( 0 )>() );
 				bits &= ~m;
-				bits |= ( std::bitset<NumberBits>{ get<I>(values) } & m );
+				bits |= ( std::bitset<NumberBits>( get<I>(values) ) & m );
 			}
 			else if constexpr( I == NumberElements ) 
 			{
 				auto m = make_mask( make_integer_range<std::uint8_t, get_index( I - 1 ), NumberBits>() );
 				bits &= ~m;
-				bits |= ( std::bitset<NumberBits>{ get<I>(values) } << get_index( I - 1 ) & m );
+				bits |= ( std::bitset<NumberBits>( get<I>(values) ) << get_index( I - 1 ) & m );
 			}
 			else
 			{
 				auto m = make_mask( make_integer_range<std::uint8_t, get_index( I - 1 ), get_index( I )>() );
 				bits &= ~m;
-				bits |= ( std::bitset<NumberBits>{ get<I>(values) } << get_index( I - 1 ) & m );
+				bits |= ( std::bitset<NumberBits>( get<I>(values) ) << get_index( I - 1 ) & m );
 			}
 		}
 
