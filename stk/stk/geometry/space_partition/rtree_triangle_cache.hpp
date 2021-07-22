@@ -43,6 +43,7 @@ struct rtree_triangle_cache
     {}
     
     cache_t::data_index_set_t find_indices(const point2& p, const units::length& offset = 0.001 * units::si::meters) const;
+    cache_t::data_index_set_t find_indices(const aabb2& p) const;
 
 private:
     

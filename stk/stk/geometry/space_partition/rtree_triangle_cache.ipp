@@ -32,6 +32,11 @@ inline rtree_triangle_cache::cache_t::data_index_set_t rtree_triangle_cache::fin
     return mCache.find_indices(region);
 }
 
+inline rtree_triangle_cache::cache_t::data_index_set_t rtree_triangle_cache::find_indices(const aabb2& region) const
+{
+    return mCache.find_indices(region);
+}
+
 }//! namespace stk;
 
 #endif//STK_RTREE_TRIANGLE_CACHE_IPP
