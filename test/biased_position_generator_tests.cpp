@@ -331,6 +331,7 @@ TEST(poly2tri_test_suite, DISABLED_test_crash)
 	auto m = generate_mesh(pwh);
 }
 
+#ifndef __APPLE__
 #include "bugged_geometry.hpp"
 #include <stk/geometry/space_partition/poly2tri_mesh.hpp>
 TEST(poly2tri_test_suite, DISABLED_test_crash2)
@@ -341,3 +342,6 @@ TEST(poly2tri_test_suite, DISABLED_test_crash2)
     auto b = is_polygon_with_holes_simple(pgon, make_tolerance_policy());
     auto m = generate_mesh(heal_non_simple_polygon(pgon, 0.001 * boost::units::si::meters, 10000));
 }
+
+#endif//! not defined (__APPLE__)
+
