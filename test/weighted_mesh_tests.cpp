@@ -425,8 +425,6 @@ bool in_diametral_lens(stk::units::angle const& theta, stk::point2 const& o, stk
 	return (dt * dt) >= (v2_cos_theta2_1 * v2_cos_theta2_1 * magnitude_sqrd(op) * magnitude_sqrd(dp));
 }
 
-#include "bugged_geometry.hpp"
-
 std::vector<stk::polygon_with_holes2> heal_self_intersections(const stk::polygon_with_holes2& pgon, stk::units::length& healOffset, unsigned int scale)
 {
 	using namespace stk;
@@ -440,6 +438,9 @@ std::vector<stk::polygon_with_holes2> heal_self_intersections(const stk::polygon
 
 	return outer;
 }
+
+#ifndef __APPLE__
+#include "bugged_geometry.hpp"
 
 TEST(mesh_test_suite, bugging)
 {
@@ -458,3 +459,5 @@ TEST(mesh_test_suite, bugging)
 
 	return;
 }
+
+#endif//! not defined(__APPLE__)
