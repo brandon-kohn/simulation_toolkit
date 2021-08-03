@@ -77,7 +77,7 @@ namespace stk {
 	
 		template <typename... Args>
 		compound_id_impl(Args... a)
-			: m_data{ create( std::make_tuple( a... ), std::index_sequence_for<Args...>{} ) }
+			: m_data( create( std::make_tuple( a... ), std::index_sequence_for<Args...>{} ) )
 		{
 
 		}
