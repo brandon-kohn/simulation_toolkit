@@ -14,6 +14,7 @@
 #include <limits>
 #include <bitset>
 #include <array>
+#include <tuple>
 
 namespace stk {
 
