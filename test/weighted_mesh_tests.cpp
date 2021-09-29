@@ -412,6 +412,34 @@ TEST(weighted_mesh_test_suite, diametral_lens)
 	EXPECT_FALSE(in_diametral_circle({1.5* units::si::meters, 0.0* units::si::meters}, {0.5 * units::si::meters, -1.0 * units::si::meters}, {0.5 * units::si::meters, 1.0 * units::si::meters}));
 }
 
+TEST(point_in_triangle_test_suite, point_in_triangle_or_on_border_not_close_returns_false)
+{
+	using namespace stk;
+
+	auto p = point2{ -1.0 * boost::units::si::meters, 0.0 * boost::units::si::meters };
+	auto A = point2{ 0.0 * boost::units::si::meters, 0.0 * boost::units::si::meters };
+	auto B = point2{ 1.0 * boost::units::si::meters, 0.0 * boost::units::si::meters };
+	auto C = point2{ 0.0 * boost::units::si::meters, 1.0 * boost::units::si::meters };
+
+	auto r = point_in_triangle_or_on_border( p, A, B, C, make_tolerance_policy(), 0.5 * boost::units::si::meters );
+
+	EXPECT_FALSE( r );
+}
+
+TEST(point_in_triangle_test_suite, point_in_triangle_or_on_border_close_returns_true)
+{
+	using namespace stk;
+
+	auto p = point2{ -1.0 * boost::units::si::meters, 0.0 * boost::units::si::meters };
+	auto A = point2{ 0.0 * boost::units::si::meters, 0.0 * boost::units::si::meters };
+	auto B = point2{ 1.0 * boost::units::si::meters, 0.0 * boost::units::si::meters };
+	auto C = point2{ 0.0 * boost::units::si::meters, 1.0 * boost::units::si::meters };
+
+	auto r = point_in_triangle_or_on_border( p, A, B, C, make_tolerance_policy(), 2.0 * boost::units::si::meters );
+
+	EXPECT_TRUE( r );
+}
+
 bool in_diametral_lens(stk::units::angle const& theta, stk::point2 const& o, stk::point2 const& d, const stk::point2& p)
 {
 	using namespace geometrix;

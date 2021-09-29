@@ -15,8 +15,8 @@
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/range/algorithm_ext/erase.hpp>
 #include <boost/optional.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
-#include <random>
 #include <vector>
 #include <mutex>
 #include <exception>
@@ -138,7 +138,7 @@ namespace stk {
         template <typename Point, typename Generator>
         Point get_random_position(Generator& gen)
         {
-            std::uniform_real_distribution<> U;
+            boost::random::uniform_real_distribution<> U;
             return geometrix::construct<Point>(m_mesh->get_random_position(U(gen), U(gen), U(gen)));
         }
 
@@ -599,7 +599,7 @@ namespace stk {
 
 			point2 p;
 			do {
-				std::uniform_real_distribution<> U;
+                boost::random::uniform_real_distribution<> U;
 				auto rT = U(gen);
 				auto it(std::lower_bound(m_integral.begin(), m_integral.end(), rT));
 				std::size_t i = std::distance(m_integral.begin(), it);
@@ -624,7 +624,7 @@ namespace stk {
 			const auto vx = vector2{ m_halfcell, 0.0 * boost::units::si::meters };
 			const auto vy = vector2{ 0.0 * boost::units::si::meters, m_halfcell };
 
-			auto U = std::uniform_real_distribution<>{ -1.0, 1.0 };
+			auto U = boost::random::uniform_real_distribution<>{ -1.0, 1.0 };
 			return m_positions[i] + U(gen) * vx + U(gen) * vy;
 		}
 
