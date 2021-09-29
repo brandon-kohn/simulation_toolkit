@@ -3,6 +3,7 @@
 #include <geometrix/utility/assert.hpp>
 #include <geometrix/numeric/constants.hpp>
 #include <boost/math/distributions/normal.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 #include <random>
 #include <cmath>
 #include <istream>
@@ -120,7 +121,7 @@ namespace stk {
 	    template<typename Engine>
 		result_type operator()(Engine& e, const param_type& params)
 		{
-            std::uniform_real_distribution<T> U(params.lower_quantile(), params.upper_quantile());
+            boost::random::uniform_real_distribution<T> U(params.lower_quantile(), params.upper_quantile());
             auto u = U(e);
 			boost::math::normal_distribution<T> dist;
             auto r = boost::math::quantile(dist, u);
