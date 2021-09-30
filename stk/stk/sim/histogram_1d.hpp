@@ -13,6 +13,7 @@
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 #include <stk/geometry/tolerance_policy.hpp>
 #include <algorithm>
 #include <random>
@@ -185,7 +186,7 @@ public:
             return T{};
         }
 
-        std::uniform_real_distribution<> U;
+        boost::random::uniform_real_distribution<> U;
         auto r = U(eng);
         auto it = std::lower_bound(m_cdf.begin(), m_cdf.end(), r);
         std::size_t ibin = std::distance(m_cdf.begin(), it);
