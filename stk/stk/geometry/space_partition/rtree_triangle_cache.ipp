@@ -13,6 +13,9 @@
     #pragma once
 #endif
 
+#if BOOST_VERSION >= 107700
+#include <boost/geometry/strategies/relate/cartesian.hpp>
+#endif
 #include <stk/geometry/space_partition/rtree_triangle_cache.hpp>
 #include <stk/geometry/rtree_cache.ipp>
 #include <stk/geometry/tensor/vector.hpp>
