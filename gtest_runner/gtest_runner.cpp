@@ -58,7 +58,11 @@ int main(int argc, char* argv[])
 
     try
     {
+		#if BOOST_VERSION >= 107600
+        auto tests = boost::dll::import_symbol<int(int*, char**)>(dllpath, fname.c_str(), boost::dll::load_mode::append_decorations);
+		#else
         auto tests = boost::dll::import<int(int*, char**)>(dllpath, fname.c_str(), boost::dll::load_mode::append_decorations);
+		#endif
 
         std::cout << "Running Tests in " << dllpath << std::endl;
         boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(timeout);
