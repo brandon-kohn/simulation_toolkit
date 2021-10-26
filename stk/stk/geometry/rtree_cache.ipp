@@ -26,6 +26,9 @@
 #endif
 
 #include <boost/geometry/index/rtree.hpp>
+#if BOOST_VERSION >= 107700
+#include <boost/geometry/strategies/relate/cartesian.hpp>
+#endif
 
 #if defined(STK_SOMEONE_DEFINED_EI)
 #undef STK_SOMEONE_DEFINED_EI
