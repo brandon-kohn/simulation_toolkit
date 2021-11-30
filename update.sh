@@ -23,7 +23,7 @@ if [ "$3" -ne "" ]
 fi
 
 # Update the repo
-REPOSRC=https://github.com/brandon-kohn/simulation_suite.git
+REPOSRC=https://github.com/brandon-kohn/simulation_toolkit.git
 
 git pull "$REPOSRC" || error_exit "Git pull failed. Aborting."
 

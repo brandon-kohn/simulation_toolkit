@@ -11,7 +11,7 @@ if "%~1"=="" goto usage
 if "%~2"=="" goto usage
 
 REM Update the repo
-set REPOSRC=https://github.com/brandon-kohn/simulation_suite.git
+set REPOSRC=https://github.com/brandon-kohn/simulation_toolkit.git
 
 git pull "%REPOSRC%"
 if ERRORLEVEL 1 goto error
