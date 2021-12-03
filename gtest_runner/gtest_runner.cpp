@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 	{
 		for (auto i = 2; i < argc; ++i) 
 		{
-			std::regex timeoutRegex("\\s*-t=(\\d+)");
+			std::regex timeoutRegex("\\s*-t=(-?\\d+)");
 			std::cmatch match;
 			if (std::regex_match(argv[i], match, timeoutRegex)) 
 			{
@@ -67,10 +67,14 @@ int main(int argc, char* argv[])
         std::cout << "Running Tests in " << dllpath << std::endl;
         boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(timeout);
         boost::thread testThread([&](){ result = tests(&argc, argv); });
-        testThread.try_join_until(deadline);
-        if (boost::chrono::system_clock::now() > deadline)
-        {
-            std::cout << "Warning: tests may have exceeded timeout of " << timeout << " ms. This may indicate a test with an infinite loop.\nTry running again with a longer timeout using the -t option." << std::endl;
+        if(timeout > 0){
+            testThread.try_join_until(deadline);
+            if (boost::chrono::system_clock::now() > deadline)
+            {
+                std::cout << "Warning: tests may have exceeded timeout of " << timeout << " ms. This may indicate a test with an infinite loop.\nTry running again with a longer timeout using the -t option." << std::endl;
+            }
+        } else {
+            testThread.join();
         }
     }
     catch(...)
