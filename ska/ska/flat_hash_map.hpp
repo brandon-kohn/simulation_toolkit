@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <stdexcept>
 #include <functional>
 #include <cmath>
 #include <algorithm>
