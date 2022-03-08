@@ -44,7 +44,7 @@ namespace stk { namespace thread {
 
 #ifndef NDEBUG
 #define STK_RACE_DETECTOR(name) stk::thread::race_detector name
-#define STK_DETECT_RACE(name) stk::thread::race_guard BOOST_PP_CAT(_____stk_____ BOOST_PP_CAT(name, __LINE__))(name)
+#define STK_DETECT_RACE(name) stk::thread::race_guard BOOST_PP_CAT(_____stk_____,BOOST_PP_CAT(name, __LINE__))(name)
 #else
 #define STK_RACE_DETECTOR(name)
 #define STK_DETECT_RACE(name)
