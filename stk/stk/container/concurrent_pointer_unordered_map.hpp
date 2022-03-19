@@ -189,27 +189,6 @@ namespace stk { namespace unordered_map_detail {
             return std::make_pair(result, wasInserted);
         }
 
-		template <typename... Args>
-		std::pair<data_ptr, bool> emplace(std::uint64_t k, Args&&... a)
-		{
-			auto mutator = m_map.insertOrFind(k);
-			auto result = mutator.getValue();
-			bool wasInserted = false;
-			if (result == nullptr) {
-				result = new Data(std::forward<Args>(a)...);
-				auto oldData = mutator.exchangeValue(result);
-				if (oldData)
-					m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(oldData);
-
-				//! If a new value has been put into the key which isn't result.. get it.
-				wasInserted = oldData != result;
-				if (!wasInserted)
-					result = mutator.getValue();
-			}
-
-			return std::make_pair(result, wasInserted);
-		}
-
         void erase(key_type k)
         {
             auto iter = m_map.find((std::uint64_t)k);
@@ -218,6 +197,18 @@ namespace stk { namespace unordered_map_detail {
                 auto pValue = iter.eraseValue();
                 if (pValue != (data_ptr)pointer_traits::NullValue)
                     m_map.getMemoryReclaimer().template reclaim_via_defaultable_callable<erase_policy>(pValue);
+            }
+        }
+       
+        //! Bypass the memory reclaimer and invoke the erase policy directly. Use if thread-safe reclamation.
+        void erase_direct(key_type k)
+        {
+            auto iter = m_map.find((std::uint64_t)k);
+            if (iter.isValid())
+            {
+                auto pValue = iter.eraseValue();
+                if (pValue != (data_ptr)pointer_traits::NullValue)
+                    erase_policy()(pValue);
             }
         }
 

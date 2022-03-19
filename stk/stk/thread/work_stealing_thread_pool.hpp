@@ -664,7 +664,7 @@ namespace stk {
                 }
 
                 {
-                    auto lk = unique_lock<mutex_type>{ m_pollingMtx };
+                    //auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                     m_pollingCnd.notify_one();
                 }
 
@@ -694,7 +694,7 @@ namespace stk {
                     }
                 }
 
-                auto lk = unique_lock<mutex_type>{ m_pollingMtx };
+                //auto lk = unique_lock<mutex_type>{ m_pollingMtx };
                 m_pollingCnd.notify_one();
             }
 

@@ -46,7 +46,7 @@ TEST( memory_pool_test_suite, allocate_and_deallocate )
 
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
 
-std::size_t nAllocations = 1000000;
+std::size_t nAllocations = 100;
 
 TEST( memory_pool_test_suite, cross_thread_bench_alloc_deallocate )
 {
@@ -75,7 +75,8 @@ TEST( memory_pool_test_suite, cross_thread_bench_alloc_deallocate )
 					}
 					for( auto& ind : allocs ) 
 					{
-						sut.deallocate( ind );
+						//sut.deallocate( ind );
+						stk::deallocate_to_pool( ind );
 					}
 				} ) );
 		}
@@ -84,4 +85,47 @@ TEST( memory_pool_test_suite, cross_thread_bench_alloc_deallocate )
 
 		EXPECT_EQ( sut.size_elements(), sut.size_free() );
 	}
+}
+
+#include <stk/utility/scope_exit.hpp>
+#include <stk/thread/job_tracker.hpp>
+TEST( dependency_tracker_test_suite, cross_thread_bench_dep_tracker )
+{
+	using namespace stk::thread;
+	std::size_t nOSThreads = std::thread::hardware_concurrency() - 1;
+	using pool_t = work_stealing_thread_pool<mc_queue_traits>;
+	pool_t pool( nOSThreads );
+
+	using mpool_t = stk::memory_pool<int, stk::geometric_growth_policy<10>>;
+	auto sut = mpool_t{};
+
+	using future_t = pool_t::future<void>;
+
+	using namespace stk;
+	job_tracker deps;
+	nAllocations = 100;
+	auto exec = [&]( auto Fn )
+	{
+		pool.send( Fn );
+	};
+	auto task = [&]()
+	{
+		for( size_t i = 0; i < nAllocations; ++i )
+		{
+			std::array<int*, 10> allocs;
+			for( auto& ind : allocs )
+			{
+				ind = sut.allocate();
+				mpool_t::construct( ind, i );
+			}
+			for( auto& ind : allocs )
+			{
+				stk::deallocate_to_pool( ind );
+			}
+		}
+	};
+	deps.invoke_job( "Allocations", task, exec );
+	while( !deps.get_job( "Allocations" )->is<job::Finished>() );
+	deps.erase_job( "Allocations" );
+	EXPECT_EQ( nullptr, deps.find_job( "Allocations" ) );
 }

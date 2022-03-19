@@ -38,6 +38,31 @@ namespace stk
         {
             return scope_exit<F>(f);
         };
+        
+        template <typename F>
+        struct abortable_scope_exit
+        {
+            abortable_scope_exit(F f)
+                : f(f)
+            {}
+
+            void set_abort(bool v = true) { abort = v; }
+
+            ~abortable_scope_exit()
+            {
+                if(!abort)
+                    f();
+            }
+
+            F f;
+            bool abort = false;
+        };
+        
+        template <typename F>
+        inline abortable_scope_exit<F> make_abortable_scope_exit(F f)
+        {
+            return abortable_scope_exit<F>(f);
+        };
     }//! namespace detail;
 }//! namespace simulation;
 
@@ -50,3 +75,4 @@ namespace stk
 /***/
 
 #endif// STK_SCOPEEXIT_HPP
+

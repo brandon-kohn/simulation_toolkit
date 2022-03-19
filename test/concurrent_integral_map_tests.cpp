@@ -85,25 +85,6 @@ TEST(concurrent_pointer_unordered_map_test_suite, insert_and_erase)
 	}
 }
 
-TEST(concurrent_integral_map_test_suite, emplace_and_erase)
-{
-	using namespace stk;
-	using namespace stk::thread;
-	{
-		concurrent_pointer_unordered_map<std::uint64_t, cell> sut;
-
-		for (int i = 0; i < extent; ++i) {
-			sut.emplace(i, i);
-		}
-		EXPECT_EQ(extent, cell::update(0));
-		for (int i = 0; i < extent; ++i) {
-			sut.erase(i);
-		}
-		junction::DefaultQSBR().flush();
-		EXPECT_EQ(0, cell::update(0));
-	}
-}
-
 TEST(concurrent_pointer_unordered_map_test_suite, find_inserted)
 {
 	using namespace stk;
@@ -114,30 +95,6 @@ TEST(concurrent_pointer_unordered_map_test_suite, find_inserted)
 		for (int i = 0; i < extent; ++i)
 		{
 			sut.insert(i, boost::make_unique<cell>(i));
-		}
-
-		for (int i = 0; i < extent; ++i)
-		{
-			auto pData = sut.find(i);
-			ASSERT_NE(nullptr, pData);
-			EXPECT_EQ(i, pData->id);
-		}
-	}
-	
-	junction::DefaultQSBR().flush();
-	EXPECT_EQ(0, cell::update(0));
-}
-
-TEST(concurrent_integral_map_test_suite, find_emplaced)
-{
-	using namespace stk;
-	using namespace stk::thread;
-	{
-		concurrent_pointer_unordered_map<std::uint64_t, cell> sut;
-
-		for (int i = 0; i < extent; ++i)
-		{
-			sut.emplace(i, i);
 		}
 
 		for (int i = 0; i < extent; ++i)
@@ -168,31 +125,6 @@ TEST(concurrent_pointer_unordered_map_test_suite, insert_existing)
 		for (int i = 0; i < extent; ++i)
 		{
 			sut.insert(i, boost::make_unique<cell>(i));
-		}
-		EXPECT_EQ(extent, cell::update(0));
-	}
-
-	junction::DefaultQSBR().flush();
-	EXPECT_EQ(0, cell::update(0));
-}
-
-TEST(concurrent_integral_map_test_suite, emplace_existing)
-{
-	using namespace stk;
-	using namespace stk::thread;
-	{
-		concurrent_pointer_unordered_map<std::uint64_t, cell> sut;
-
-		for (int i = 0; i < extent; ++i)
-		{
-			sut.insert(i, boost::make_unique<cell>(i));
-		}
-		EXPECT_EQ(extent, cell::update(0));
-
-		for (int i = 0; i < extent; ++i)
-		{
-			auto r = sut.emplace(i, i);
-			EXPECT_FALSE(r.second);
 		}
 		EXPECT_EQ(extent, cell::update(0));
 	}
