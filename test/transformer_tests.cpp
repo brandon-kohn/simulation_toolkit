@@ -439,3 +439,45 @@ TEST(TransformerTestSuite, polygon_with_holesTest)
 
 }
 
+#include <geometrix/utility/scope_timer.ipp>
+std::size_t nRuns = 10000000;
+TEST( TransformerTestSuite, timer_point_transformer_test )
+{
+	using namespace geometrix;
+	using namespace stk;
+
+	using xform_t = transformer<2, post_multiplication_matrix_concatenation_policy>;
+
+
+	auto xform = xform_t{};
+	auto v = vector2{ 1.0 * units::si::meters, 1.0 * units::meters };
+	xform.translate( v );
+	auto xform2 = xform;
+	xform2.inverse();
+
+	std::vector<point2> results( nRuns );
+	auto p = point2 { 10 * units::si::meters, 5.25 * units::si::meters };
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( "transformer2::xform" );
+		for( auto i = 0ULL; i < nRuns; ++i )
+			results[i] = xform( p );
+	}
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( "transformer2::xform2" );
+		for( auto i = 0ULL; i < nRuns; ++i )
+			results[i] = xform2( p );
+	}
+	
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( "transformer2::raw" );
+		for( auto i = 0ULL; i < nRuns; ++i )
+			results[i] = p - v;
+	}
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( "transformer2::raw2" );
+		for( auto i = 0ULL; i < nRuns; ++i )
+			results[i] = p + v;
+	}
+	EXPECT_TRUE(true);
+}
+

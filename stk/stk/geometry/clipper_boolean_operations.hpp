@@ -19,6 +19,17 @@
 #include <geometrix/utility/ignore_unused_warnings.hpp>
 
 namespace stk {
+    
+    inline void to_clipper_paths(const polygon2& a, ClipperLib::Paths& paths, unsigned int scale)
+    {
+        ClipperLib::Path path;
+		path.reserve(a.size());
+
+        for (const auto& p : a)
+            path << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
+
+        paths.emplace_back( std::move( path ) );
+    }
 
     inline void to_clipper(ClipperLib::Clipper& clip, const polygon2& a, ClipperLib::PolyType type, unsigned int scale)
     {
@@ -29,6 +40,25 @@ namespace stk {
             path << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
 
         clip.AddPath(path, type, true);
+    }
+    
+    inline void to_clipper(ClipperLib::Clipper& clip, const ClipperLib::Path& a, ClipperLib::PolyType type, unsigned int)
+    {
+        clip.AddPath(a, type, true);
+    }
+    
+    inline void to_clipper_paths(const polygon_with_holes2& a, ClipperLib::Paths& paths, unsigned int scale)
+    {
+        to_clipper_paths(a.get_outer(), paths, scale);
+        for (const auto& hole : a.get_holes())
+            to_clipper_paths(hole, paths, scale);
+    }
+
+    template <typename T>
+    inline void to_clipper_paths(const std::vector<T>& v, ClipperLib::Paths& paths, unsigned int scale)
+    {
+		for( const auto& g : v )
+			to_clipper_paths( g, paths, scale );
     }
 
     inline void to_clipper(ClipperLib::Clipper& clip, const polygon_with_holes2& a, ClipperLib::PolyType type, unsigned int scale)
@@ -317,6 +347,27 @@ namespace stk {
         ClipperLib::Clipper clip;
         clip.StrictlySimple(true);
         return clipper_intersection_impl(clip, std::forward<Geometry1>(a), std::forward<Geometry2>(b), scale);
+    }
+    
+    inline std::vector<polygon_with_holes2> clipper_offset(const ClipperLib::Path& boundary, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::ClipperOffset co;
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+        ClipperLib::PolyTree ptree;
+        co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
+    
+    inline std::vector<polygon_with_holes2> clipper_offset(const ClipperLib::Paths& ps, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::ClipperOffset co;
+		for(auto& p : ps)
+            co.AddPath(p, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+        ClipperLib::PolyTree ptree;
+        co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
     }
 
     inline std::vector<polygon_with_holes2> clipper_offset(const polygon2& pgon, const units::length& offset, unsigned int scale)
