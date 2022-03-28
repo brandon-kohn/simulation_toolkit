@@ -5,6 +5,7 @@
 #include <stk/container/detail/grid_traverser.hpp>
 #include <geometrix/algorithm/fast_voxel_grid_traversal.hpp>
 #include <geometrix/algorithm/point_in_polygon.hpp>
+#include <geometrix/tags.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/container/flat_map.hpp>
@@ -47,6 +48,7 @@ namespace stk {
     public:
 
         using cell_type = Cell;
+        using cell_alloc = CellAllocator;
 
         template <typename GridTraits>
         collision_grid( GridTraits&& traits, CellAllocator&& cellAlloc = CellAllocator{} )
@@ -133,29 +135,12 @@ namespace stk {
 		void visit(Point&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::point_tag) const
 		{
 			using namespace geometrix;
-            auto* pCell = m_grid.find_cell(p);
-            if(pCell)
-                visitor(*pCell);
 
-            visit_cells<1>( mGrid, pos, [&, this]( int i, int j ) -> void 
+            visit_cells<1>( m_grid, p, [&, this]( int i, int j ) -> void 
             {
-                if( i >= 0 && j >= 0 && static_cast<unsigned int>(i) < mGrid.get_traits().get_width() && static_cast<unsigned int>(j) < mGrid.get_traits().get_height() ){
-                    auto const* cell = mGrid.find_cell( i, j );
-                    if (cell) {
-                        cell->forEachBoundaryObstacleUnsafe([&](const GKCEObstacle& obs) {
-                            if (!ped || obs.filters(*ped)) {
-                                space.addObstacle(obs);
-                            }
-                        });
-
-                        cell->forEachPedestrianUnsafe([&](const GKCEPedestrianBase& oPed) {
-                            space.addPedestrian(oPed);
-                        });
-
-                        cell->forEachContextObjectUnsafe([&](GKCEContextObject* pObj){
-                            space.addContextObject(*ped, pObj);
-                        });
-                    }
+                if( i >= 0 && j >= 0 && static_cast<unsigned int>(i) < m_grid.get_traits().get_width() && static_cast<unsigned int>(j) < m_grid.get_traits().get_height() ){
+                    if(auto* pCell = m_grid.find_cell( i, j ); pCell )
+                        visitor(*pCell);
                 }
             } );
 		}
@@ -207,7 +192,7 @@ namespace stk {
                 visit(h, radius, std::forward<Visitor>(visitor));
 		}
 
-        using grid_type = stk::concurrent_hash_grid_2d<cell_type, geometrix::grid_traits<stk::units::length>, cell_allocator>;
+        using grid_type = stk::concurrent_hash_grid_2d<cell_type, geometrix::grid_traits<stk::units::length>, cell_alloc>;
 
         mutable junction::QSBR m_qsbr;
         grid_type              m_grid;
