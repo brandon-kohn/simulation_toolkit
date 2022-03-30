@@ -120,13 +120,14 @@ namespace stk {
 	template <typename T, typename GrowthPolicy = geometric_growth_policy<100>>
 	class memory_pool : public memory_pool_base<T>
 	{
+		using base_t = memory_pool_base<T>;
 		using value_type = T;
 		using growth_policy = GrowthPolicy;
 
 	public:
 		
 		memory_pool()
-			: memory_pool_base{ growth_policy().initial_size() }
+			: base_t{ growth_policy().initial_size() }
 		{
 		}
 
