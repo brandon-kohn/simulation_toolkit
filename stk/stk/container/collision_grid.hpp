@@ -107,7 +107,7 @@ namespace stk {
 			using point_t = typename point_sequence_traits<Polyline>::point_type;
 
             for(auto i = 0ULL, j= 1ULL; j < p.size(); i = j++)
-                visit(segment<point_t>{p[i], p[j]}, geometrix::geometry_tags::segment_tag);
+				visit( segment<point_t>{ p[i], p[j] }, geometrix::geometry_tags::segment_tag{} );
 		}
 
 		template <typename Polygon, typename Visitor>
@@ -117,7 +117,7 @@ namespace stk {
 			using point_t = typename point_sequence_traits<Polygon>::point_type;
 
             for(std::size_t j = std::size_t{}, i = p.size() - 1; j < p.size(); i = j++)
-                visit(segment<point_t>{p[i], p[j]}, geometrix::geometry_tags::segment_tag);
+				visit( segment<point_t>{ p[i], p[j] }, geometrix::geometry_tags::segment_tag{} );
 		}
 		
 		template <typename Polygon, typename Visitor>
@@ -168,7 +168,7 @@ namespace stk {
 			using point_t = typename point_sequence_traits<Polyline>::point_type;
 
             for(auto i = 0ULL, j= 1ULL; j < p.size(); i = j++)
-                visit(segment<point_t>{p[i], p[j]}, radius, geometrix::geometry_tags::segment_tag);
+				visit( segment<point_t>{ p[i], p[j] }, radius, geometrix::geometry_tags::segment_tag{} );
 		}
 
 		template <typename Polygon, typename Visitor>
@@ -178,7 +178,7 @@ namespace stk {
 			using point_t = typename point_sequence_traits<Polygon>::point_type;
 
             for(std::size_t j = std::size_t{}, i = p.size() - 1; j < p.size(); i = j++)
-                visit(segment<point_t>{p[i], p[j]}, radius, geometrix::geometry_tags::segment_tag);
+				visit( segment<point_t>{ p[i], p[j] }, radius, geometrix::geometry_tags::segment_tag{} );
 		}
 		
 		template <typename Polygon, typename Visitor>
