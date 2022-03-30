@@ -5,6 +5,7 @@
 #include <stk/container/detail/grid_traverser.hpp>
 #include <geometrix/algorithm/fast_voxel_grid_traversal.hpp>
 #include <geometrix/algorithm/point_in_polygon.hpp>
+#include <geometrix/arithmetic/vector/perp.hpp>
 #include <geometrix/tags.hpp>
 
 #include <boost/container/flat_set.hpp>
@@ -68,14 +69,14 @@ namespace stk {
         }
 
         template <typename Geometry, typename Visitor>
-        void visit( Geometry&& geometry, Visitor&& visitor ) const
+        void visit( Geometry&& geometry, Visitor&& visitor )
         {
 			using namespace geometrix;
 			visit(std::forward<Geometry>(geometry), std::forward<Visitor>(visitor), typename geometrix::geometry_tag_of<Geometry>::type());
 		}
         
         template <typename Geometry, typename Visitor>
-        void visit( Geometry&& geometry, const stk::units::length& radius, Visitor&& visitor ) const
+        void visit( Geometry&& geometry, const stk::units::length& radius, Visitor&& visitor )
         {
 			using namespace geometrix;
 			visit(std::forward<Geometry>(geometry), radius, std::forward<Visitor>(visitor), typename geometrix::geometry_tag_of<Geometry>::type());
@@ -84,7 +85,7 @@ namespace stk {
     protected:
 		
         template <typename Point, typename Visitor>
-		void visit(Point&& p, Visitor&& visitor, geometrix::geometry_tags::point_tag) const
+		void visit(Point&& p, Visitor&& visitor, geometrix::geometry_tags::point_tag)
 		{
 			using namespace geometrix;
             auto* pCell = m_grid.find_cell(p);
@@ -93,14 +94,14 @@ namespace stk {
 		}
 
 		template <typename Segment, typename Visitor>
-		void visit(Segment&& s, Visitor&& visitor, geometrix::geometry_tags::segment_tag) const
+		void visit(Segment&& s, Visitor&& visitor, geometrix::geometry_tags::segment_tag)
 		{
 			using namespace geometrix;
 	        fast_voxel_grid_traversal( m_grid.get_traits(), s, [&,this]( std::uint32_t i, std::uint32_t j ){ visitor(m_grid.get_cell( i, j )); }, make_tolerance_policy() );
 		}
 
 		template <typename Polyline, typename Visitor>
-		void visit(Polyline&& p, Visitor&& visitor, geometrix::geometry_tags::polyline_tag) const
+		void visit(Polyline&& p, Visitor&& visitor, geometrix::geometry_tags::polyline_tag)
 		{
 			using namespace geometrix;
 			using point_t = typename point_sequence_traits<Polyline>::point_type;
@@ -110,7 +111,7 @@ namespace stk {
 		}
 
 		template <typename Polygon, typename Visitor>
-		void visit(Polygon&& p, Visitor&& visitor, geometrix::geometry_tags::polygon_tag) const
+		void visit(Polygon&& p, Visitor&& visitor, geometrix::geometry_tags::polygon_tag)
 		{
 			using namespace geometrix;
 			using point_t = typename point_sequence_traits<Polygon>::point_type;
@@ -120,7 +121,7 @@ namespace stk {
 		}
 		
 		template <typename Polygon, typename Visitor>
-		void visit(Polygon&& p, Visitor&& visitor, geometrix::geometry_tags::polygon_with_holes_tag) const
+		void visit(Polygon&& p, Visitor&& visitor, geometrix::geometry_tags::polygon_with_holes_tag)
 		{
 			using namespace geometrix;
 			using point_t = typename geometric_traits<Polygon>::point_type;
@@ -132,7 +133,7 @@ namespace stk {
 		}
         
         template <typename Point, typename Visitor>
-		void visit(Point&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::point_tag) const
+		void visit(Point&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::point_tag)
 		{
 			using namespace geometrix;
 
@@ -146,11 +147,11 @@ namespace stk {
 		}
 
 		template <typename Segment, typename Visitor>
-		void visit(Segment&& s, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::segment_tag) const
+		void visit(Segment&& s, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::segment_tag)
 		{
 			using namespace geometrix;
 	        fast_voxel_grid_traversal( m_grid.get_traits(), s, [&,this]( std::uint32_t i, std::uint32_t j ){ visitor(m_grid.get_cell( i, j )); }, make_tolerance_policy() );
-            auto v = normamlize(s.get_end()-s.get_start());
+            auto v = normalize(s.get_end()-s.get_start());
 
             segment2 left{ s.get_start() + radius * left_normal(v), s.get_end() + radius * left_normal(v) };
             fast_voxel_grid_traversal(m_grid.get_traits(), left, [&, this](std::uint32_t i, std::uint32_t j) { visitor(m_grid.get_cell(i, j)); }, make_tolerance_policy() );
@@ -161,7 +162,7 @@ namespace stk {
 		}
 
 		template <typename Polyline, typename Visitor>
-		void visit(Polyline&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polyline_tag) const
+		void visit(Polyline&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polyline_tag)
 		{
 			using namespace geometrix;
 			using point_t = typename point_sequence_traits<Polyline>::point_type;
@@ -171,7 +172,7 @@ namespace stk {
 		}
 
 		template <typename Polygon, typename Visitor>
-		void visit(Polygon&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polygon_tag) const
+		void visit(Polygon&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polygon_tag)
 		{
 			using namespace geometrix;
 			using point_t = typename point_sequence_traits<Polygon>::point_type;
@@ -181,7 +182,7 @@ namespace stk {
 		}
 		
 		template <typename Polygon, typename Visitor>
-		void visit(Polygon&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polygon_with_holes_tag) const
+		void visit(Polygon&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polygon_with_holes_tag)
 		{
 			using namespace geometrix;
 			using point_t = typename geometric_traits<Polygon>::point_type;

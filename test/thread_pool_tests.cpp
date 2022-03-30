@@ -419,3 +419,18 @@ TEST(work_stealing_thread_pool_test_suite, test_aligned_alloc)
 	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens>;
 	auto pool = boost::make_unique<pool_t>(nOSThreads);
 }
+
+TEST(work_stealing_thread_pool_test_suite, exception_thrown)
+{
+	using namespace ::testing;
+	using namespace stk;
+	using namespace stk::thread;
+	
+	using pool_t = work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens>;
+	auto pool = boost::make_unique<pool_t>(nOSThreads);
+
+	auto f = pool->send( []()
+		{ throw std::logic_error{ "logic is wrong" }; } );
+
+	EXPECT_THROW( f.get(), std::logic_error );
+}
