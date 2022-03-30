@@ -121,6 +121,7 @@ namespace stk {
 	class memory_pool : public memory_pool_base<T>
 	{
 		using base_t = memory_pool_base<T>;
+		using node = base_t::node;
 		using value_type = T;
 		using growth_policy = GrowthPolicy;
 
