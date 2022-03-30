@@ -31,6 +31,7 @@
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/concurrentqueue_queue_info_no_tokens.h>
 #include <stk/container/concurrent_hash_grid.hpp>
+#include <stk/container/collision_grid.hpp>
 #include <chrono>
 
 using mc_queue_traits = moodycamel_concurrent_queue_traits_no_tokens;
@@ -318,4 +319,30 @@ TEST(timing, sequential_bash_grid)
         bash_sequential_grid(rndpairs, "sequential_bash_grid");
 
     EXPECT_TRUE(true);
+}
+
+TEST(collision_grid_test_suite, simple_traversals)
+{
+    using namespace ::testing;
+    using namespace stk;
+    using namespace geometrix;
+
+    struct cell
+    {
+		int v = 0;
+    };
+
+    using grid = collision_grid<cell>;
+    stk::units::length xmin = 0.0 * boost::units::si::meters;
+    auto xmax = extent * boost::units::si::meters;
+    auto ymin = xmin;
+    auto ymax = xmax;
+    grid_traits<stk::units::length> traits(xmin, xmax, ymin, ymax, 3.0 * boost::units::si::meters);
+	auto sut = grid{traits};
+
+	sut.visit( point2{}, []( cell& c ) {} );
+	sut.visit( segment2{}, []( cell& c ) {} );
+	sut.visit( polygon2{}, []( cell& c ) {} );
+	sut.visit( polyline2{}, []( cell& c ) {} );
+	sut.visit( polygon_with_holes2{}, []( cell& c ) {} );
 }

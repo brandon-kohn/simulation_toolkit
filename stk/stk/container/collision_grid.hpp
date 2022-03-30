@@ -6,12 +6,17 @@
 #include <geometrix/algorithm/fast_voxel_grid_traversal.hpp>
 #include <geometrix/algorithm/point_in_polygon.hpp>
 #include <geometrix/arithmetic/vector/perp.hpp>
+#include <stk/geometry/primitive/polygon.hpp>
+#include <stk/geometry/primitive/polyline.hpp>
+#include <stk/geometry/primitive/polygon_with_holes.hpp>
+#include <stk/geometry/primitive/segment.hpp>
 #include <geometrix/tags.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/container/flat_map.hpp>
 
 #include <cstdint>
+#include <type_traits>
 
 namespace stk {
 
@@ -104,20 +109,20 @@ namespace stk {
 		void visit(Polyline&& p, Visitor&& visitor, geometrix::geometry_tags::polyline_tag)
 		{
 			using namespace geometrix;
-			using point_t = typename point_sequence_traits<Polyline>::point_type;
+			using point_t = typename point_sequence_traits<typename std::decay<Polyline>::type>::point_type;
 
             for(auto i = 0ULL, j= 1ULL; j < p.size(); i = j++)
-				visit( segment<point_t>{ p[i], p[j] }, geometrix::geometry_tags::segment_tag{} );
+				visit( segment<point_t>{ p[i], p[j] }, std::forward<Visitor>(visitor), geometrix::geometry_tags::segment_tag{} );
 		}
 
 		template <typename Polygon, typename Visitor>
 		void visit(Polygon&& p, Visitor&& visitor, geometrix::geometry_tags::polygon_tag)
 		{
 			using namespace geometrix;
-			using point_t = typename point_sequence_traits<Polygon>::point_type;
+			using point_t = typename point_sequence_traits<typename std::decay<Polygon>::type>::point_type;
 
             for(std::size_t j = std::size_t{}, i = p.size() - 1; j < p.size(); i = j++)
-				visit( segment<point_t>{ p[i], p[j] }, geometrix::geometry_tags::segment_tag{} );
+				visit( segment<point_t>{ p[i], p[j] }, std::forward<Visitor>(visitor), geometrix::geometry_tags::segment_tag{} );
 		}
 		
 		template <typename Polygon, typename Visitor>
@@ -165,7 +170,7 @@ namespace stk {
 		void visit(Polyline&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polyline_tag)
 		{
 			using namespace geometrix;
-			using point_t = typename point_sequence_traits<Polyline>::point_type;
+			using point_t = typename point_sequence_traits<typename std::decay<Polyline>::type>::point_type;
 
             for(auto i = 0ULL, j= 1ULL; j < p.size(); i = j++)
 				visit( segment<point_t>{ p[i], p[j] }, radius, geometrix::geometry_tags::segment_tag{} );
@@ -175,7 +180,7 @@ namespace stk {
 		void visit(Polygon&& p, const stk::units::length& radius, Visitor&& visitor, geometrix::geometry_tags::polygon_tag)
 		{
 			using namespace geometrix;
-			using point_t = typename point_sequence_traits<Polygon>::point_type;
+			using point_t = typename point_sequence_traits<typename std::decay<Polygon>::type>::point_type;
 
             for(std::size_t j = std::size_t{}, i = p.size() - 1; j < p.size(); i = j++)
 				visit( segment<point_t>{ p[i], p[j] }, radius, geometrix::geometry_tags::segment_tag{} );
