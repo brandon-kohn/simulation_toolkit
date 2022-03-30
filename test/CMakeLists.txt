@@ -33,7 +33,7 @@ if(Boost_FOUND)
 
     # pimpl test
     add_executable(pimpl_tests pimpl_test.cpp pimpl_tests.cpp)
-    target_link_libraries(pimpl_tests gtest_static gmock_main_static stk geometrix exact_static ${Boost_LIBRARIES})
+    target_link_libraries(pimpl_tests gtest_static gmock_main_static stk ska geometrix exact_static ${Boost_LIBRARIES})
     add_test(NAME pimpl_tests COMMAND pimpl_tests)
     set_property(TEST pimpl_tests PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
 
@@ -65,7 +65,7 @@ if(Boost_FOUND)
         else()
             target_compile_options(${test} PRIVATE -Wall -Wextra -Wno-unused-local-typedefs -Wno-missing-braces)
         endif()
-        target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk geometrix poly2tri_static ${Boost_LIBRARIES})
+        target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk ska geometrix poly2tri_static ${Boost_LIBRARIES})
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
