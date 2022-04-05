@@ -54,6 +54,8 @@ namespace stk {
 		template <job_state S>
 		bool is() const { return state.load(std::memory_order_relaxed) == S; }
 
+		job_state get_state() const { return state.load(std::memory_order_relaxed); }
+
 	private:
 
 		std::atomic<job_state> state;

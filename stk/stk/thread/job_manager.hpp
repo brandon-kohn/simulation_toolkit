@@ -78,11 +78,27 @@ namespace stk { namespace thread {
 		{
 			shutdown();
 		}
+
+		bool is_started(const string_hash& key)
+		{
+			auto checkStarted = +[]( job::job_state s )
+			{
+				return s == job::Running || s == job::Finished;
+			};
+			auto pJob = m_tracker.find_job( key );
+			return pJob && checkStarted(pJob->get_state());
+		}
 		
 		bool is_finished(const string_hash& key)
 		{
 			auto pJob = m_tracker.find_job( key );
-			return pJob && pJob->is<job::Finished>();
+			return pJob && pJob->template is<job::Finished>();
+		}
+		
+		bool is_aborted(const string_hash& key)
+		{
+			auto pJob = m_tracker.find_job( key );
+			return pJob && pJob->template is<job::Aborted>();
 		}
 
 		job* find_job( const string_hash& name ) const
