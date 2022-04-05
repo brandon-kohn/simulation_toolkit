@@ -125,7 +125,34 @@ TEST( dependency_tracker_test_suite, cross_thread_bench_dep_tracker )
 		}
 	};
 	deps.invoke_job( "Allocations", task, exec );
-	while( !deps.get_job( "Allocations" )->is<job::Finished>() );
+	while( !deps.find_job( "Allocations" )->is<job::Finished>() );
+	deps.erase_job( "Allocations" );
+	EXPECT_EQ( nullptr, deps.find_job( "Allocations" ) );
+}
+
+TEST( dependency_tracker_test_suite, dep_exception_aborted )
+{
+	using namespace stk::thread;
+	std::size_t nOSThreads = std::thread::hardware_concurrency() - 1;
+	using pool_t = work_stealing_thread_pool<mc_queue_traits>;
+	pool_t pool( nOSThreads );
+
+	using namespace stk;
+	job_tracker deps;
+	auto exec = [&]( auto Fn )
+	{
+		pool.send( Fn );
+	};
+	auto task = [&]()
+	{
+		throw std::logic_error( "bad" );
+	};
+	auto* pJob = deps.invoke_job( "Allocations", task, exec );
+	auto  s = pJob->get_state();
+	while( pJob->get_state() != job::Aborted && pJob->get_state() != job::Finished );
+	s = pJob->get_state();
+	EXPECT_TRUE( s == job::Aborted );
+
 	deps.erase_job( "Allocations" );
 	EXPECT_EQ( nullptr, deps.find_job( "Allocations" ) );
 }

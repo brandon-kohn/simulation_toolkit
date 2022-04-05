@@ -11,6 +11,7 @@
 #include <stk/container/concurrent_pointer_unordered_map.hpp>
 #include <stk/utility/memory_pool.hpp>
 #include <stk/utility/string_hash.hpp>
+#include <geometrix/utility/assert.hpp>
 
 #include <atomic>
 #include <cstdint>
@@ -58,6 +59,7 @@ namespace stk {
 
 	private:
 
+        friend class job_tracker;
 		std::atomic<job_state> state;
 		stk::string_hash       hash;
 
@@ -74,35 +76,39 @@ namespace stk {
             return find_job_impl(name);
         }
 
-        job* get_job(const string_hash& name)
-        {
-            return get_job_impl(name);
-        }
-
         void erase_job(const string_hash& name) 
         {
 			auto key = name.hash();
             m_map.erase_direct(key);
         }
+        
+        void erase_job(const job* pJob) 
+        {
+			GEOMETRIX_ASSERT( pJob );
+			auto key = pJob->hash.hash();
+            m_map.erase_direct(key);
+        }
 
         template <typename JobFn, typename Executor>
-        void invoke_job(const string_hash& name, JobFn&& fn, Executor&& executor)
+        job* invoke_job(const string_hash& name, JobFn&& fn, Executor&& executor)
         {
-			executor([name=name, fn=fn, executor=executor, this]()
+			auto* j = get_job( name );
+			GEOMETRIX_ASSERT( j->get_state() == job::NotStarted );
+			executor([j = j, name=name, fn=fn, executor=executor, this]()
 			{
-				auto* j = get_job( name );
-				j->set<job::Running>();
+				j->template set<job::Running>();
 				try
 				{
 				    fn();
 				}
                 catch (...)
                 {
-					j->set<job::Aborted>();
+					j->template set<job::Aborted>();
 					throw;
                 }
-				j->set<job::Finished>();
+				j->template set<job::Finished>();
 			});
+			return j;
         }
 
         void quiesce()
@@ -110,7 +116,12 @@ namespace stk {
             m_qsbr.flush();
         }
 
-    private:
+    protected:
+
+        job* get_job(const string_hash& name)
+        {
+            return get_job_impl(name);
+        }
         
         using mpool_t = memory_pool<job>;
         struct pool_deleter

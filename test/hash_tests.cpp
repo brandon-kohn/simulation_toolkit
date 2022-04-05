@@ -44,7 +44,7 @@ TEST( string_hash_test_suite, construct_hash_repeatable )
 	EXPECT_EQ( h1, h0 );
 }
 
-TEST( string_hash_test_suite, construct_string_hash )
+TEST( string_hash_test_suite, compile_time_construct_string_hash )
 {
 	using namespace stk;
 
@@ -60,6 +60,20 @@ TEST( string_hash_test_suite, construct_string_hash )
 	static_assert( s64.hash() == 9716672729628056121u, "Should be correct at compile time." );
 	static_assert( s64 == s64_, "Should be correct at compile time." );
 	static_assert( s32 == s32_, "Should be correct at compile time." );
+	EXPECT_EQ( s32.hash(), 2833342361u );
+	EXPECT_EQ( s64.hash(), 9716672729628056121u );
+}
+
+TEST( string_hash_test_suite, run_time_construct_string_hash )
+{
+	using namespace stk;
+
+	//"HiHiHi!";
+	std::string str = "HiHiHi!";
+	auto key = str.c_str();
+	auto s32 = make_string_hash32( key );
+	auto s64 = make_string_hash64( key );
+
 	EXPECT_EQ( s32.hash(), 2833342361u );
 	EXPECT_EQ( s64.hash(), 9716672729628056121u );
 }
