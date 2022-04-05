@@ -86,7 +86,7 @@ namespace stk {
         template <typename JobFn, typename Executor>
         void invoke_job(const string_hash& name, JobFn&& fn, Executor&& executor)
         {
-			executor([&, this]()
+			executor([name=name, fn=fn, executor=executor, this]()
 			{
 				auto* j = get_job( name );
 				j->set<job::Running>();

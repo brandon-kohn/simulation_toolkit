@@ -129,3 +129,49 @@ TEST( dependency_tracker_test_suite, cross_thread_bench_dep_tracker )
 	deps.erase_job( "Allocations" );
 	EXPECT_EQ( nullptr, deps.find_job( "Allocations" ) );
 }
+
+#include <stk/thread/job_manager.hpp>
+TEST( dependency_tracker_test_suite, cross_thread_bench_job_manager )
+{
+	using namespace stk::thread;
+	std::size_t nOSThreads = std::thread::hardware_concurrency() - 1;
+	using pool_t = work_stealing_thread_pool<mc_queue_traits>;
+	pool_t pool( nOSThreads );
+
+	using mpool_t = stk::memory_pool<int, stk::geometric_growth_policy<10>>;
+	auto sut = mpool_t{};
+
+	using future_t = pool_t::future<void>;
+
+	using namespace stk;
+	job_manager mgr;
+	nAllocations = 100;
+	auto exec = [&]( auto Fn )
+	{
+		pool.send( Fn );
+	};
+	auto task = [&]()
+	{
+		for( size_t i = 0; i < nAllocations; ++i )
+		{
+			std::array<int*, 10> allocs;
+			for( auto& ind : allocs )
+			{
+				ind = sut.allocate();
+				mpool_t::construct( ind, i );
+			}
+			for( auto& ind : allocs )
+			{
+				stk::deallocate_to_pool( ind );
+			}
+		}
+	};
+	mgr.invoke( "Allocations", task, exec );
+	mgr.invoke_after( "Allocations_Two", task, exec, "Allocations" );
+	while( !mgr.is_finished( "Allocations_Two" ) );
+	mgr.erase_job( "Allocations" );
+	EXPECT_EQ( nullptr, mgr.find_job( "Allocations" ) );
+	mgr.erase_job( "Allocations_Two" );
+	EXPECT_EQ( nullptr, mgr.find_job( "Allocations_Two" ) );
+}
+
