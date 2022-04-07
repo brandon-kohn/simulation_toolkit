@@ -16,6 +16,7 @@
 #include <array>
 #include <mutex>
 #include <type_traits>
+#include <condition_variable>
 #include <stk/thread/concurrentqueue.h>
 #include <stk/utility/make_vector.hpp>
 #include <geometrix/utility/assert.hpp>
