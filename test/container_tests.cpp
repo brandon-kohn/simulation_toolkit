@@ -134,9 +134,6 @@ TEST_P(flat_map_test_suite, timings)
 		}
 	}
 }
-#else
-#include <boost/container/flat_map.hpp>
-#endif
 class bytell_hash_map_test_suite : public ::testing::TestWithParam<int>
 {
 public:
@@ -192,3 +189,4 @@ TEST_P(bytell_hash_map_test_suite, timings)
 }
 INSTANTIATE_TEST_CASE_P(timings, bytell_hash_map_test_suite, ::testing::Range(1, 200, 5));
 INSTANTIATE_TEST_CASE_P(timings, flat_map_test_suite, ::testing::Range(1, 200, 5));
+#endif
