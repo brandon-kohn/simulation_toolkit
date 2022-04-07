@@ -55,7 +55,6 @@ if(Boost_FOUND)
         hash_tests
         container_tests
         compound_id_tests
-        math_tests
        )
 
     foreach(test ${tests})
@@ -66,6 +65,29 @@ if(Boost_FOUND)
         else()
             target_compile_options(${test} PRIVATE -Wall -Wextra -Wno-unused-local-typedefs -Wno-missing-braces)
         endif()
+        target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk ska geometrix poly2tri_static ${Boost_LIBRARIES})
+        add_test(NAME ${test} COMMAND ${test})
+        set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
+    endforeach()
+
+    # fp:strict tests
+    set(tests
+        math_tests
+       )
+
+    foreach(test ${tests})
+        add_executable(${test} ${test}.cpp)
+        target_compile_definitions(${test} PRIVATE -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
+        
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            target_compile_options(${test} PRIVATE -Wall -Wextra -Wno-unused-local-typedefs -Wno-missing-braces -msse2 -mfpmath=sse)
+        elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${test} PRIVATE -Wall -Wextra -Wno-unused-local-typedefs -Wno-missing-braces -msse2 -mfpmath=sse)
+        elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+        elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+            target_compile_options(${test} PRIVATE /W4 -wd4251 -wd4127 /fp:strict)
+        endif()
+
         target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk ska geometrix poly2tri_static ${Boost_LIBRARIES})
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
