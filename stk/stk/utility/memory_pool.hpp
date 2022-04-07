@@ -166,12 +166,12 @@ namespace stk {
 					base_t::m_q.generate_bulk( gen, growSize );
 				}
 				m_isExpanding.store( false );
-				m_itemsLoaded.notify_all();
+				base_t::m_itemsLoaded.notify_all();
 			}
 			else if( base_t::m_q.size_approx() == 0 )
 			{
 				auto lk = std::unique_lock<std::mutex>{ base_t::m_loadMutex };
-				m_itemsLoaded.wait( lk, [this]()
+				base_t::m_itemsLoaded.wait( lk, [this]()
 					{ return !m_isExpanding.load( std::memory_order_relaxed ) || base_t::m_q.size_approx() > 0; } );
 			}
 		}
