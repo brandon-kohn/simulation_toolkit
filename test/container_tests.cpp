@@ -1,3 +1,4 @@
+#if BOOST_VERSION >= 107000
 #include <stk/container/small_flat_set.hpp>
 #include <stk/container/small_flat_map.hpp>
 #include <ska/bytell_hash_map.hpp>
@@ -133,7 +134,9 @@ TEST_P(flat_map_test_suite, timings)
 		}
 	}
 }
-
+#else
+#include <boost/container/flat_map.hpp>
+#endif
 class bytell_hash_map_test_suite : public ::testing::TestWithParam<int>
 {
 public:
