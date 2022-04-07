@@ -72,7 +72,7 @@ TEST(fixed_point_suite, division_fixed_1_3_rvalue)
 	EXPECT_EQ(0.333, fixed_point3(1.0) / fixed_point3(3.0));
 }
 
-#include <boost/icl/interval_set.hpp>
+//#include <boost/icl/interval_set.hpp>
 #include <geometrix/numeric/constants.hpp>
 #include <geometrix/numeric/boost_units_quantity.hpp>
 #include <boost/units/cmath.hpp>
@@ -117,7 +117,7 @@ TEST(fixed_point_suite, radian_fmod)
 #include <geometrix/primitive/point.hpp>
 #include <geometrix/tensor/vector.hpp>
 #include <geometrix/tensor/is_null.hpp>
-
+/*
 TEST(interval_set_test_suit, test2)
 {
 	using namespace geometrix;
@@ -162,6 +162,7 @@ TEST(interval_set_test_suit, test)
 	std::cout << sut << std::endl;
 	std::cout << *it << std::endl;
 }
+*/
 
 #define STK_DONT_USE_PREPROCESSED_FILES
 #include <stk/utility/unsigned_integer.hpp>
