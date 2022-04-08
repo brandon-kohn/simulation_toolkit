@@ -2,6 +2,7 @@
 #include <gmock/gmock.h>
 #include <geometrix/numeric/constants.hpp>
 #include <cmath>
+#include <cstdint>
 #include <optional>
 
 #include <stk/sim/derivative.hpp>
@@ -9,6 +10,7 @@
 #include <boost/units/systems/si.hpp>
 #include <geometrix/utility/preprocessor.hpp>
 #include <fstream>
+#include <bitset>
 
 
  //////////////////////////////////////////////////////////////////////////
@@ -20,6 +22,7 @@ constexpr auto ofPrecision = std::numeric_limits<double>::max_digits10;
 std::ofstream sLogger;
 void           set_logger( const std::string& fname )
 {
+	sLogger.close();
 	sLogger.open( fname );
 }
 std::ostream& get_logger()
@@ -107,6 +110,182 @@ TEST(portable_math_test_suite, report)
 		get_logger() << x << " / " << y << " == " << ratio << "\n";
 		EXPECT_EQ( ratio, 0.50178230318000 );
 	}
+}
+
+namespace stk {
+
+	template <typename T, typename EnableIf=void>
+	struct floating_point_traits;
+
+	template <>
+	struct floating_point_traits<double>
+	{
+		BOOST_STATIC_CONSTEXPR std::uint8_t mantissa = 52;
+		BOOST_STATIC_CONSTEXPR std::uint8_t exponent = 11;
+		BOOST_STATIC_CONSTEXPR std::uint8_t signbit  = 1;
+		BOOST_STATIC_CONSTEXPR std::uint16_t exponent_bias = 1023;
+	};
+	
+	template <>
+	struct floating_point_traits<float>
+	{
+		BOOST_STATIC_CONSTEXPR std::uint8_t mantissa = 23;
+		BOOST_STATIC_CONSTEXPR std::uint8_t exponent = 8;
+		BOOST_STATIC_CONSTEXPR std::uint8_t signbit  = 1;
+		BOOST_STATIC_CONSTEXPR std::uint8_t exponent_bias = 127;
+	};
+
+	//! Assumes little-endian.
+	template <typename T>
+	struct floating_point_components
+	{
+		using value_type = typename std::decay<T>::type;
+		constexpr floating_point_components( value_type v = value_type{} )
+			: value{ v }
+		{}
+
+		value_type get_exponent() const { return (int)( exponent - floating_point_traits<value_type>::exponent_bias ); }
+		value_type get_mantissa() const 
+		{
+			auto v = value_type{1};
+			std::bitset<floating_point_traits<value_type>::mantissa> mbits( mantissa );
+			for( int i = floating_point_traits<value_type>::mantissa; i > 0; --i ) 
+				if(mbits[floating_point_traits<value_type>::mantissa - i])
+					v += std::pow( 2.0, static_cast<value_type>( -i ) );
+			return v;
+		}
+
+		void print_mantissa(std::ostream& os) const
+		{
+			std::bitset<floating_point_traits<value_type>::mantissa> v( mantissa );
+			os << "{" << v << "} ";
+			os << "(" << mantissa << ")";
+		}
+		
+		void print_exponent(std::ostream& os) const
+		{
+			std::bitset<floating_point_traits<value_type>::exponent> v( exponent );
+			os << "{" << v << "} ";
+			os << "(" << (int)exponent - floating_point_traits<value_type>::exponent_bias << ")";
+		}
+		
+		void print_signbit(std::ostream& os) const
+		{
+			std::bitset<floating_point_traits<value_type>::signbit> v( signbit );
+			os << "{" << v << "} ";
+			os << "(" << signbit << ")";
+		}
+		
+		void print_bits(std::ostream& os) const
+		{
+			std::bitset<sizeof(std::uint64_t)*8> v( bits_value );
+			os << "{" << v << "} ";
+			os << "(" << bits_value << ")";
+		}
+		
+		void print_reconstituted(std::ostream& os) const
+		{
+			auto v = value_type{};
+
+			if (mantissa || exponent) {
+				v = std::pow( 2.0, get_exponent() ) * get_mantissa(); 
+			}
+
+			os << "model: [" << v << "]";
+		}
+
+		void print(std::ostream& os) const
+		{
+			os.precision( ofPrecision );
+			os << "value: " << value;
+			os << "\nsign bit: ";
+			print_signbit( os );
+			os << "\nexponent: ";
+			print_exponent( os );
+			os << "\nmantissa: ";
+			print_mantissa( os );
+			os << "\nbits: ";
+			print_bits( os );
+			os << "\n";
+			print_reconstituted( os );
+			os << "\n";
+		}
+
+		union
+		{
+			value_type value;
+			std::uint64_t bits_value;
+			struct
+			{
+				std::uint64_t mantissa : floating_point_traits<value_type>::mantissa;
+				std::uint64_t exponent : floating_point_traits<value_type>::exponent;
+				std::uint64_t  signbit : floating_point_traits<value_type>::signbit;
+			};
+		};
+	};
+
+	template <typename T>
+	constexpr T truncate( std::uint64_t Bit, T v )
+	{
+		auto fp = floating_point_components<T>{ v };
+		fp.mantissa = (fp.mantissa >> Bit) << Bit;
+		return fp.value;
+	}
+
+	template <unsigned int i, unsigned int N, typename Fn, typename ... Args>
+	void invoke_range(Fn&& fn, Args&& ... args)
+	{
+		fn( i, std::forward<Args>( args )... );
+		if constexpr( i < N ) 
+		{
+			invoke_range<i + 1, N>( std::forward<Fn>( fn ), std::forward<Args>( args )... );
+		}
+	}
+
+	template <typename T>
+	void report_number(T v, std::ostream& os)
+	{
+		auto fp = floating_point_components<T>{ v };
+		fp.print( os );
+		os << "\n";
+	}
+
+}//! namespace stk;
+
+TEST(floating_point_test_suite, test_component_view)
+{
+	using namespace stk;
+	auto fp = floating_point_components<double>{ 1.0 };
+	EXPECT_EQ( fp.bits_value, 0x3FF0000000000000 );
+
+	auto fn = []( unsigned int i )
+	{
+		double v = i;
+		report_number( v, get_logger() );
+	};
+	invoke_range<0, 1000>( fn );
+
+	set_logger( "decimal_test.txt" );
+	auto fn2 = []( unsigned int i )
+	{
+		double v = std::pow(10.0, -(double)i);
+		report_number( v, get_logger() );
+	};
+	invoke_range<0, 1000>( fn2 );
+}
+
+TEST(floating_point_test_suite, test_truncate)
+{
+	using namespace stk;
+	auto fp = floating_point_components<float>{ 1.4142135381698608 };
+
+	auto fn = []( unsigned int i, double v ) 
+	{
+		auto r = truncate( i, v );
+		std::cout.precision( ofPrecision );
+		std::cout << r << "\n";
+	};
+	invoke_range<0,51>( fn, fp.value );
 }
 
 TEST( derivative_grammarTestSuite, testOptimizeAdd )
@@ -500,9 +679,9 @@ TEST( derivative_grammarTestSuite, time_grammar_evaluation )
 		auto d4 = derivative( x + pow<2>( x ) * ( 1.0 + x + pow<2>( x ) * ( 1.0 + x + pow<2>( x ) * ( 1.0 + x + pow<2>( x ) * ( 1.0 + x ) ) ) ) );
 
 		auto d = derivative( x + pow<2>( x ) + pow<3>( x ) + pow<4>( x ) + pow<5>( x ) + pow<6>( x ) + pow<7>( x ) + pow<8>( x ) + pow<9>( x ) );
-		boost::proto::display_expr( d, std::cout );
+		//boost::proto::display_expr( d, std::cout );
 
-		boost::proto::display_expr( d4, std::cout );
+		//boost::proto::display_expr( d4, std::cout );
 		GEOMETRIX_MEASURE_SCOPE_TIME( "eval_grammar" );
 		for( int i = 0; i < nRuns; ++i )
 			results[i] = d( 7.7 );
