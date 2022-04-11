@@ -27,3 +27,6 @@
 [submodule "entt"]
 	path = entt
 	url = https://github.com/brandon-kohn/entt.git
+[submodule "GeometricTools"]
+	path = GeometricTools
+	url = https://github.com/brandon-kohn/GeometricTools.git
