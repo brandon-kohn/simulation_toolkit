@@ -9,6 +9,7 @@
 #include <geometrix/utility/scope_timer.ipp>
 #include <boost/units/systems/si.hpp>
 #include <geometrix/utility/preprocessor.hpp>
+#include <geometrix/utility/assert.hpp>
 #include <fstream>
 #include <bitset>
 
@@ -98,6 +99,7 @@ TEST(portable_math_test_suite, report)
 		auto r = newton_raphson_method( guess, 100, 1e-14, 1e-10, f, d0 );
 	}
 
+	STK_LOG_EVAL( std::sqrt, 0., 100.0, 0.01 );
 	STK_LOG_EVAL( std::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	STK_LOG_EVAL( std::sin, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	STK_LOG_EVAL( std::exp, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
@@ -144,6 +146,7 @@ namespace stk {
 			: value{ v }
 		{}
 
+		bool get_sign_bit() const { return signbit; }
 		value_type get_exponent() const { return (int)( exponent - floating_point_traits<value_type>::exponent_bias ); }
 		value_type get_mantissa() const 
 		{
@@ -191,6 +194,10 @@ namespace stk {
 				v = std::pow( 2.0, get_exponent() ) * get_mantissa(); 
 			}
 
+			if (get_sign_bit()) {
+				v *= -1;
+			}
+
 			os << "model: [" << v << "]";
 		}
 
@@ -225,11 +232,28 @@ namespace stk {
 	};
 
 	template <typename T>
-	constexpr T truncate( std::uint64_t Bit, T v )
+	constexpr T truncate_mask_bugged( std::uint64_t Bit, T v )
 	{
+		GEOMETRIX_ASSERT(Bit + 2 < floating_point_traits<T>::mantissa);
+		//! This is faster, but can't handle the MSB of the mantissa.
+		auto fp = floating_point_components<T>{ v };
+		fp.mantissa &= ~( ( 1ULL << (Bit + 1ULL) ) - 1ULL );
+		return fp.value;
+	}
+	
+	template <typename T>
+	constexpr T truncate_shift( std::uint64_t Bit, T v )
+	{
+		//! Slower but handles all bits of mantissa.
 		auto fp = floating_point_components<T>{ v };
 		fp.mantissa = (fp.mantissa >> Bit) << Bit;
 		return fp.value;
+	}
+	
+	template <typename T>
+	constexpr T truncate( std::uint64_t Bit, T v )
+	{
+		return truncate_shift( Bit, v );
 	}
 
 	template <unsigned int i, unsigned int N, typename Fn, typename ... Args>
@@ -252,11 +276,53 @@ namespace stk {
 
 }//! namespace stk;
 
+TEST( floating_point_components_test_suite, DISABLED_time_truncation)
+{
+	using namespace stk;
+	using namespace ::testing;
+
+	std::size_t nRuns = 100;
+	std::vector<double> src( nRuns );
+	for( auto i = 0ULL; i < nRuns; ++i )
+		src[i] = double( i );
+	auto                nSize = nRuns * (floating_point_traits<double>::mantissa - 2);
+	std::vector<double> results( nSize, 0 ), results1( nSize, 0 );
+
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( "truncation_shift" );
+		auto q = 0ULL;
+		for( auto i = 0ULL; i < nRuns; ++i )
+			for( auto B = 0ULL; B + 2 < floating_point_traits<double>::mantissa; ++B )
+				results[q++] = truncate_shift( B, src[i] );
+	}
+	/*
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( "truncation_shift_mask" );
+		auto q = 0ULL;
+		for( auto i = 0ULL; i < nRuns; ++i )
+			for( auto B = 0ULL; B + 2 < floating_point_traits<double>::mantissa; ++B )
+				results1[q++] = truncate_mask_bugged( B, src[i] );
+	}
+	*/
+
+	//auto r0 = truncate_shift( 51, src[99] );
+	//auto r1 = truncate( 51, src[99] );
+
+	std::set<std::size_t> diffs;
+	for( auto i = 0; i < results.size(); ++i )
+		if( results[i] != results1[i] )
+			diffs.insert( i );
+
+	EXPECT_EQ( results, results1 );
+}
+
 TEST(floating_point_test_suite, test_component_view)
 {
 	using namespace stk;
 	auto fp = floating_point_components<double>{ 1.0 };
 	EXPECT_EQ( fp.bits_value, 0x3FF0000000000000 );
+	fp = floating_point_components<double>{ -1.0 };
+	EXPECT_EQ( fp.signbit, 1 );
 
 	auto fn = []( unsigned int i )
 	{
