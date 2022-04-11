@@ -88,7 +88,7 @@ if(Boost_FOUND)
             target_compile_options(${test} PRIVATE /W3 -wd4251 -wd4127 /fp:strict)
         endif()
 
-        target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk ska geometrix poly2tri_static ${Boost_LIBRARIES})
+        target_link_libraries(${test} gtest_static gmock_main_static exact_static clipper_static stk ska geometrix poly2tri_static gte ${Boost_LIBRARIES})
         add_test(NAME ${test} COMMAND ${test})
         set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
     endforeach()
