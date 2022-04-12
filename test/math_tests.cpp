@@ -13,8 +13,6 @@
 #include <fstream>
 #include <bitset>
 
-#include <Mathematics/Math.h>
-
  //////////////////////////////////////////////////////////////////////////
 //!
 //! Tests
@@ -724,7 +722,7 @@ TEST( derivative_grammarTestSuite, testUnitsPolynomialDegree3Derivative2WithUnit
 //! Timings...
 
 //! Test the above mock registrations.
-TEST( derivative_grammarTestSuite, time_grammar_evaluation )
+TEST( derivative_grammarTestSuite, DISABLED_time_grammar_evaluation )
 {
 	using namespace stk;
 	using namespace ::testing;
@@ -850,6 +848,86 @@ TEST(exp_test_suite, fast_exp_sse)
 			arg.i[3] += 4;
 		} while( fabsf( arg.f[3] ) < fabsf( finish[i] ) );
 	}
-	printf( "maximum relative errror = %15.8e\n", maxrelerr );
+	printf( "maximum relative error = %15.8e\n", maxrelerr );
 }
 */
+
+#include <GTE/Mathematics/SinEstimate.h>
+
+TEST(GTE_Math_test_suite, test_sin)
+{
+	using namespace stk;
+	set_logger( "sinestimate.txt" );
+	STK_LOG_EVAL( gte::SinEstimate<double>::DegreeRR<11>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+	set_logger( "stdsin.txt" );
+	STK_LOG_EVAL( std::sin, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+}
+
+struct timing_harness : ::testing::Test
+{
+	timing_harness() = default;
+	void SetUp()
+	{
+
+	}
+	void TearDown()
+	{
+
+	}
+
+	template <typename Fn>
+	void do_timing(const char* fname, Fn&& timing)
+	{
+		GEOMETRIX_MEASURE_SCOPE_TIME( fname );
+		timing();
+	}
+};
+//! Test the above mock registrations.
+TEST_F( timing_harness, time_sin )
+{
+	using namespace stk;
+	using namespace ::testing;
+
+#ifdef NDEBUG
+	std::size_t nRuns = 100000;
+#else
+	std::size_t nRuns = 100;
+#endif
+	auto                nData = 100;
+	auto                nResults = nData * nRuns;
+	std::vector<double> results( nResults, 0 ), results1( nResults, 0 );
+
+	std::vector<double> src( nData, 0.0 );
+	auto xmin = -geometrix::constants::pi<double>(); 
+	auto                xmax = -xmin;
+	auto                step = ( xmax - xmin ) / nData;
+	for( auto i = 0ULL; i < nData; ++i)
+	{
+		src[i] = xmin + i * step;
+	}
+
+	auto sinfn = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results[q++] = std::sin( src[j] );
+	};
+	do_timing( "std::sin", sinfn );
+	auto sinExfn11 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results1[q++] = gte::SinEstimate<double>::DegreeRR<11>( src[j] );
+	};
+	do_timing( "gte::SinEstimate<11>", sinExfn11);
+	auto sinExfn5 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results1[q++] = gte::SinEstimate<double>::DegreeRR<5>( src[j] );
+	};
+	do_timing( "gte::SinEstimate<5>", sinExfn5 );
+}
