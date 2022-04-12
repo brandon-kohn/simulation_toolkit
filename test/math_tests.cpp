@@ -853,6 +853,8 @@ TEST(exp_test_suite, fast_exp_sse)
 */
 
 #include <GTE/Mathematics/SinEstimate.h>
+#include <GTE/Mathematics/CosEstimate.h>
+#include <GTE/Mathematics/ExpEstimate.h>
 
 TEST(GTE_Math_test_suite, test_sin)
 {
@@ -861,6 +863,24 @@ TEST(GTE_Math_test_suite, test_sin)
 	STK_LOG_EVAL( gte::SinEstimate<double>::DegreeRR<11>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	set_logger( "stdsin.txt" );
 	STK_LOG_EVAL( std::sin, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+}
+
+TEST(GTE_Math_test_suite, test_cos)
+{
+	using namespace stk;
+	set_logger( "cosestimate.txt" );
+	STK_LOG_EVAL( gte::CosEstimate<double>::DegreeRR<10>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+	set_logger( "stdsin.txt" );
+	STK_LOG_EVAL( std::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+}
+
+TEST(GTE_Math_test_suite, test_exp)
+{
+	using namespace stk;
+	set_logger( "expestimate.txt" );
+	STK_LOG_EVAL( gte::ExpEstimate<double>::DegreeRR<7>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+	set_logger( "stdexp.txt" );
+	STK_LOG_EVAL( std::exp, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 }
 
 struct timing_harness : ::testing::Test
@@ -914,6 +934,7 @@ TEST_F( timing_harness, time_sin )
 				results[q++] = std::sin( src[j] );
 	};
 	do_timing( "std::sin", sinfn );
+
 	auto sinExfn11 = [&]()
 	{
 		auto q = 0ULL;
@@ -922,12 +943,132 @@ TEST_F( timing_harness, time_sin )
 				results1[q++] = gte::SinEstimate<double>::DegreeRR<11>( src[j] );
 	};
 	do_timing( "gte::SinEstimate<11>", sinExfn11);
-	auto sinExfn5 = [&]()
+}
+TEST_F( timing_harness, time_cos)
+{
+	using namespace stk;
+	using namespace ::testing;
+
+#ifdef NDEBUG
+	std::size_t nRuns = 100000;
+#else
+	std::size_t nRuns = 100;
+#endif
+	auto                nData = 100;
+	auto                nResults = nData * nRuns;
+	std::vector<double> results( nResults, 0 ), results1( nResults, 0 );
+
+	std::vector<double> src( nData, 0.0 );
+	auto xmin = -geometrix::constants::pi<double>(); 
+	auto                xmax = -xmin;
+	auto                step = ( xmax - xmin ) / nData;
+	for( auto i = 0ULL; i < nData; ++i)
+	{
+		src[i] = xmin + i * step;
+	}
+
+	auto fn1 = [&]()
 	{
 		auto q = 0ULL;
 		for( int i = 0; i < nRuns; ++i )
 			for( int j = 0; j < src.size(); ++j )
-				results1[q++] = gte::SinEstimate<double>::DegreeRR<5>( src[j] );
+				results[q++] = std::cos( src[j] );
 	};
-	do_timing( "gte::SinEstimate<5>", sinExfn5 );
+	do_timing( "std::cos", fn1 );
+	
+	auto fn2 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results1[q++] = gte::CosEstimate<double>::DegreeRR<10>( src[j] );
+	};
+	do_timing( "gte::CosEstimate<10>", fn2);
+}
+TEST_F( timing_harness, time_exp)
+{
+	using namespace stk;
+	using namespace ::testing;
+
+#ifdef NDEBUG
+	std::size_t nRuns = 100000;
+#else
+	std::size_t nRuns = 100;
+#endif
+	auto                nData = 100;
+	auto                nResults = nData * nRuns;
+	std::vector<double> results( nResults, 0 ), results1( nResults, 0 );
+
+	std::vector<double> src( nData, 0.0 );
+	auto xmin = -geometrix::constants::pi<double>(); 
+	auto                xmax = -xmin;
+	auto                step = ( xmax - xmin ) / nData;
+	for( auto i = 0ULL; i < nData; ++i)
+	{
+		src[i] = xmin + i * step;
+	}
+
+	auto fn1 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results[q++] = std::exp( src[j] );
+	};
+	do_timing( "std::exp", fn1 );
+
+	auto fn2 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results1[q++] = gte::ExpEstimate<double>::DegreeRR<7>( src[j] );
+	};
+	do_timing( "gte::ExpEstimate<7>", fn2);
+}
+
+#include <GTE/Mathematics/SqrtEstimate.h>
+TEST_F(timing_harness, test_sqrt)
+{
+	using namespace stk;
+	using namespace ::testing;
+	set_logger( "sqrtestimate.txt" );
+	STK_LOG_EVAL( gte::SqrtEstimate<double>::DegreeRR<8>, 0.0, geometrix::constants::pi<double>(), 0.01 ); 
+	set_logger( "stdsqrt.txt" );
+	STK_LOG_EVAL( std::sqrt, 0.0, geometrix::constants::pi<double>(), 0.01 ); 
+#ifdef NDEBUG
+	std::size_t nRuns = 100000;
+#else
+	std::size_t nRuns = 100;
+#endif
+	auto                nData = 100;
+	auto                nResults = nData * nRuns;
+	std::vector<double> results( nResults, 0 ), results1( nResults, 0 );
+
+	std::vector<double> src( nData, 0.0 );
+	auto                xmin = 0.0;
+	auto                xmax = geometrix::constants::pi<double>(); 
+	auto                step = ( xmax - xmin ) / nData;
+	for( auto i = 0ULL; i < nData; ++i)
+	{
+		src[i] = xmin + i * step;
+	}
+
+	auto fn1 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results[q++] = std::sqrt( src[j] );
+	};
+	do_timing( "std::sqrt", fn1 );
+	
+	auto fn2 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				results1[q++] = gte::SqrtEstimate<double>::DegreeRR<8>( src[j] );
+	};
+	do_timing( "gte::SqrtEstimate<8>", fn2);
 }
