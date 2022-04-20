@@ -406,14 +406,14 @@ public:
     {
         size_t index = hash_object(key);
         size_t num_slots_minus_one = this->num_slots_minus_one;
-        BlockPointer entries = this->entries;
+        BlockPointer lentries = this->entries;
         index = hash_policy.index_for_hash(index, num_slots_minus_one);
         bool first = true;
         for (;;)
         {
             size_t block_index = index / BlockSize;
             int index_in_block = index % BlockSize;
-            BlockPointer block = entries + block_index;
+            BlockPointer block = lentries + block_index;
             int8_t metadata = block->control_bytes[index_in_block];
             if (first)
             {
