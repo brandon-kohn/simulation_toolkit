@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
 
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.61.0 COMPONENTS thread system)
+find_package(Boost 1.61.0 COMPONENTS thread system serialization)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
@@ -55,6 +55,7 @@ if(Boost_FOUND)
         hash_tests
         container_tests
         compound_id_tests
+        serialization_tests
        )
 
     foreach(test ${tests})
