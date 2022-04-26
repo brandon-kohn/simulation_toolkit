@@ -16,6 +16,8 @@
 #include <boost/range/algorithm_ext/erase.hpp>
 #include <boost/optional.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
+#include <geometrix/arithmetic/math_kernel.hpp>
+#include <stk/math/math_approx.hpp>
 
 #include <vector>
 #include <mutex>
@@ -41,13 +43,12 @@ namespace stk {
             {
                 using namespace geometrix;
                 using namespace stk;
-                using std::exp;
 
                 auto area = get_area(std::forward<Triangle>(trig));
                 std::size_t idx;
                 auto distanceSqrd = pBSP->get_min_distance_sqrd_to_solid(get_centroid(trig), idx, make_tolerance_policy());
                 auto d2 = std::max(distanceSqrd.value(), distanceSaturation.value());
-                weight_type f = area.value() * exp(-attractionStrength * d2);
+                weight_type f = area.value() * stk::exp(-attractionStrength * d2);
                 return f;
             }
 
@@ -546,10 +547,9 @@ namespace stk {
 			{
 				using namespace geometrix;
 				using namespace stk;
-				using std::exp;
 
 				auto d2 = std::max(distanceSqrd.value(), distanceSaturation.value());
-				double f = exp(-attractionStrength * d2);
+				double f = stk::exp(-attractionStrength * d2);
 				return f;
 			}
 

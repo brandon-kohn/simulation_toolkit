@@ -14,10 +14,11 @@
 #endif
 
 #include <stk/units/probability.hpp>
+#include <geometrix/arithmetic/math_kernel.hpp>
 
 namespace stk {
 
-template <typename UtilityModel>
+template <typename UtilityModel, typename Math = geometrix::std_math_kernel>
 struct binary_logit_model
 {
     binary_logit_model()
@@ -30,9 +31,7 @@ struct binary_logit_model
     template <typename... Args>
     units::probability operator()(const Args&... a) const
     {
-        using std::exp;
-
-        auto result = 1.0 / ( 1.0 + exp(-m_utility(a...)));
+        auto result = 1.0 / ( 1.0 + Math::exp(-m_utility(a...)));
         
         return result.value() * units::proportion;
     }

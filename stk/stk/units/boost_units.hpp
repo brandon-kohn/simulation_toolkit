@@ -18,7 +18,6 @@
 #include <boost/units/systems/si.hpp>
 #include <boost/units/systems/si/prefixes.hpp>
 #include <boost/units/make_scaled_unit.hpp>
-#include <boost/units/cmath.hpp>
 #include <boost/units/io.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy.hpp>

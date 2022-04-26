@@ -1,19 +1,20 @@
 #pragma once
 
 #include <geometrix/utility/assert.hpp>
+#include <geometrix/arithmetic/math_kernel.hpp>
 #include <random>
-#include <cmath>
 #include <istream>
 #include <ostream>
 
 namespace stk {
 
-    template<typename T = double>
+    template<typename T = double, typename Math = geometrix::std_math_kernel>
     class maxwell_boltzmann_distribution
     {
     public:
 
         using result_type = T;
+        using math_kernel = Math;
 
         struct param_type
         {
@@ -71,8 +72,6 @@ namespace stk {
         template<typename Engine>
         result_type operator()(Engine& e, const param_type& params)
         {
-            using std::sqrt;
-            using std::log;
             auto U = std::uniform_real_distribution<T>();
             
             #ifdef STK_USE_NADER_BOLTZMANN_DISTRIBUTION //! - NOTE: I have something wrong here.
@@ -82,14 +81,14 @@ namespace stk {
             {
                 auto r1 = U(e);
                 auto r2 = U(e);
-                auto y = -2.0 * log(r1);
+                auto y = -2.0 * math_kernel::log(r1);
                 auto q = r1/r2;
                 if(g2*y >= q*q)
-                    return params.a() * sqrt(2.0 * y);
+                    return params.a() * math_kernel::sqrt(2.0 * y);
             }
             #else
             //! Use Johnk's algorithm from handbook on statistical distribution for experimentalists.
-            auto r = -log(U(e));
+            auto r = -math_kernel::log(U(e));
             while (true) 
             {
                 auto r1 = U(e);
@@ -99,8 +98,8 @@ namespace stk {
                 auto w = w1 + w2;
                 if (w <= 1.0)
                 {
-                    r = r - (w1 / w) * log(U(e));
-                    return params.a() * sqrt(2.0 * r);
+                    r = r - (w1 / w) * math_kernel::log(U(e));
+                    return params.a() * math_kernel::sqrt(2.0 * r);
                 }
             }
             #endif

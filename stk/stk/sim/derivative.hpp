@@ -893,7 +893,6 @@ namespace stk {
 
 			static type apply( const Arg& arg, const dArg& darg )
 			{
-				using std::log;
 				return ( 1.0 / arg ) * darg;
 			}
 		};

@@ -15,6 +15,7 @@
 
 #include <geometrix/utility/tagged_quantity.hpp>
 #include <geometrix/arithmetic/boost_units_arithmetic.hpp>
+#include <geometrix/arithmetic/math_kernel.hpp>
 #include <stk/units/boost_units.hpp>
 #include <stk/units/probability.hpp>
 
@@ -29,7 +30,7 @@ struct GrowthRateTag;
 template <typename T>
 using GrowthRate = geometrix::tagged_quantity<GrowthRateTag, T>;
 
-template <typename X, typename GrowthRateType = typename units::inverse<X>::type>
+template <typename X, typename GrowthRateType = typename units::inverse<X>::type, typename Math = geometrix::std_math_kernel>
 struct logistic_function
 {
     logistic_function()
@@ -45,11 +46,7 @@ struct logistic_function
 
     units::probability operator()(const X& x) const
     {
-        using std::pow;
-        using std::exp;
-
-        auto result = A + (K - A) / pow( 1.0 + Q * exp(-B*x), v);
-        
+        auto result = A + (K - A) / Math::pow( 1.0 + Q * Math::exp(-B*x), v);
         return result.value();
     }
 

@@ -2,9 +2,10 @@
 #include <gmock/gmock.h>
 #include <geometrix/numeric/constants.hpp>
 #include <stk/utility/floating_point_traits.hpp>
+#include <stk/math/math_approx.hpp>
 #include <optional>
 
-#include <stk/sim/derivative.hpp>
+//#include <stk/sim/derivative.hpp>
 #include <geometrix/utility/scope_timer.ipp>
 #include <boost/units/systems/si.hpp>
 #include <geometrix/utility/preprocessor.hpp>
@@ -82,20 +83,6 @@ TEST(portable_math_test_suite, report)
 {
 	using namespace stk;
 	set_logger( "math_report.txt" );
-	{
-		derivative_expr<boost::proto::terminal<x_var>::type> x;
-		derivative_grammar                                   derivative;
-
-		auto f = []( double x )
-		{
-			return x * x * cos( x );
-		};
-		auto d0 = derivative( pow<2>( x ) * cos( x ) );
-
-		auto guess = 3.14;
-
-		auto r = newton_raphson_method( guess, 100, 1e-14, 1e-10, f, d0 );
-	}
 
 	STK_LOG_EVAL( std::sqrt, 0., 100.0, 0.01 );
 	STK_LOG_EVAL( std::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
@@ -296,7 +283,7 @@ TEST(floating_point_test_suite, test_truncate)
 	};
 	invoke_range<0,51>( fn, fp.value );
 }
-
+/*
 TEST( derivative_grammarTestSuite, testOptimizeAdd )
 {
 	using namespace stk;
@@ -705,6 +692,8 @@ TEST( derivative_grammarTestSuite, DISABLED_time_grammar_evaluation )
 
 	EXPECT_EQ( results, results1 );
 }
+*/
+
 /*
 #include <stdio.h>
 #include <stdlib.h>
@@ -1050,5 +1039,50 @@ TEST(math_test_suite, test_zero)
 		auto sezero = gte::ExpEstimate<double>::DegreeRR<7>( 0.0 );
 		EXPECT_EQ( szero, sezero );
 	}
+}
+
+TEST_F( timing_harness, time_atan2)
+{
+	using namespace stk;
+	using namespace ::testing;
+
+	std::size_t nRuns = 100;
+	auto                nData = 100;
+	auto                nResults = nData * nData * nRuns;
+	std::vector<double> results( nResults, 0 ), results1( nResults, 0 );
+
+	std::vector<double> src( nData, 0.0 );
+	auto xmin = -geometrix::constants::pi<double>(); 
+	auto                xmax = -xmin;
+	auto                step = ( xmax - xmin ) / nData;
+	for( auto i = 0ULL; i < nData; ++i)
+	{
+		src[i] = xmin + i * step;
+	}
+
+	auto fn1 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				for( int k = 0; k < src.size(); ++k )
+				results[q++] = std::atan2( src[j], src[k] );
+	};
+	do_timing( "std::atan2", fn1 );
+	
+	auto fn2 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				for( int k = 0; k < src.size(); ++k )
+					results1[q++] = stk::atan2( src[j], src[k] );
+	};
+	do_timing( "stk::atan2", fn2);
+	double avgRelErr, maxRelErr;
+	double avgAbsErr, maxAbsErr;
+	extract_stats( results1, results, avgRelErr, maxRelErr, avgAbsErr, maxAbsErr );
+	std::cout << "atan2 avg. relative error: " << avgRelErr << " max: " << maxRelErr << std::endl;
+	std::cout << "atan2 avg. absolute error: " << avgAbsErr << " max: " << maxAbsErr << std::endl;
 }
 

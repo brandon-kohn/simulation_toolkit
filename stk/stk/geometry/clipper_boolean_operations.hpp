@@ -358,6 +358,25 @@ namespace stk {
 
         return to_polygons_with_holes(ptree, scale);
     }
+   
+    template <typename Math>
+    inline std::vector<polygon_with_holes2> clipper_offset_use_math(const ClipperLib::Path& boundary, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::ClipperOffset co;
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+        ClipperLib::PolyTree ptree;
+		ClipperLib::MathKernel math
+        (
+			  []( double v ) { Math::cos( v ); }
+			, []( double v ) { Math::acos( v ); }
+			, []( double v ) { Math::sin( v ); }
+			, []( double v ) { Math::tan( v ); }
+			, []( double y, double x ) { Math::atan2( v ); }
+        );
+        co.Execute(ptree, offset.value() * scale, math);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
     
     inline std::vector<polygon_with_holes2> clipper_offset(const ClipperLib::Paths& ps, const units::length& offset, unsigned int scale)
     {
@@ -366,6 +385,26 @@ namespace stk {
             co.AddPath(p, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
         ClipperLib::PolyTree ptree;
         co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
+    
+    template <typename Math>
+    inline std::vector<polygon_with_holes2> clipper_offset_use_math(const ClipperLib::Paths& ps, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::ClipperOffset co;
+		for(auto& p : ps)
+            co.AddPath(p, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+        ClipperLib::PolyTree ptree;
+		ClipperLib::MathKernel math
+        (
+			  []( double v ) { Math::cos( v ); }
+			, []( double v ) { Math::acos( v ); }
+			, []( double v ) { Math::sin( v ); }
+			, []( double v ) { Math::tan( v ); }
+			, []( double y, double x ) { Math::atan2( v ); }
+        );
+        co.Execute(ptree, offset.value() * scale, math);
 
         return to_polygons_with_holes(ptree, scale);
     }
@@ -381,6 +420,30 @@ namespace stk {
         co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
         ClipperLib::PolyTree ptree;
         co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
+   
+    template <typename Math>
+    inline std::vector<polygon_with_holes2> clipper_offset_use_math(const polygon2& pgon, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::Path boundary;
+
+        for (const auto& p : pgon)
+            boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
+
+        ClipperLib::ClipperOffset co;
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+        ClipperLib::PolyTree ptree;
+		ClipperLib::MathKernel math
+        (
+			  []( double v ) { Math::cos( v ); }
+			, []( double v ) { Math::acos( v ); }
+			, []( double v ) { Math::sin( v ); }
+			, []( double v ) { Math::tan( v ); }
+			, []( double y, double x ) { Math::atan2( v ); }
+        );
+        co.Execute(ptree, offset.value() * scale, math);
 
         return to_polygons_with_holes(ptree, scale);
     }
@@ -407,6 +470,38 @@ namespace stk {
 
         return to_polygons_with_holes(ptree, scale);
     }
+   
+    template <typename Math>
+    inline std::vector<polygon_with_holes2> clipper_offset_use_math(const polygon_with_holes2& pgon, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::ClipperOffset co;
+        
+		ClipperLib::Path boundary;
+        for (const auto& p : pgon.get_outer())
+            boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+
+		for (auto const& hole : pgon.get_holes())
+		{
+			boundary.clear();
+			for (const auto& p : hole)
+				boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>( p[1].value() * scale));
+			co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etClosedPolygon);
+		}
+
+        ClipperLib::PolyTree ptree;
+        ClipperLib::MathKernel math
+        (
+			  []( double v ) { Math::cos( v ); }
+			, []( double v ) { Math::acos( v ); }
+			, []( double v ) { Math::sin( v ); }
+			, []( double v ) { Math::tan( v ); }
+			, []( double y, double x ) { Math::atan2( v ); }
+        );
+        co.Execute(ptree, offset.value() * scale, math);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
     
     inline std::vector<polygon_with_holes2> clipper_offset(const polyline2& pline, const units::length& offset, unsigned int scale)
     {
@@ -419,6 +514,30 @@ namespace stk {
         co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etOpenSquare);
         ClipperLib::PolyTree ptree;
         co.Execute(ptree, offset.value() * scale);
+
+        return to_polygons_with_holes(ptree, scale);
+    }
+   
+    template <typename Math>
+    inline std::vector<polygon_with_holes2> clipper_offset_use_math(const polyline2& pline, const units::length& offset, unsigned int scale)
+    {
+        ClipperLib::Path boundary;
+
+        for (const auto& p : pline)
+            boundary << ClipperLib::IntPoint(static_cast<ClipperLib::cInt>(p[0].value() * scale), static_cast<ClipperLib::cInt>(p[1].value() * scale));
+
+        ClipperLib::ClipperOffset co;
+        co.AddPath(boundary, ClipperLib::jtSquare, ClipperLib::etOpenSquare);
+        ClipperLib::PolyTree ptree;
+		ClipperLib::MathKernel math
+        (
+			  []( double v ) { Math::cos( v ); }
+			, []( double v ) { Math::acos( v ); }
+			, []( double v ) { Math::sin( v ); }
+			, []( double v ) { Math::tan( v ); }
+			, []( double y, double x ) { Math::atan2( v ); }
+        );
+        co.Execute(ptree, offset.value() * scale, math);
 
         return to_polygons_with_holes(ptree, scale);
     }
@@ -459,6 +578,25 @@ namespace stk {
 		return outer;
 	}
 
+    template <typename Math>
+    inline std::vector<stk::polygon_with_holes2> heal_non_simple_polygon_use_math(const stk::polygon_with_holes2& pgon, stk::units::length const& healOffset, unsigned int scale)
+	{
+		using namespace stk;
+		using namespace geometrix;
+
+		std::vector<stk::polygon_with_holes2> outer = { pgon };
+		if (!is_polygon_simple(pgon.get_outer(), make_tolerance_policy()))
+			outer = clipper_offset_use_math<Math>(pgon.get_outer(), healOffset, scale);
+
+		for (const auto& h : pgon.get_holes())
+		{
+			auto nh = clipper_offset_use_math<Math>(h, healOffset, scale);
+			outer = clipper_difference_simple(outer, nh, scale);
+		}
+
+		return outer;
+	}
+
 	inline void heal_non_simple_polygons(std::vector<stk::polygon_with_holes2>& pgons, stk::units::length const& offset = 0.001 * boost::units::si::meters, unsigned int scale = 10000)
 	{
 		for (std::size_t i = 0; i < pgons.size();) 
@@ -466,6 +604,24 @@ namespace stk {
 			if (!is_polygon_with_holes_simple(pgons[i], make_tolerance_policy())) 
 			{
 				auto newGeometry = heal_non_simple_polygon(pgons[i], offset, scale);
+				std::iter_swap(pgons.begin() + i, pgons.end() - 1);
+				pgons.pop_back();
+				pgons.insert(pgons.end(), newGeometry.begin(), newGeometry.end());
+				continue;
+			}
+
+			++i;
+		}
+	}
+
+    template <typename Math>
+    inline void heal_non_simple_polygons_use_math(std::vector<stk::polygon_with_holes2>& pgons, stk::units::length const& offset = 0.001 * boost::units::si::meters, unsigned int scale = 10000)
+	{
+		for (std::size_t i = 0; i < pgons.size();) 
+		{
+			if (!is_polygon_with_holes_simple(pgons[i], make_tolerance_policy())) 
+			{
+				auto newGeometry = heal_non_simple_polygon_use_math<Math>(pgons[i], offset, scale);
 				std::iter_swap(pgons.begin() + i, pgons.end() - 1);
 				pgons.pop_back();
 				pgons.insert(pgons.end(), newGeometry.begin(), newGeometry.end());
