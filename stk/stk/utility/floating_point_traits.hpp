@@ -14,6 +14,7 @@
 #include <cmath>
 #include <ostream>
 #include <bitset>
+#include <limits>
 
 namespace stk {
 

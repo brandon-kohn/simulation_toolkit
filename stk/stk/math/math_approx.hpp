@@ -43,97 +43,97 @@ namespace stk {
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
     inline BOOST_CONSTEXPR T sin( T v )
 	{
-		return gte::SinEstimate<T>::DegreeRR<11>( v );
+		return gte::SinEstimate<T>::template DegreeRR<11>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
     inline BOOST_CONSTEXPR double sin( T v )
 	{
-		return gte::SinEstimate<double>::DegreeRR<11>( v );
+		return gte::SinEstimate<double>::template DegreeRR<11>( v );
 	}
     
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
     inline BOOST_CONSTEXPR T asin( T v )
 	{
-		return gte::ASinEstimate<T>::Degree<8>( v );
+		return gte::ASinEstimate<T>::template Degree<8>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
     inline BOOST_CONSTEXPR double asin( T v )
 	{
-		return gte::ASinEstimate<double>::Degree<8>( v );
+		return gte::ASinEstimate<double>::template Degree<8>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
     inline BOOST_CONSTEXPR T cos( T v )
 	{
-		return gte::CosEstimate<T>::DegreeRR<8>( v );
+		return gte::CosEstimate<T>::template DegreeRR<8>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR double cos( T v )
 	{
-		return gte::CosEstimate<double>::DegreeRR<8>( v );
+		return gte::CosEstimate<double>::template DegreeRR<8>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR T acos( T v )
 	{
-		return gte::ACosEstimate<T>::Degree<8>( v );
+		return gte::ACosEstimate<T>::template Degree<8>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR double acos( T v )
 	{
-		return gte::ACosEstimate<double>::Degree<8>( v );
+		return gte::ACosEstimate<double>::template Degree<8>( v );
 	}
     
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR T tan( T v )
 	{
-		return gte::TanEstimate<T>::DegreeRR<13>( v );
+		return gte::TanEstimate<T>::template DegreeRR<13>( v );
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR double tan( T v )
 	{
-		return gte::TanEstimate<double>::DegreeRR<13>( v );
+		return gte::TanEstimate<double>::template DegreeRR<13>( v );
 	}
 	
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR T exp(T v)
 	{
-		return gte::ExpEstimate<T>::DegreeRR<7>( v );
+		return gte::ExpEstimate<T>::template DegreeRR<7>( v );
 	}
 	
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR double exp(T v)
 	{
-		return gte::ExpEstimate<double>::DegreeRR<7>( v );
+		return gte::ExpEstimate<double>::template DegreeRR<7>( v );
 	}
 	
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR T log(T v)
 	{
-		return gte::LogEstimate<T>::DegreeRR<8>( v );
+		return gte::LogEstimate<T>::template DegreeRR<8>( v );
 	}
 	
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR double log(T v)
 	{
-		return gte::LogEstimate<double>::DegreeRR<8>( v );
+		return gte::LogEstimate<double>::template DegreeRR<8>( v );
 	}
 	
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR T log10(T v)
 	{
-		return gte::Log2Estimate<T>::DegreeRR<8>( v ) * static_cast<T>(0.30102999566);//(1.0 / 3.32192809489);
+		return gte::Log2Estimate<T>::template DegreeRR<8>( v ) * static_cast<T>(0.30102999566);//(1.0 / 3.32192809489);
 	}
 	
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 	inline BOOST_CONSTEXPR double log10(T v)
 	{
-		return gte::Log2Estimate<double>::DegreeRR<8>( v ) * 0.30102999566;//(1.0 / 3.32192809489);
+		return gte::Log2Estimate<double>::template DegreeRR<8>( v ) * 0.30102999566;//(1.0 / 3.32192809489);
 	}
 
 	inline double atan( double v )

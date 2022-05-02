@@ -371,7 +371,7 @@ namespace stk {
 			, []( double v ) { Math::acos( v ); }
 			, []( double v ) { Math::sin( v ); }
 			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( v ); }
+			, []( double y, double x ) { Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -402,7 +402,7 @@ namespace stk {
 			, []( double v ) { Math::acos( v ); }
 			, []( double v ) { Math::sin( v ); }
 			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( v ); }
+			, []( double y, double x ) { Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -441,7 +441,7 @@ namespace stk {
 			, []( double v ) { Math::acos( v ); }
 			, []( double v ) { Math::sin( v ); }
 			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( v ); }
+			, []( double y, double x ) { Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -496,7 +496,7 @@ namespace stk {
 			, []( double v ) { Math::acos( v ); }
 			, []( double v ) { Math::sin( v ); }
 			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( v ); }
+			, []( double y, double x ) { Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -535,7 +535,7 @@ namespace stk {
 			, []( double v ) { Math::acos( v ); }
 			, []( double v ) { Math::sin( v ); }
 			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( v ); }
+			, []( double y, double x ) { Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
