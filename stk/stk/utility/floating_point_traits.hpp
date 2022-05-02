@@ -104,7 +104,7 @@ namespace stk {
 
 		void print(std::ostream& os) const
 		{
-			os.precision( ofPrecision );
+			os.precision( std::numeric_limits<double>::max_digits10 );
 			os << "value: " << value;
 			os << "\nsign bit: ";
 			print_signbit( os );
