@@ -11,9 +11,9 @@
 #include <stk/math/tagged_quantity_math_approx.hpp>
 #include <stk/math/boost_units_math_approx.hpp>
 
-namespace geometrix {
+namespace stk {
 
-    struct stk_math_kernel
+    struct math_kernel
     {
         template<typename T>
         BOOST_STATIC_CONSTEXPR auto exp(T&& q) -> auto
@@ -88,5 +88,5 @@ namespace geometrix {
         }
     };
 
-}//! namespace geometrix;
+}//! namespace stk;
 

@@ -77,7 +77,7 @@ namespace stk {
     /// cos of theta in radians
     template<class Y>
     inline BOOST_CONSTEXPR
-    typename boost::units::dimensionless_boost::units::quantity<boost::units::si::system,Y>::type 
+    typename boost::units::dimensionless_quantity<boost::units::si::system,Y>::type 
     cos(const boost::units::quantity<boost::units::si::plane_angle,Y>& theta)
     {
         return stk::cos(theta.value());
@@ -86,7 +86,7 @@ namespace stk {
     /// sin of theta in radians
     template<class Y>
     inline BOOST_CONSTEXPR
-    typename boost::units::dimensionless_boost::units::quantity<boost::units::si::system,Y>::type 
+    typename boost::units::dimensionless_quantity<boost::units::si::system,Y>::type 
     sin(const boost::units::quantity<boost::units::si::plane_angle,Y>& theta)
     {
         return stk::sin(theta.value());
@@ -95,7 +95,7 @@ namespace stk {
     /// tan of theta in radians
     template<class Y>
     inline BOOST_CONSTEXPR
-    typename boost::units::dimensionless_boost::units::quantity<boost::units::si::system,Y>::type 
+    typename boost::units::dimensionless_quantity<boost::units::si::system,Y>::type 
     tan(const boost::units::quantity<boost::units::si::plane_angle,Y>& theta)
     {
         return stk::tan(theta.value());
@@ -104,7 +104,7 @@ namespace stk {
     /// cos of theta in other angular units 
     template<class System,class Y>
     inline BOOST_CONSTEXPR
-    typename boost::units::dimensionless_boost::units::quantity<System,Y>::type 
+    typename boost::units::dimensionless_quantity<System,Y>::type 
     cos(const boost::units::quantity<boost::units::unit<boost::units::plane_angle_dimension,System>,Y>& theta)
     {
         return stk::cos(boost::units::quantity<boost::units::si::plane_angle,Y>(theta));
@@ -113,7 +113,7 @@ namespace stk {
     /// sin of theta in other angular units 
     template<class System,class Y>
     inline BOOST_CONSTEXPR
-    typename boost::units::dimensionless_boost::units::quantity<System,Y>::type 
+    typename boost::units::dimensionless_quantity<System,Y>::type 
     sin(const boost::units::quantity<boost::units::unit<boost::units::plane_angle_dimension,System>,Y>& theta)
     {
         return stk::sin(boost::units::quantity<boost::units::si::plane_angle,Y>(theta));
@@ -122,7 +122,7 @@ namespace stk {
     /// tan of theta in other angular units 
     template<class System,class Y>
     inline BOOST_CONSTEXPR
-    typename boost::units::dimensionless_boost::units::quantity<System,Y>::type 
+    typename boost::units::dimensionless_quantity<System,Y>::type 
     tan(const boost::units::quantity<boost::units::unit<boost::units::plane_angle_dimension,System>,Y>& theta)
     {
         return stk::tan(boost::units::quantity<boost::units::si::plane_angle,Y>(theta));
@@ -131,7 +131,7 @@ namespace stk {
     /// acos of dimensionless boost::units::quantity returning angle in same system
     template<class Y,class System>
     inline BOOST_CONSTEXPR
-    boost::units::quantity<unit<boost::units::plane_angle_dimension, boost::units::homogeneous_system<System> >,Y>
+    boost::units::quantity<boost::units::unit<boost::units::plane_angle_dimension, boost::units::homogeneous_system<System> >,Y>
     acos(const boost::units::quantity<boost::units::unit<boost::units::dimensionless_type, boost::units::homogeneous_system<System> >,Y>& val)
     {
         return boost::units::quantity<boost::units::unit<boost::units::plane_angle_dimension, boost::units::homogeneous_system<System> >,Y>(stk::acos(val.value())*boost::units::si::radians);

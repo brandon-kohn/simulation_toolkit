@@ -14,10 +14,12 @@
 #endif
 
 #include <geometrix/utility/tagged_quantity.hpp>
+#include <geometrix/utility/tagged_quantity_cmath.hpp>
 #include <geometrix/arithmetic/boost_units_arithmetic.hpp>
 #include <geometrix/arithmetic/math_kernel.hpp>
 #include <stk/units/boost_units.hpp>
 #include <stk/units/probability.hpp>
+#include <boost/units/cmath.hpp>
 
 namespace stk {
 
@@ -46,7 +48,7 @@ struct logistic_function
 
     units::probability operator()(const X& x) const
     {
-        auto result = A + (K - A) / Math::pow( 1.0 + Q * Math::exp(-B*x), v);
+        auto result = A + (K - A) / Math::pow( (1.0 + Q * Math::exp(-B*x)).value(), v.value() );
         return result.value();
     }
 

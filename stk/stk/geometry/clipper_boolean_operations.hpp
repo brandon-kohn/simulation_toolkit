@@ -367,11 +367,11 @@ namespace stk {
         ClipperLib::PolyTree ptree;
 		ClipperLib::MathKernel math
         (
-			  []( double v ) { Math::cos( v ); }
-			, []( double v ) { Math::acos( v ); }
-			, []( double v ) { Math::sin( v ); }
-			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( y, x ); }
+			  []( double v ) { return Math::cos( v ); }
+			, []( double v ) { return Math::acos( v ); }
+			, []( double v ) { return Math::sin( v ); }
+			, []( double v ) { return Math::tan( v ); }
+			, []( double y, double x ) { return Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -398,11 +398,11 @@ namespace stk {
         ClipperLib::PolyTree ptree;
 		ClipperLib::MathKernel math
         (
-			  []( double v ) { Math::cos( v ); }
-			, []( double v ) { Math::acos( v ); }
-			, []( double v ) { Math::sin( v ); }
-			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( y, x ); }
+			  []( double v ) { return Math::cos( v ); }
+			, []( double v ) { return Math::acos( v ); }
+			, []( double v ) { return Math::sin( v ); }
+			, []( double v ) { return Math::tan( v ); }
+			, []( double y, double x ) { return Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -437,11 +437,11 @@ namespace stk {
         ClipperLib::PolyTree ptree;
 		ClipperLib::MathKernel math
         (
-			  []( double v ) { Math::cos( v ); }
-			, []( double v ) { Math::acos( v ); }
-			, []( double v ) { Math::sin( v ); }
-			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( y, x ); }
+			  []( double v ) { return Math::cos( v ); }
+			, []( double v ) { return Math::acos( v ); }
+			, []( double v ) { return Math::sin( v ); }
+			, []( double v ) { return Math::tan( v ); }
+			, []( double y, double x ) { return Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -492,11 +492,11 @@ namespace stk {
         ClipperLib::PolyTree ptree;
         ClipperLib::MathKernel math
         (
-			  []( double v ) { Math::cos( v ); }
-			, []( double v ) { Math::acos( v ); }
-			, []( double v ) { Math::sin( v ); }
-			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( y, x ); }
+			  []( double v ) { return Math::cos( v ); }
+			, []( double v ) { return Math::acos( v ); }
+			, []( double v ) { return Math::sin( v ); }
+			, []( double v ) { return Math::tan( v ); }
+			, []( double y, double x ) { return Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 
@@ -531,11 +531,11 @@ namespace stk {
         ClipperLib::PolyTree ptree;
 		ClipperLib::MathKernel math
         (
-			  []( double v ) { Math::cos( v ); }
-			, []( double v ) { Math::acos( v ); }
-			, []( double v ) { Math::sin( v ); }
-			, []( double v ) { Math::tan( v ); }
-			, []( double y, double x ) { Math::atan2( y, x ); }
+			  []( double v ) { return Math::cos( v ); }
+			, []( double v ) { return Math::acos( v ); }
+			, []( double v ) { return Math::sin( v ); }
+			, []( double v ) { return Math::tan( v ); }
+			, []( double y, double x ) { return Math::atan2( y, x ); }
         );
         co.Execute(ptree, offset.value() * scale, math);
 

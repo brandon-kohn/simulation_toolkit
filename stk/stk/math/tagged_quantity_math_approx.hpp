@@ -12,7 +12,6 @@
 #include <geometrix/utility/tagged_quantity_cmath.hpp>
 
 #define STK_TAGGED_QUANTITY_UNARY_FUNCTION( F )           \
-template <typename T>                                     \
 template <typename Tag, typename X>                       \
 inline                                                    \
 geometrix::tagged_quantity                                \
@@ -33,7 +32,6 @@ F(const geometrix::tagged_quantity<Tag, X>& a)            \
 /***/
 
 #define STK_TAGGED_QUANTITY_BINARY_FUNCTION( F )          \
-template <typename T1, typename T2> struct F ## _op;      \
 template                                                  \
 <                                                         \
     typename Tag1                                         \
