@@ -136,22 +136,28 @@ namespace stk {
         return static_cast<double>(stk::math::detail::log10(static_cast<double>(v)));
 	}
 
-	inline double atan( double v )
+    template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
+	inline T atan( T v )
 	{
-		return ::stk::math::detail::atan( v );
+        return static_cast<T>(stk::math::detail::atan(static_cast<double>(v)));
+	}
+
+    template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
+	inline double atan( T v )
+	{
+        return static_cast<double>(stk::math::detail::atan(static_cast<double>(v)));
 	}
 	
-	inline double atan2( double y, double x )
+    template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
+	inline T atan2( T y, T x )
 	{
-		if( x > 0.0 ) 
-			return stk::atan( y / x );
-		if( y > 0.0 )
-			return geometrix::constants::half_pi<double>() - stk::atan( x / y );
-		if( y < 0.0 )
-			return -geometrix::constants::half_pi<double>() - stk::atan( x / y );
-		if( x < 0.0 )
-			return geometrix::constants::pi<double>() + stk::atan( y / x );
-		return std::numeric_limits<double>::quiet_NaN();
+		return static_cast<T>(::stk::math::detail::atan2( static_cast<double>(y), static_cast<double>(x) ));
+	}
+    
+    template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
+	inline double atan2( T y, T x )
+	{
+		return static_cast<double>(::stk::math::detail::atan2( static_cast<double>(y), static_cast<double>(x) ));
 	}
 
 }//! namespace stk;
