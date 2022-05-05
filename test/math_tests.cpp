@@ -785,15 +785,11 @@ TEST(exp_test_suite, fast_exp_sse)
 }
 */
 
-#include <GTE/Mathematics/SinEstimate.h>
-#include <GTE/Mathematics/CosEstimate.h>
-#include <GTE/Mathematics/ExpEstimate.h>
-
 TEST(GTE_Math_test_suite, test_sin)
 {
 	using namespace stk;
 	set_logger( "sinestimate.txt" );
-	STK_LOG_EVAL( gte::SinEstimate<double>::DegreeRR<11>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+	STK_LOG_EVAL( stk::sin, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	set_logger( "stdsin.txt" );
 	STK_LOG_EVAL( std::sin, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 }
@@ -802,7 +798,7 @@ TEST(GTE_Math_test_suite, test_cos)
 {
 	using namespace stk;
 	set_logger( "cosestimate.txt" );
-	STK_LOG_EVAL( gte::CosEstimate<double>::DegreeRR<10>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+	STK_LOG_EVAL( stk::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	set_logger( "stdsin.txt" );
 	STK_LOG_EVAL( std::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 }
@@ -811,7 +807,7 @@ TEST(GTE_Math_test_suite, test_exp)
 {
 	using namespace stk;
 	set_logger( "expestimate.txt" );
-	STK_LOG_EVAL( gte::ExpEstimate<double>::DegreeRR<7>, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
+	STK_LOG_EVAL( stk::exp, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	set_logger( "stdexp.txt" );
 	STK_LOG_EVAL( std::exp, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 }
@@ -873,9 +869,9 @@ TEST_F( timing_harness, time_sin )
 		auto q = 0ULL;
 		for( int i = 0; i < nRuns; ++i )
 			for( int j = 0; j < src.size(); ++j )
-				results1[q++] = gte::SinEstimate<double>::DegreeRR<11>( src[j] );
+				results1[q++] = stk::sin( src[j] );
 	};
-	do_timing( "gte::SinEstimate<11>", sinExfn11);
+	do_timing( "stk::sin", sinExfn11);
 	double avgRelErr, maxRelErr;
 	double avgAbsErr, maxAbsErr;
 	extract_stats( results1, results, avgRelErr, maxRelErr, avgAbsErr, maxAbsErr );
@@ -919,9 +915,9 @@ TEST_F( timing_harness, time_cos)
 		auto q = 0ULL;
 		for( int i = 0; i < nRuns; ++i )
 			for( int j = 0; j < src.size(); ++j )
-				results1[q++] = gte::CosEstimate<double>::DegreeRR<10>( src[j] );
+				results1[q++] = stk::cos( src[j] );
 	};
-	do_timing( "gte::CosEstimate<10>", fn2);
+	do_timing( "stk::cos", fn2);
 	double avgRelErr, maxRelErr;
 	double avgAbsErr, maxAbsErr;
 	extract_stats( results1, results, avgRelErr, maxRelErr, avgAbsErr, maxAbsErr );
@@ -965,9 +961,9 @@ TEST_F( timing_harness, time_exp)
 		auto q = 0ULL;
 		for( int i = 0; i < nRuns; ++i )
 			for( int j = 0; j < src.size(); ++j )
-				results1[q++] = gte::ExpEstimate<double>::DegreeRR<7>( src[j] );
+				results1[q++] = stk::exp( src[j] );
 	};
-	do_timing( "gte::ExpEstimate<7>", fn2);
+	do_timing( "stk::exp", fn2);
 
 	double avgRelErr, maxRelErr;
 	double avgAbsErr, maxAbsErr;
@@ -982,7 +978,7 @@ TEST_F(timing_harness, DISABLED_test_sqrt)//! std::sqrt is seemingly determinist
 	using namespace stk;
 	using namespace ::testing;
 	set_logger( "sqrtestimate.txt" );
-	STK_LOG_EVAL( gte::SqrtEstimate<double>::DegreeRR<8>, 0.0, geometrix::constants::pi<double>(), 0.01 ); 
+	STK_LOG_EVAL( stk::sqrt, 0.0, geometrix::constants::pi<double>(), 0.01 ); 
 	set_logger( "stdsqrt.txt" );
 	STK_LOG_EVAL( std::sqrt, 0.0, geometrix::constants::pi<double>(), 0.01 ); 
 #ifdef NDEBUG
@@ -1017,26 +1013,26 @@ TEST_F(timing_harness, DISABLED_test_sqrt)//! std::sqrt is seemingly determinist
 		auto q = 0ULL;
 		for( int i = 0; i < nRuns; ++i )
 			for( int j = 0; j < src.size(); ++j )
-				results1[q++] = gte::SqrtEstimate<double>::DegreeRR<8>( src[j] );
+				results1[q++] = stk::sqrt( src[j] );
 	};
-	do_timing( "gte::SqrtEstimate<8>", fn2);
+	do_timing( "stk::sqrt", fn2);
 }
 
 TEST(math_test_suite, test_zero)
 {
 	{
 		auto szero = std::sin( 0.0 );
-		auto sezero = gte::SinEstimate<double>::DegreeRR<11>( 0.0 );
+		auto sezero = stk::sin( 0.0 );
 		EXPECT_EQ( szero, sezero );
 	}
 	{
 		auto szero = std::cos( 0.0 );
-		auto sezero = gte::CosEstimate<double>::DegreeRR<10>( 0.0 );
+		auto sezero = stk::cos( 0.0 );
 		EXPECT_EQ( szero, sezero );
 	}
 	{
 		auto szero = std::exp( 0.0 );
-		auto sezero = gte::ExpEstimate<double>::DegreeRR<7>( 0.0 );
+		auto sezero = stk::exp( 0.0 );
 		EXPECT_EQ( szero, sezero );
 	}
 }

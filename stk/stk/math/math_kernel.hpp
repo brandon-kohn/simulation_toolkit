@@ -88,5 +88,5 @@ namespace stk {
         }
     };
 
-}//! namespace stk;
+}//! namespace geometrix;
 

@@ -10,15 +10,15 @@
 
 #include <geometrix/numeric/constants.hpp>
 
-#include <GTE/Mathematics/ACosEstimate.h>
-#include <GTE/Mathematics/ASinEstimate.h>
-#include <GTE/Mathematics/ATanEstimate.h>
-#include <GTE/Mathematics/CosEstimate.h>
-#include <GTE/Mathematics/SinEstimate.h>
-#include <GTE/Mathematics/TanEstimate.h>
-#include <GTE/Mathematics/ExpEstimate.h>
-#include <GTE/Mathematics/LogEstimate.h>
-
+#include <stk/math/detail/exp.hpp>
+#include <stk/math/detail/pow.hpp>
+#include <stk/math/detail/log.hpp>
+#include <stk/math/detail/log10.hpp>
+#include <stk/math/detail/sin.hpp>
+#include <stk/math/detail/asin.hpp>
+#include <stk/math/detail/cos.hpp>
+#include <stk/math/detail/acos.hpp>
+#include <stk/math/detail/tan.hpp>
 #include <stk/math/detail/atan2.hpp>
 
 #include <type_traits>
@@ -41,99 +41,99 @@ namespace stk {
     }
 
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-    inline BOOST_CONSTEXPR T sin( T v )
+    inline T sin( T v )
 	{
-		return gte::SinEstimate<T>::template DegreeRR<11>( v );
+		return static_cast<T>(stk::math::detail::sin(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-    inline BOOST_CONSTEXPR double sin( T v )
+    inline double sin( T v )
 	{
-		return gte::SinEstimate<double>::template DegreeRR<11>( v );
+		return static_cast<double>(stk::math::detail::sin(static_cast<double>(v)));
 	}
     
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-    inline BOOST_CONSTEXPR T asin( T v )
+    inline T asin( T v )
 	{
-		return gte::ASinEstimate<T>::template Degree<8>( v );
+		return static_cast<T>(stk::math::detail::asin(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-    inline BOOST_CONSTEXPR double asin( T v )
+    inline double asin( T v )
 	{
-		return gte::ASinEstimate<double>::template Degree<8>( v );
+		return static_cast<double>(stk::math::detail::asin(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-    inline BOOST_CONSTEXPR T cos( T v )
+    inline T cos( T v )
 	{
-		return gte::CosEstimate<T>::template DegreeRR<8>( v );
+		return static_cast<T>(stk::math::detail::cos(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR double cos( T v )
+	inline double cos( T v )
 	{
-		return gte::CosEstimate<double>::template DegreeRR<8>( v );
+		return static_cast<double>(stk::math::detail::cos(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR T acos( T v )
+	inline T acos( T v )
 	{
-		return gte::ACosEstimate<T>::template Degree<8>( v );
+		return static_cast<T>(stk::math::detail::acos(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR double acos( T v )
+	inline double acos( T v )
 	{
-		return gte::ACosEstimate<double>::template Degree<8>( v );
+		return static_cast<double>(stk::math::detail::acos(static_cast<double>(v)));
 	}
     
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR T tan( T v )
+	inline T tan( T v )
 	{
-		return gte::TanEstimate<T>::template DegreeRR<13>( v );
+		return static_cast<T>(stk::math::detail::tan(static_cast<double>(v)));
 	}
 
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR double tan( T v )
+	inline double tan( T v )
 	{
-		return gte::TanEstimate<double>::template DegreeRR<13>( v );
+		return static_cast<double>(stk::math::detail::tan(static_cast<double>(v)));
 	}
 	
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR T exp(T v)
+	inline T exp(T v)
 	{
-		return gte::ExpEstimate<T>::template DegreeRR<7>( v );
+        return static_cast<T>(stk::math::detail::exp(static_cast<double>(v)));
 	}
 	
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR double exp(T v)
+	inline double exp(T v)
 	{
-		return gte::ExpEstimate<double>::template DegreeRR<7>( v );
+        return static_cast<double>(stk::math::detail::exp(static_cast<double>(v)));
 	}
 	
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR T log(T v)
+	inline T log(T v)
 	{
-		return gte::LogEstimate<T>::template DegreeRR<8>( v );
+        return static_cast<T>(stk::math::detail::log(static_cast<double>(v)));
 	}
 	
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR double log(T v)
+	inline double log(T v)
 	{
-		return gte::LogEstimate<double>::template DegreeRR<8>( v );
+        return static_cast<double>(stk::math::detail::log(static_cast<double>(v)));
 	}
 	
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR T log10(T v)
+	inline T log10(T v)
 	{
-		return gte::Log2Estimate<T>::template DegreeRR<8>( v ) * static_cast<T>(0.30102999566);//(1.0 / 3.32192809489);
+        return static_cast<T>(stk::math::detail::log10(static_cast<double>(v)));
 	}
 	
     template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline BOOST_CONSTEXPR double log10(T v)
+	inline double log10(T v)
 	{
-		return gte::Log2Estimate<double>::template DegreeRR<8>( v ) * 0.30102999566;//(1.0 / 3.32192809489);
+        return static_cast<double>(stk::math::detail::log10(static_cast<double>(v)));
 	}
 
 	inline double atan( double v )
