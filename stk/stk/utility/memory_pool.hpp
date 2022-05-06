@@ -171,8 +171,7 @@ namespace stk {
 			else if( base_t::m_q.size_approx() == 0 )
 			{
 				auto lk = std::unique_lock<std::mutex>{ base_t::m_loadMutex };
-				base_t::m_itemsLoaded.wait( lk, [this]()
-					{ return !m_isExpanding.load( std::memory_order_relaxed ) || base_t::m_q.size_approx() > 0; } );
+				base_t::m_itemsLoaded.wait_for( lk, std::chrono::microseconds(10), [this](){ return !m_isExpanding.load( std::memory_order_relaxed ) || base_t::m_q.size_approx() > 0; } );
 			}
 		}
 
