@@ -1,5 +1,5 @@
 //
-//! Copyright Â© 2017
+//! Copyright © 2017
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
@@ -13,12 +13,13 @@
 #include <stk/thread/concurrentqueue.h>
 #include <stk/thread/std_thread_kernel.hpp>
 #include <stk/thread/boost_thread_kernel.hpp>
+#include <stk/thread/job_tracker.hpp>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 
 namespace stk { namespace thread {
-
+	
 	template <typename Traits = boost_thread_traits>
 	class job_manager : job_tracker
 	{
@@ -28,7 +29,6 @@ namespace stk { namespace thread {
 		using thread_type = typename thread_traits::thread_type;
 		using mutex_type = typename thread_traits::mutex_type;
 		using condition_variable_type = typename Traits::condition_variable_type;
-
 		template <typename T>
 		using unique_lock = typename thread_traits::template unique_lock<T>;
 
@@ -159,30 +159,40 @@ namespace stk { namespace thread {
 
 		void run()
 		{
-			dependent_task task;
-			bool           hasTasks = queue_traits::try_pop( m_tasks, task );
 			while( true )
 			{
-				while( hasTasks )
+				if(dependent_task task; queue_traits::try_pop( m_tasks, task ))
 				{
 					if( task.is_ready() )
 						task.exec();
 					else
-						while( !queue_traits::try_push( m_tasks, std::move( task ) ) )
-							thread_traits::yield();
-
-					if( BOOST_LIKELY( !m_done.load( std::memory_order_relaxed ) ) )
-						hasTasks = queue_traits::try_pop( m_tasks, task );
-					else
-						return;
+						m_internalQ.emplace_back(std::move(task));
 				}
 
+				for(auto i = m_internalQ.begin(); i != m_internalQ.end();)
+				{
+					auto& t = *i;
+					if( t.is_ready() )
+					{
+						t.exec();
+						i = m_internalQ.erase(i);
+					} 
+					else
+						++i;
+				}
+
+				if(m_internalQ.empty())
 				{
 					unique_lock<mutex_type> lk{ m_mutex };
-					m_cnd.wait_for( lk, m_waitTime, [&task, &hasTasks, this]()
-						{ return ( ( hasTasks = queue_traits::try_pop( m_tasks, task ) ) == true ) || m_done.load( std::memory_order_relaxed ); } );
+					m_cnd.wait_for( lk
+					, m_waitTime
+					, [this]()
+					  { 
+					      return m_tasks.size_approx() > 0 || m_done.load( std::memory_order_relaxed );
+					  } );
 				}
-				if( !hasTasks )
+				
+				if(m_done.load(std::memory_order_relaxed))
 					return;
 			}
 		}
@@ -193,6 +203,7 @@ namespace stk { namespace thread {
 		mutex_type                 m_mutex;
 		condition_variable_type    m_cnd;
 		boost::chrono::nanoseconds m_waitTime;
+		std::vector<dependent_task>  m_internalQ;
 	};
 
 }} // namespace stk::thread

@@ -21,6 +21,7 @@
 #include <stk/utility/make_vector.hpp>
 #include <geometrix/utility/assert.hpp>
 #include <boost/config.hpp>
+#include <stk/thread/race_detector.hpp>
 
 namespace stk {
 
@@ -128,6 +129,7 @@ namespace stk {
 	public:
 		memory_pool()
 			: base_t{ growth_policy().initial_size() }
+			, m_isExpanding{false}
 		{
 		}
 
@@ -156,13 +158,14 @@ namespace stk {
 			bool isExpanding = false;
 			if( m_isExpanding.compare_exchange_strong( isExpanding, true ) )
 			{
+                {
+					STK_DETECT_RACE(racer);
 				if( base_t::m_q.size_approx() == 0 )
 				{
 					auto growSize = growth_policy().growth_factor( base_t::m_blocks.back().size() );
 					base_t::m_blocks.emplace_back( growSize );
 					auto it = base_t::m_blocks.back().begin();
-					auto gen = [&]()
-					{ return &*it++; };
+						auto gen = [&]() { return &*it++; };
 					base_t::m_q.generate_bulk( gen, growSize );
 				}
 				m_isExpanding.store( false );
@@ -171,11 +174,12 @@ namespace stk {
 			else if( base_t::m_q.size_approx() == 0 )
 			{
 				auto lk = std::unique_lock<std::mutex>{ base_t::m_loadMutex };
-				base_t::m_itemsLoaded.wait_for( lk, std::chrono::microseconds(10), [this](){ return !m_isExpanding.load( std::memory_order_relaxed ) || base_t::m_q.size_approx() > 0; } );
+				base_t::m_itemsLoaded.wait_for( lk, std::chrono::microseconds(1), [this](){ return !m_isExpanding.load( std::memory_order_relaxed ) || base_t::m_q.size_approx() > 0; } );
 			}
 		}
 
 		std::atomic<bool> m_isExpanding;
+        STK_RACE_DETECTOR(racer);
 	};
 
 	template <typename U>
