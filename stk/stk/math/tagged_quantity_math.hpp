@@ -8,7 +8,7 @@
 //
 #pragma once
 
-#include <stk/math/math_approx.hpp>
+#include <stk/math/math.hpp>
 #include <geometrix/utility/tagged_quantity_cmath.hpp>
 
 #define STK_TAGGED_QUANTITY_UNARY_FUNCTION( F )           \

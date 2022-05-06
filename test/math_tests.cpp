@@ -2,7 +2,7 @@
 #include <gmock/gmock.h>
 #include <geometrix/numeric/constants.hpp>
 #include <stk/utility/floating_point_traits.hpp>
-#include <stk/math/math_approx.hpp>
+#include <stk/math/math_kernel.hpp>
 #include <optional>
 
 //#include <stk/sim/derivative.hpp>
@@ -283,6 +283,7 @@ TEST(floating_point_test_suite, test_truncate)
 	};
 	invoke_range<0,51>( fn, fp.value );
 }
+
 /*
 TEST( derivative_grammarTestSuite, testOptimizeAdd )
 {
@@ -785,7 +786,7 @@ TEST(exp_test_suite, fast_exp_sse)
 }
 */
 
-TEST(GTE_Math_test_suite, test_sin)
+TEST(Math_test_suite, test_sin)
 {
 	using namespace stk;
 	set_logger( "sinestimate.txt" );
@@ -794,7 +795,7 @@ TEST(GTE_Math_test_suite, test_sin)
 	STK_LOG_EVAL( std::sin, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 }
 
-TEST(GTE_Math_test_suite, test_cos)
+TEST(Math_test_suite, test_cos)
 {
 	using namespace stk;
 	set_logger( "cosestimate.txt" );
@@ -803,7 +804,7 @@ TEST(GTE_Math_test_suite, test_cos)
 	STK_LOG_EVAL( std::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 }
 
-TEST(GTE_Math_test_suite, test_exp)
+TEST(Math_test_suite, test_exp)
 {
 	using namespace stk;
 	set_logger( "expestimate.txt" );
@@ -831,6 +832,7 @@ struct timing_harness : ::testing::Test
 		timing();
 	}
 };
+
 //! Test the above mock registrations.
 TEST_F( timing_harness, time_sin )
 {
@@ -878,6 +880,7 @@ TEST_F( timing_harness, time_sin )
 	std::cout << "Sin avg. relative error: " << avgRelErr << " max: " << maxRelErr << std::endl;
 	std::cout << "Sin avg. absolute error: " << avgAbsErr << " max: " << maxAbsErr << std::endl;
 }
+
 TEST_F( timing_harness, time_cos)
 {
 	using namespace stk;
@@ -972,7 +975,6 @@ TEST_F( timing_harness, time_exp)
 	std::cout << "Exp avg. absolute error: " << avgAbsErr << " max: " << maxAbsErr << std::endl;
 }
 
-#include <GTE/Mathematics/SqrtEstimate.h>
 TEST_F(timing_harness, DISABLED_test_sqrt)//! std::sqrt is seemingly deterministic/portable.
 {
 	using namespace stk;
@@ -1080,5 +1082,50 @@ TEST_F( timing_harness, time_atan2)
 	extract_stats( results1, results, avgRelErr, maxRelErr, avgAbsErr, maxAbsErr );
 	std::cout << "atan2 avg. relative error: " << avgRelErr << " max: " << maxRelErr << std::endl;
 	std::cout << "atan2 avg. absolute error: " << avgAbsErr << " max: " << maxAbsErr << std::endl;
+}
+
+TEST_F( timing_harness, time_pow)
+{
+	using namespace stk;
+	using namespace ::testing;
+
+	std::size_t nRuns = 100;
+	auto                nData = 100;
+	auto                nResults = nData * nData * nRuns;
+	std::vector<double> results( nResults, 0 ), results1( nResults, 0 );
+
+	std::vector<double> src( nData, 0.0 );
+	auto xmin = -geometrix::constants::pi<double>(); 
+	auto                xmax = -xmin;
+	auto                step = ( xmax - xmin ) / nData;
+	for( auto i = 0ULL; i < nData; ++i)
+	{
+		src[i] = xmin + i * step;
+	}
+
+	auto fn1 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				for( int k = 0; k < src.size(); ++k )
+				results[q++] = std::pow( src[j], src[k] );
+	};
+	do_timing( "std::pow", fn1 );
+	
+	auto fn2 = [&]()
+	{
+		auto q = 0ULL;
+		for( int i = 0; i < nRuns; ++i )
+			for( int j = 0; j < src.size(); ++j )
+				for( int k = 0; k < src.size(); ++k )
+					results1[q++] = stk::pow( src[j], src[k] );
+	};
+	do_timing( "stk::pow", fn2);
+	double avgRelErr, maxRelErr;
+	double avgAbsErr, maxAbsErr;
+	extract_stats( results1, results, avgRelErr, maxRelErr, avgAbsErr, maxAbsErr );
+	std::cout << "pow avg. relative error: " << avgRelErr << " max: " << maxRelErr << std::endl;
+	std::cout << "pow avg. absolute error: " << avgAbsErr << " max: " << maxAbsErr << std::endl;
 }
 

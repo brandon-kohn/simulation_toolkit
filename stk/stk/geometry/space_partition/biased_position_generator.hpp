@@ -17,7 +17,7 @@
 #include <boost/optional.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 #include <geometrix/arithmetic/math_kernel.hpp>
-#include <stk/math/math_approx.hpp>
+#include <stk/math/math.hpp>
 
 #include <vector>
 #include <mutex>

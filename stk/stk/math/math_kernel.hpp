@@ -8,8 +8,8 @@
 //
 #pragma once
 
-#include <stk/math/tagged_quantity_math_approx.hpp>
-#include <stk/math/boost_units_math_approx.hpp>
+#include <stk/math/tagged_quantity_math.hpp>
+#include <stk/math/boost_units_math.hpp>
 
 namespace stk {
 

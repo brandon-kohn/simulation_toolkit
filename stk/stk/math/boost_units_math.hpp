@@ -10,7 +10,7 @@
 #pragma once
 
 #include <boost/units/cmath.hpp>
-#include <stk/math/math_approx.hpp>
+#include <stk/math/math.hpp>
 
 namespace stk {
 
