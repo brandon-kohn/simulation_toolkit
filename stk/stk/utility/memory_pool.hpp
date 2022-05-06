@@ -158,15 +158,17 @@ namespace stk {
 			bool isExpanding = false;
 			if( m_isExpanding.compare_exchange_strong( isExpanding, true ) )
 			{
-                {
-					STK_DETECT_RACE(racer);
-				if( base_t::m_q.size_approx() == 0 )
 				{
-					auto growSize = growth_policy().growth_factor( base_t::m_blocks.back().size() );
-					base_t::m_blocks.emplace_back( growSize );
-					auto it = base_t::m_blocks.back().begin();
-						auto gen = [&]() { return &*it++; };
-					base_t::m_q.generate_bulk( gen, growSize );
+					STK_DETECT_RACE( racer );
+					if( base_t::m_q.size_approx() == 0 )
+					{
+						auto growSize = growth_policy().growth_factor( base_t::m_blocks.back().size() );
+						base_t::m_blocks.emplace_back( growSize );
+						auto it = base_t::m_blocks.back().begin();
+						auto gen = [&]()
+						{ return &*it++; };
+						base_t::m_q.generate_bulk( gen, growSize );
+					}
 				}
 				m_isExpanding.store( false );
 				base_t::m_itemsLoaded.notify_all();
