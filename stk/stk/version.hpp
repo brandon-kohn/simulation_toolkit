@@ -9,6 +9,6 @@
 //!  STK_VERSION % 100 is the patch level
 //!  STK_VERSION / 100 % 1000 is the minor version
 //!  STK_VERSION / 100000 is the major version
-#define STK_VERSION 106600
+#define STK_VERSION 107600
 
 #endif
