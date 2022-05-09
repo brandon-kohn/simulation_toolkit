@@ -30,3 +30,6 @@
 [submodule "GeometricTools"]
 	path = GeometricTools
 	url = https://github.com/brandon-kohn/GeometricTools.git
+[submodule "doctest"]
+	path = doctest
+	url = https://github.com/doctest/doctest.git
