@@ -75,16 +75,16 @@ namespace stk {
             return stk::atan(std::forward<T>(q));
         }
 
-        template<typename T>
-        static auto pow(T&& q1, T&& q2) -> auto
+        template<typename T, typename U>
+        static auto pow(T&& q1, U&& q2) -> auto
         {
-            return stk::pow(std::forward<T>(q1), std::forward<T>(q2));
+            return stk::pow(std::forward<T>(q1), std::forward<U>(q2));
         }
         
-        template<typename T>
-        static auto atan2(T&& y, T&& x) -> auto
+        template<typename T, typename U>
+        static auto atan2(T&& y, U&& x) -> auto
         {
-            return stk::atan2(std::forward<T>(y), std::forward<T>(x));
+            return stk::atan2(std::forward<T>(y), std::forward<U>(x));
         }
     };
 
