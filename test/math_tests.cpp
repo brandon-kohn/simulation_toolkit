@@ -798,6 +798,7 @@ TEST(Math_test_suite, test_sin)
 TEST(Math_test_suite, test_cos)
 {
 	using namespace stk;
+	auto r = stk::acos( 0.97183309468480805 );
 	set_logger( "cosestimate.txt" );
 	STK_LOG_EVAL( stk::cos, -geometrix::constants::pi<double>(), geometrix::constants::pi<double>(), 0.01 ); 
 	set_logger( "stdsin.txt" );
@@ -1127,5 +1128,14 @@ TEST_F( timing_harness, time_pow)
 	extract_stats( results1, results, avgRelErr, maxRelErr, avgAbsErr, maxAbsErr );
 	std::cout << "pow avg. relative error: " << avgRelErr << " max: " << maxRelErr << std::endl;
 	std::cout << "pow avg. absolute error: " << avgAbsErr << " max: " << maxAbsErr << std::endl;
+}
+
+TEST(stk_math_test_suite, test_pow_double_int)
+{
+	auto a = 1.0;
+	auto b = 1LL;
+
+	auto r = stk::pow( a, b );
+	EXPECT_EQ( r, 1.0 );
 }
 

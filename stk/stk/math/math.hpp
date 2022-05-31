@@ -33,11 +33,11 @@ namespace stk {
         return sqrt(v);
     }
    
-    template <typename T>
-	inline auto pow(T&& a, T&& b) -> auto
+    template <typename T, typename U>
+	inline auto pow(T&& a, U&& b) -> auto
     {
         using std::pow;
-        return pow(std::forward<T>(a), std::forward<T>(b));
+        return pow(std::forward<T>(a), std::forward<U>(b));
     }
 
     template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
@@ -148,14 +148,14 @@ namespace stk {
         return static_cast<double>(stk::math::detail::atan(static_cast<double>(v)));
 	}
 	
-    template <typename T, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-	inline T atan2( T y, T x )
+    template <typename T, typename U, std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
+	inline T atan2( T y, U x )
 	{
 		return static_cast<T>(::stk::math::detail::atan2( static_cast<double>(y), static_cast<double>(x) ));
 	}
     
-    template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-	inline double atan2( T y, T x )
+    template <typename T, typename U, std::enable_if_t<std::is_integral<T>::value, bool> = true>
+	inline double atan2( T y, U x )
 	{
 		return static_cast<double>(::stk::math::detail::atan2( static_cast<double>(y), static_cast<double>(x) ));
 	}
