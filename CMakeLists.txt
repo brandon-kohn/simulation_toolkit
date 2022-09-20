@@ -28,6 +28,11 @@ if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
     include(cmake/stk_force_msvc_runtime.cmake)
     force_msvc_runtime()
 endif()
+if(NOT "${FORCE_MSVC_DEBUG_DEFINE}" STREQUAL "")
+    message(STATUS "Forcing msvc debug define to ${FORCE_MSVC_DEBUG_DEFINE}")
+    include(cmake/stk_force_msvc_runtime.cmake)
+    force_msvc_debug_define()
+endif()
  
 # Add googletest directly to our build. This adds
 # the following targets: gtest, gtest_main, gmock

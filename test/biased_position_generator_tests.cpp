@@ -27,6 +27,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/algorithm_ext/erase.hpp>
+#include <boost/container/flat_set.hpp>
+#include <boost/container/flat_map.hpp>
 
 #include <exception>
 
@@ -331,16 +333,138 @@ TEST(poly2tri_test_suite, DISABLED_test_crash)
 	auto m = generate_mesh(pwh);
 }
 
+#include <exact/predicates.hpp>
+template <typename Points, typename Visitor>
+inline bool has_collinear_points_brute(Points&& points, Visitor&& v)
+{
+	for( auto i = points.begin(); i != points.end(); ++i )
+	{
+		auto j = i;
+		std::advance(j, 1);
+		for( ; j != points.end(); ++j )
+		{
+			for (auto k = points.begin(); k != points.end(); ++k)
+			{
+				if (k != i && k != j)
+				{
+					if (exact::orientation(*i, *j, *k) == geometrix::oriented_collinear)
+					{
+						v( i, j, k );
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+}
+
+template <typename Points, typename Visitor>
+inline bool has_collinear_points(Points&& points, Visitor&& v)
+{
+	using line_tuple = std::tuple<double, double, stk::units::length>;
+	using iterator_t = typename std::decay<Points>::type::const_iterator;
+	using counts = boost::container::flat_set<iterator_t>;
+	using map_t = boost::container::flat_map<line_tuple, counts>;
+	map_t lineMap;
+	bool  result = false;
+
+	static auto make_line_tuple = []( const auto& p1, const auto& p2 )
+	{
+		using length_t = typename geometrix::arithmetic_type_of<typename std::decay<decltype(p1)>::type>::type;
+		auto cline = line_tuple{};
+		auto& [a, b, c] = cline;
+		if( p2[0] - p1[0] != length_t{} )
+		{
+			b = -1.;
+			a = ( p2[1] - p1[1] ) / ( p2[0] - p1[0] );
+		}
+		else if( p2[1] - p1[1] != length_t{} )
+		{
+			a = -1.;
+			b = ( p2[0] - p1[0] ) / ( p2[1] - p1[1] );
+		}
+		c = -a * p1[0] - b * p1[1];
+		return cline;
+	};
+	
+	static auto is_valid = []( const line_tuple& t )
+	{
+		return std::get<0>( t ) != 0. || std::get<1>( t ) != 0.;
+	};
+
+	for( auto i = points.begin(); i != points.end(); ++i )
+	{
+		auto j = i;
+		std::advance( j, 1 );
+		for( ; j != points.end(); ++j )
+		{
+			auto line = make_line_tuple( *i, *j );
+			if( is_valid(line) )
+			{
+				auto& cset = lineMap[line];
+				cset.insert( i );
+				cset.insert( j );
+				if (cset.size() > 2)
+				{
+					if(!v( cset ))
+						return true;
+
+					result = true;
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+TEST(poly2tri_test_suite, test_find_collinear)
+{
+    using namespace stk;
+    using namespace geometrix;
+	static const auto                  m = boost::units::si::meters;
+	boost::container::flat_set<point2> points = {
+		  point2{ 0.*m, 0.*m }
+		, point2{ 1.*m, 1.*m }
+		, point2{ -3.3333*m, -3.3333*m }
+		, point2{ 3.3333*m, 3.3333*m }
+		, point2{ 2.*m, 2.*m }
+		, point2{ 3.*m, 3.*m }
+	};
+
+	auto v = [&]( const auto& cpoints ) 
+	{
+		return true;//!don't stop on first collinear.
+	};
+
+	EXPECT_TRUE( has_collinear_points( points, v ) );
+}
+
 #ifndef __APPLE__
 #include "bugged_geometry.hpp"
 #include <stk/geometry/space_partition/poly2tri_mesh.hpp>
-TEST(poly2tri_test_suite, DISABLED_test_crash2)
+TEST(poly2tri_test_suite, test_crash2)
 {
     using namespace stk;
     using namespace geometrix;
 	auto pgon = get_test_case2_crash_geometry();
-    auto b = is_polygon_with_holes_simple(pgon, make_tolerance_policy());
-    auto m = generate_mesh(heal_non_simple_polygon(pgon, 0.001 * boost::units::si::meters, 10000));
+	boost::container::flat_set<point2> points;
+	for( auto& p : pgon.get_outer() )
+		points.insert( p );
+	for( auto& h : pgon.get_holes() )
+		for( auto& p : h )
+			points.insert( p );
+
+	auto v = [&]( const auto& cpoints ) 
+	{
+		return false;//! stop on first collinear.
+	};
+
+	EXPECT_TRUE( has_collinear_points( points, v ) );
+	auto m = generate_mesh( pgon );
+    //auto b = is_polygon_with_holes_simple(pgon, make_tolerance_policy());
+    //auto m = generate_mesh(heal_non_simple_polygon(pgon, 0.001 * boost::units::si::meters, 10000));
 }
 
 #endif//! not defined (__APPLE__)
