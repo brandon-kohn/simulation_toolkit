@@ -7,3 +7,4 @@ cmake.build.release
 cmake.test.install
 install_test
 *.swp
+.vs
