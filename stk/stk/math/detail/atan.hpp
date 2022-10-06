@@ -9,6 +9,7 @@
 #pragma once
 
 #include <limits>
+#include <cmath>
 
 namespace stk::math::detail {
 	/*	This is an implementation of atan.  It is written in standard C except:
@@ -100,7 +101,7 @@ namespace stk::math::detail {
 			// For large x, generate inexact and return pi/2.
 			if( 0x1p53 <= x )
 				return HalfPi + Tiny;
-			if( isnan( x ) )
+			if( std::isnan( x ) )
 				return x - x;
 		}
 
