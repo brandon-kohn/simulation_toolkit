@@ -18,7 +18,7 @@
 
 ##### Requirements:
 ###### Requires C++11 for boost.fiber, junction, and libcds.
-###### Boost version 1.65.1 is required with the following compiled librarhttps://img.shields.io/github/tag/brandon-kohn/simulation_toolkit.svgies:
+###### Boost version 1.65.1 is required with the following compiled libraries:
         context 
         fiber - (to use stk fiber pool)
         system
