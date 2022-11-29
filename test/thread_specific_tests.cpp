@@ -427,3 +427,131 @@ TEST(timing, compare_thread_specific_and_boost_tss)
 }
 #endif//!STK_DO_THREAD_SPECIFIC_TIMINGS
 
+#include <stk/thread/lazy_ptr.hpp>
+template <unsigned int I>
+struct empty_type
+{};
+template <unsigned int I>
+struct non_empty_type
+{
+	int i;
+};
+
+TEST( encode_empty_bases_test_suite, test_encode_00 )
+{
+    using namespace stk;
+	constexpr unsigned int r = encode_empty_bases<empty_type<1>, empty_type<2>>();
+	static_assert( r == 0, "should be 0" );
+}
+
+TEST( encode_empty_bases_test_suite, test_encode_01 )
+{
+    using namespace stk;
+	constexpr unsigned int r = encode_empty_bases<empty_type<1>, non_empty_type<2>>();
+	static_assert( r == 1, "should be 1" );
+}
+
+TEST( encode_empty_bases_test_suite, test_encode_10 )
+{
+    using namespace stk;
+	constexpr unsigned int r = encode_empty_bases<non_empty_type<1>, empty_type<2>>();
+	static_assert( r == 10, "should be 10" );
+}
+
+TEST( encode_empty_bases_test_suite, test_encode_11 )
+{
+    using namespace stk;
+	constexpr unsigned int r = encode_empty_bases<non_empty_type<1>, non_empty_type<2>>();
+	static_assert( r == 11, "should be 11" );
+}
+
+TEST( lazy_ptr_test_suite, default_ctor )
+{
+    using namespace stk;
+	using ptr_type = basic_lazy_ptr<int>;
+	auto ptr = basic_lazy_ptr<int>();
+	auto pptr = ptr.get( []()
+		{ return new int{ 11 }; } );
+
+	EXPECT_EQ( sizeof( ptr ), sizeof( std::atomic<int*> ) );
+	EXPECT_EQ( 11, *pptr );
+}
+
+TEST( lazy_ptr_test_suite, lazy_ptr_construct )
+{
+    using namespace stk;
+	using ptr_type = lazy_ptr<int>;
+	auto ptr = ptr_type( [](){ return new int{ 11 }; } );
+	EXPECT_EQ( 11, *ptr );
+}
+
+TEST( lazy_ptr_test_suite, lazy_lean_ptr_construct )
+{
+    using namespace stk;
+	constexpr auto create11 = +[]() { return new int{ 11 }; };
+	using ptr_type = lazy_lean_ptr<int, create11>;
+	auto ptr = ptr_type();
+	EXPECT_EQ( sizeof( int* ), sizeof( ptr ) );
+	EXPECT_EQ( 11, *ptr );
+}
+
+std::mutex theMutex;
+template <typename Init>
+int* get_lazy_value( int*& value, Init&& init )
+{
+	auto lk = std::lock_guard<std::mutex>{ theMutex };
+	if( value )
+	{
+		return value;
+	}
+
+	value = init();
+	return value;
+}
+
+TEST(timing, compare_basic_lazy_ptr_with_mutex)
+{
+    using namespace stk;
+    using namespace stk::thread;
+    using namespace ::testing;
+    work_stealing_thread_pool<moodycamel_concurrent_queue_traits_no_tokens, boost_thread_traits> pool;
+    std::size_t nRuns = 1000000;
+	auto iCount = 0;
+	auto init = [&iCount]() { ++iCount; return new int{ 11 }; };
+   
+    std::vector<int> c( nRuns, 0 );
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME("int_with_mutex");
+		int* v = nullptr;
+        pool.parallel_apply(nRuns, [&](int q) 
+		{
+            for (auto i = 0; i < 10; ++i)
+            {
+				get_lazy_value( v, init );
+				c[q] += *v;
+            }
+        });
+		delete v;
+    }
+
+    auto matches = std::count_if( c.begin(), c.end(), Matches( Eq( 11 * 10 ) ) );
+	EXPECT_EQ( matches, nRuns );
+	EXPECT_EQ( iCount, 1 );
+	iCount = 0;
+    c = std::vector<int>( nRuns, 0 );
+    {
+        GEOMETRIX_MEASURE_SCOPE_TIME("basic_lazy_ptr");
+		auto ptr = basic_lazy_ptr<int>{};
+        pool.parallel_apply(nRuns, [&](int q)
+		{
+            for (auto i = 0; i < 10; ++i)
+            {
+                auto* v = ptr.get( init );
+                c[q] += *v;
+            }
+        });
+    }
+    matches = std::count_if( c.begin(), c.end(), Matches( Eq( 11 * 10 ) ) );
+	EXPECT_EQ( matches, nRuns );
+	EXPECT_EQ( iCount, 1 );
+}

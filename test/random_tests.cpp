@@ -499,3 +499,91 @@ TEST(maxwell_boltzmann_distribution_test_suite, basic)
 	write_hist(ofs, chist);
 #endif
 }
+
+
+#define MODLUS 2147483647
+#define MULT1 24112
+#define MULT2 26143
+
+
+double URand( int* iy )
+{
+	long zi, lowprd, hi31;
+
+	zi = *iy;
+	lowprd = ( zi & 65535 ) * MULT1;
+	hi31 = ( zi >> 16 ) * MULT1 + ( lowprd >> 16 );
+	zi = ( ( lowprd & 65535 ) - MODLUS ) + ( ( hi31 & 32767 ) << 16 ) + ( hi31 >> 15 );
+	if( zi < 0 )
+		zi += MODLUS;
+	lowprd = ( zi & 65535 ) * MULT2;
+	hi31 = ( zi >> 16 ) * MULT2 + ( lowprd >> 16 );
+	zi = ( ( lowprd & 65535 ) - MODLUS ) + ( ( hi31 & 32767 ) << 16 ) + ( hi31 >> 15 );
+	if( zi < 0 )
+		zi += MODLUS;
+	*iy = zi;
+	return ( ( ( zi >> 7 | 1 ) + 1 ) / 16777216.0 );
+}
+
+#include <random>
+#include <chrono>
+
+TEST(random_timing_suite, time)
+{
+	std::mt19937 gen32;
+	std::mt19937_64 gen64;
+	stk::xoroshiro128plus_generator genBrandon;
+	int seed = 13;
+	gen32.seed(seed);
+	gen64.seed(seed);
+	genBrandon.seed(seed);
+
+	std::uniform_real_distribution<double> uniform_dist(0, 1);
+	boost::random::uniform_real_distribution<> uniform_dist_boost;
+
+	int N = 1000000;
+	std::vector<std::size_t> results( N, 0 );
+
+	//Test 32
+	auto startg32 = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < N; i++) {
+		//std::cout << uniform_dist(gen32) << std::endl;
+		results[i] = uniform_dist(gen32);
+	}
+	auto stopg32 = std::chrono::high_resolution_clock::now();
+	auto duration32 = std::chrono::duration_cast<std::chrono::microseconds>(stopg32 - startg32);
+	std::cout << "GEN32 " << duration32.count() << " ms" << std::endl;
+
+	//Test URand
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < N; i++) {
+		//std::cout << URand(&seed) << std::endl;
+		results[i] = URand(&seed);
+	}
+	auto stop = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "URAND " << duration.count()<< " ms" << std::endl;
+
+	//Test 64
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < N; i++) {
+		//std::cout << uniform_dist(gen64) << std::endl;
+		results[i] = uniform_dist(gen64);
+	}
+	stop = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "GEN64 " << duration.count() << " ms" << std::endl;
+
+	//Test Brandon
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < N; i++) {
+		//std::cout << uniform_dist(genBrandon) << std::endl;
+		results[i] = uniform_dist_boost(genBrandon);
+	}
+	stop = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "GenBrandon " << duration.count() << " ms" << std::endl;
+	
+	std::cout << "Hello Done." << std::endl;
+}
+
