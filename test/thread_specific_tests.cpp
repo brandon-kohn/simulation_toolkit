@@ -485,12 +485,13 @@ TEST( lazy_ptr_test_suite, lazy_ptr_construct )
 	EXPECT_EQ( 11, *ptr );
 }
 
+int* create11(){ return new int{11}; }
 TEST( lazy_ptr_test_suite, lazy_lean_ptr_construct )
 {
     using namespace stk;
-	constexpr auto create11 = +[]() { return new int{ 11 }; };
+	//constexpr auto create11 = +[]() { return new int{ 11 }; };
 	using ptr_type = lazy_lean_ptr<int, create11>;
-	auto ptr = ptr_type();
+	auto ptr = ptr_type{};
 	EXPECT_EQ( sizeof( int* ), sizeof( ptr ) );
 	EXPECT_EQ( 11, *ptr );
 }
