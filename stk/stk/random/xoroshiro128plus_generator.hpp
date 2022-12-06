@@ -72,8 +72,9 @@ namespace stk {
 			std::uint32_t temp[4];
             std::seed_seq seq{seed};
             seq.generate(temp, temp + 4);
-            m_state[0] = reinterpret_cast<std::uint64_t*>(temp)[0];
-            m_state[1] = reinterpret_cast<std::uint64_t*>(temp)[1];
+            constexpr auto combine = +[](std::uint64_t most, std::uint64_t least) -> std::uint64_t { return most << 32 | least; };
+            m_state[0] = combine(temp[0], temp[1]);//reinterpret_cast<std::uint64_t*>(temp)[0];
+            m_state[1] = combine(temp[2], temp[3]);//reinterpret_cast<std::uint64_t*>(temp)[1];
         }
 
     private:

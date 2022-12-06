@@ -370,6 +370,26 @@ TEST(truncated_normal_test_suite, brute_hueristic_timing)
 }
 */
 
+#include <stk/random/zero_truncated_poisson_distribution.hpp>
+TEST(truncated_poisson_test_suite, output_truncated_poisson)
+{
+	stk::histogram_1d<double> hist(9, 1.0, 10.0);
+	stk::zero_truncated_poisson_distribution<> dist(0.83);
+
+	std::mt19937 gen(42UL);
+	for (auto i = 0ULL; i < nruns; ++i)
+	{
+		auto v = dist(gen);
+		hist.fill(v);
+	}
+
+	hist.scale(1.0 / hist.integral());
+
+	std::ofstream ofs("/mnt/d/Projects/poisson_trunc.csv");
+	write_hist(ofs, hist);
+	EXPECT_TRUE(true);
+}
+
 #include <stk/random/xoroshiro128plus_generator.hpp>
 TEST(xoroshiro128plus_generator_test_suite, construct)
 {

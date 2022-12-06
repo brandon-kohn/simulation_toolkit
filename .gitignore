@@ -8,3 +8,4 @@ cmake.test.install
 install_test
 *.swp
 .vs
+/.vscode

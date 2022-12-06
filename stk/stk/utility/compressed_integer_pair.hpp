@@ -1,5 +1,5 @@
 //
-//! Copyright © 2017
+//! Copyright ï¿½ 2017
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
@@ -25,7 +25,10 @@ namespace stk {
 
         BOOST_FORCEINLINE std::uint64_t to_uint64() const
         {
-            return *reinterpret_cast<std::uint64_t const*>(this);
+            //return *reinterpret_cast<std::uint64_t const*>(this);
+            std::uint64_t least = second;
+            std::uint64_t most = first;
+            return most << 32 | least;
         }
 
         explicit operator bool() const
