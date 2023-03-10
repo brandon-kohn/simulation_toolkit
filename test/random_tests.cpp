@@ -607,3 +607,30 @@ TEST(random_timing_suite, time)
 	std::cout << "Hello Done." << std::endl;
 }
 
+TEST(number_test_suite, negative_zero)
+{
+	auto nz = -1.0 / std::numeric_limits<double>::infinity();
+	auto z = 0.0;
+	EXPECT_TRUE( std::signbit( nz ) );
+	EXPECT_TRUE( !std::signbit( z ) );
+	
+	EXPECT_EQ( nz, z );
+	EXPECT_EQ( z, nz );
+
+	EXPECT_GE( nz, z );
+	EXPECT_GE( z, nz );
+	
+	EXPECT_LE( nz, z );
+	EXPECT_LE( z, nz );
+
+	EXPECT_FALSE( nz < z );
+	EXPECT_FALSE( nz > z );
+
+	EXPECT_FALSE( z < nz );
+	EXPECT_FALSE( z > nz );
+
+	EXPECT_EQ( nz * 1.0, z * 1.0 );
+	EXPECT_EQ( nz / 1.0, z / 1.0 );
+	EXPECT_EQ( nz + 1.0, z + 1.0 );
+	EXPECT_EQ( nz - 1.0, z - 1.0 );
+}
