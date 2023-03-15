@@ -24,6 +24,7 @@
 #include "primitive/polygon_with_holes.hpp"
 #include "primitive/sphere.hpp"
 #include "primitive/line.hpp"
+#include "primitive/ray.hpp"
 #include "primitive/rectangle.hpp"
 #include "primitive/quadrilateral.hpp"
 #include "primitive/triangle.hpp"
