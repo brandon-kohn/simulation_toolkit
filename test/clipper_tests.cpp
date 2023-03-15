@@ -67,6 +67,7 @@ TEST(ClipperSuite, testCriticalPolygon)
 }
 
 #include <stk/geometry/clipper_boolean_operations.hpp>
+#include <stk/geometry/geometry_kernel.hpp>
 TEST(ClipperSuite, TestStkInterface)
 {
 	using namespace stk;
@@ -95,6 +96,13 @@ TEST(ClipperSuite, TestStkInterface)
 	auto scale = 1000UL;
 	std::vector<polygon_with_holes2> newHoles;
 	auto unn = clipper_union(holes, scale);
+
+	auto                             origin = outer[0];
+	auto                             box = geometrix::make_aabb<point2>( outer );
+	auto                             seg = segment2{ box[0], box[1] };
+	auto                             circ = circle2{ origin, 5.0 * boost::units::si::meters };
+	auto                             lne = line2{ origin, dimensionless2{ 1.0, 1.0 } };
+	auto                             ob = obb2{ origin, dimensionless2{ -1.0, 1.0 }, dimensionless2{ -1.0, -1.0 }, 0.5 * boost::units::si::meters, 0.25 * boost::units::si::meters };
 	for (auto const& h : unn)
 	{
 		auto r = clipper_offset(h, 0.1 * units::si::meters, scale);
