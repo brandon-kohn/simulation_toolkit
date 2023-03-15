@@ -103,6 +103,7 @@ TEST(ClipperSuite, TestStkInterface)
 	auto                             circ = circle2{ origin, 5.0 * boost::units::si::meters };
 	auto                             lne = line2{ origin, dimensionless2{ 1.0, 1.0 } };
 	auto                             ob = obb2{ origin, dimensionless2{ -1.0, 1.0 }, dimensionless2{ -1.0, -1.0 }, 0.5 * boost::units::si::meters, 0.25 * boost::units::si::meters };
+	auto                             ra = ray2{ box[0], dimensionless2{ 1.0, 1.0 } };
 	for (auto const& h : unn)
 	{
 		auto r = clipper_offset(h, 0.1 * units::si::meters, scale);
