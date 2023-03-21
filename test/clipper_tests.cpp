@@ -94,17 +94,33 @@ TEST(ClipperSuite, TestStkInterface)
 	};
 
 	auto scale = 1000UL;
-	std::vector<polygon_with_holes2> newHoles;
 	auto unn = clipper_union(holes, scale);
 
-	auto                             origin = outer[0];
-	auto                             box = geometrix::make_aabb<point2>( outer );
-	auto                             seg = segment2{ box[0], box[1] };
-	auto                             circ = circle2{ origin, 5.0 * boost::units::si::meters };
-	auto                             lne = line2{ origin, dimensionless2{ 1.0, 1.0 } };
-	auto                             ob = obb2{ origin, dimensionless2{ -1.0, 1.0 }, dimensionless2{ -1.0, -1.0 }, 0.5 * boost::units::si::meters, 0.25 * boost::units::si::meters };
-	auto                             ra = ray2{ box[0], dimensionless2{ 1.0, 1.0 } };
-	for (auto const& h : unn)
+	//! Test draw geometries
+	auto origin = outer[0];
+	auto box = geometrix::make_aabb<point2>( outer );
+	auto seg = segment2{ box[0], box[2] };
+	auto circ = circle2{ origin, 5.0 * boost::units::si::meters };
+	auto lne = line2{ origin, dimensionless2{ 1.0, 1.0 } };
+	auto ob = obb2{ origin, dimensionless2{ -1.0, 1.0 }, dimensionless2{ -1.0, -1.0 }, 0.5 * boost::units::si::meters, 0.25 * boost::units::si::meters };
+	auto v = geometrix::normalize( box[2] - box[0] );
+	auto ra = ray2{ box[0], v };
+	auto quad = quad2{ box[0], box[1], box[2], box[3] };
+	auto rect = rectangle2{ box[0], box[1], box[2], box[3] };
+	auto cap = capsule2{ seg, 5.0 * boost::units::si::meters };
+
+	auto outer2 = polygon2{
+		{ -0.75 * boost::units::si::meters, -0.75 * boost::units::si::meters }, { 0.75 * boost::units::si::meters, -0.75 * boost::units::si::meters }, { 0.75 * boost::units::si::meters, 0.75 * boost::units::si::meters }, { -0.75 * boost::units::si::meters, 0.75 * boost::units::si::meters }
+	};
+
+	auto hole2 = polygon2{
+		{ -0.5 * boost::units::si::meters, -0.5 * boost::units::si::meters }, { -0.5 * boost::units::si::meters, 0.5 * boost::units::si::meters }, { 0.5 * boost::units::si::meters, 0.5 * boost::units::si::meters }, { 0.5 * boost::units::si::meters, -0.5 * boost::units::si::meters }
+	};
+
+	auto pgon2 = polygon_with_holes2{ outer2, { hole2 } };
+	
+	std::vector<polygon_with_holes2> newHoles;
+	for( auto const& h : unn )
 	{
 		auto r = clipper_offset(h, 0.1 * units::si::meters, scale);
 		GEOMETRIX_ASSERT(r.size() == 1);

@@ -33,3 +33,6 @@
 [submodule "doctest"]
 	path = doctest
 	url = https://github.com/doctest/doctest.git
+[submodule "Clipper2"]
+	path = Clipper2
+	url = https://github.com/brandon-kohn/Clipper2.git
