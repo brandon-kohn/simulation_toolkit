@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <stk/test/gtest_custom_message.hpp>
 #include <stk/random/truncated_normal_distribution.hpp>
 #include <stk/random/linear_distribution.hpp>
 #include <geometrix/utility/assert.hpp>

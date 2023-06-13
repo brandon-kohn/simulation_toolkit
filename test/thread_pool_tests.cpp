@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <stk/test/gtest_custom_message.hpp>
 
 #include <geometrix/numeric/number_comparison_policy.hpp>
 #include <stk/thread/work_stealing_thread_pool.hpp>

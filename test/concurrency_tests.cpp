@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include <stk/test/gtest_custom_message.hpp>
 
 #include <stk/thread/active_object.hpp>
 #include <stk/thread/thread_pool.hpp>
