@@ -8,15 +8,10 @@ if(APPLE)
     set(CMAKE_MACOSX_RPATH TRUE)
 endif()
 
-# Download and unpack googletest at configure time
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-configure_file(GoogleTest.CMakeLists.txt.in googletest-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-execute_process(COMMAND ${CMAKE_COMMAND} --build . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
  
 # Prevent GoogleTest from overriding our compiler/linker options
 # when building with Visual Studio
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_EXPLICIT_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "")
@@ -33,12 +28,19 @@ if(NOT "${FORCE_MSVC_DEBUG_DEFINE}" STREQUAL "")
     include(cmake/stk_force_msvc_runtime.cmake)
     force_msvc_debug_define()
 endif()
- 
-# Add googletest directly to our build. This adds
-# the following targets: gtest, gtest_main, gmock
-# and gmock_main
-add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
-                 ${CMAKE_BINARY_DIR}/googletest-build)
+
+if(BUILD_TESTS)
+    # Add googletest directly to our build. This adds
+    # the following targets: gtest, gtest_main, gmock
+    # and gmock_main
+    # Download and unpack googletest at configure time
+    configure_file(GoogleTest.CMakeLists.txt.in googletest-download/CMakeLists.txt)
+    execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+    execute_process(COMMAND ${CMAKE_COMMAND} --build . WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
+                     ${CMAKE_BINARY_DIR}/googletest-build)
+endif()
 
 # Build Properties
 set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE PATH "Default relative include path.")
@@ -75,7 +77,6 @@ add_subdirectory(poly2tri)
 add_subdirectory(junction)
 add_subdirectory(entt)
 add_subdirectory(doctest)
-add_subdirectory(gtest_runner)
 if(BUILD_LIBCDS)
     message(STATUS "Building LibCDS...")
     add_subdirectory(libcds)
@@ -86,6 +87,7 @@ endif()
 
 # Tests
 if(BUILD_TESTS)
+    add_subdirectory(gtest_runner)
     include(CTest)
     add_subdirectory(test)
 endif()
