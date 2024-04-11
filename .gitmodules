@@ -36,3 +36,6 @@
 [submodule "Clipper2"]
 	path = Clipper2
 	url = https://github.com/brandon-kohn/Clipper2.git
+[submodule "marl"]
+	path = marl
+	url = https://github.com/brandon-kohn/marl.git

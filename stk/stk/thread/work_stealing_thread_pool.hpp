@@ -23,7 +23,6 @@
 #include <stk/utility/none.hpp>
 #include <stk/thread/bind/bind_processor.hpp>
 #include <stk/thread/cache_line_padding.hpp>
-#include <stk/container/experimental/detail/skip_list.hpp>
 #include <stk/compiler/warnings.hpp>
 #include <stk/utility/aligned_alloc.hpp>
 #ifdef STK_USE_JEMALLOC
