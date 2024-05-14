@@ -25,6 +25,7 @@
 #include <stk/thread/cache_line_padding.hpp>
 #include <stk/compiler/warnings.hpp>
 #include <stk/utility/aligned_alloc.hpp>
+#include <stk/container/experimental/detail/skip_list.hpp>
 #ifdef STK_USE_JEMALLOC
 #include <stk/utility/jemallocator.hpp>
 #elif defined(STK_USE_RPMALLOC)
@@ -309,6 +310,12 @@ namespace stk {
             template <typename T>
             using future = typename thread_traits::template future_type<T>;
 
+            template <typename T>
+            static bool is_ready( const future<T>& f )
+			{
+				return thread_traits::is_ready( f );
+			}
+
             work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency() - 1, bool bindToProcs = false)
                 : m_threads(nthreads)
                 , m_stopThread(nthreads)
@@ -457,6 +464,14 @@ namespace stk {
                 }
             }
 
+            void do_work() BOOST_NOEXCEPT
+            {
+                auto tid = get_thread_id();
+                fun_wrapper tsk;
+				auto        lastStolenIndex = std::uint32_t{};
+				do_work_impl( tsk, lastStolenIndex, tid );
+            }
+            
             template <typename Futures>
             void wait_or_work(Futures&&fs) BOOST_NOEXCEPT
             {
@@ -464,11 +479,8 @@ namespace stk {
                 fun_wrapper tsk;
                 std::uint32_t lastStolenIndex = 0;
                 for (auto it = std::begin(fs); it != std::end(fs);) {
-                    if (!thread_traits::is_ready(*it)) {
-                        if (pop_task_from_pool_queue(tsk) || try_steal(lastStolenIndex, tsk)) {
-                            tsk();
-                            m_nTasksOutstanding.decrement(tid);
-                        }
+                    if (!is_ready(*it)) {
+						do_work_impl( tsk, lastStolenIndex, tid );
                     } else
                         ++it;
                 }
@@ -514,6 +526,14 @@ namespace stk {
 			}
 
         private:
+
+            void do_work_impl(fun_wrapper& tsk, std::uint32_t& lastStolenIndex, std::uint32_t tid ) BOOST_NOEXCEPT
+            {
+				if( pop_task_from_pool_queue( tsk ) || try_steal( lastStolenIndex, tsk ) ) {
+					tsk();
+					m_nTasksOutstanding.decrement( tid );
+				}
+            }
 
             void init(bool bindToProcs)
             {
