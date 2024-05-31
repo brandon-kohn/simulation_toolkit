@@ -27,7 +27,7 @@ struct comparable_vector : geometrix::vector_double_2d
 {
 	template <typename ...Args>
 	comparable_vector(Args&&... a)
-		: geometrix::vector_double_2d{std::forward<Args>(a)...}
+		: geometrix::vector_double_2d(std::forward<Args>(a)...)
 	{}
 
 	bool operator <(const geometrix::vector_double_2d& v) const
