@@ -24,11 +24,15 @@
     friend bool operator>=(const T& x, const T& y) { return !static_cast<bool>(x < y); } \
 /***/
 
+#if __cplusplus < 202002L
 #define STK_EQUALITY_COMPARABLE_OPERATORS(T, U)                                          \
     friend bool operator==(const U& y, const T& x) { return x == y; }                    \
     friend bool operator!=(const U& y, const T& x) { return !static_cast<bool>(x == y); }\
     friend bool operator!=(const T& y, const U& x) { return !static_cast<bool>(y == x); }\
 /***/
+#else
+#define STK_EQUALITY_COMPARABLE_OPERATORS(T, U)
+#endif
 
 #define STK_EQUALITY_COMPARABLE_SELF_OPERATORS(T)                                        \
     friend bool operator!=(const T& x, const T& y) { return !static_cast<bool>(x == y); }\
