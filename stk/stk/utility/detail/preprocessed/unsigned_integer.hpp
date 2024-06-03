@@ -473,7 +473,7 @@ namespace stk {
         friend bool                operator<( const long double& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const long double& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const long double& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const long double& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const long double& y, const unsigned_integer<T>& x ) { return x.operator ==(y); }
         friend bool                operator!=( const long double& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const long double& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const long double& rhs ) { return lhs *= rhs; }
@@ -498,7 +498,7 @@ namespace stk {
         friend bool                operator<( const double& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const double& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const double& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const double& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const double& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const double& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const double& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const double& rhs ) { return lhs *= rhs; }
@@ -523,7 +523,7 @@ namespace stk {
         friend bool                operator<( const float& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const float& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const float& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const float& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const float& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const float& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const float& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const float& rhs ) { return lhs *= rhs; }
@@ -548,7 +548,7 @@ namespace stk {
         friend bool                operator<( const char& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const char& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const char& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const char& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const char& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const char& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const char& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const char& rhs ) { return lhs *= rhs; }
@@ -573,7 +573,7 @@ namespace stk {
         friend bool                operator<( const signed char& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const signed char& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const signed char& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const signed char& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const signed char& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const signed char& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const signed char& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const signed char& rhs ) { return lhs *= rhs; }
@@ -598,7 +598,7 @@ namespace stk {
         friend bool                operator<( const unsigned char& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const unsigned char& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const unsigned char& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const unsigned char& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const unsigned char& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const unsigned char& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const unsigned char& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const unsigned char& rhs ) { return lhs *= rhs; }
@@ -623,7 +623,7 @@ namespace stk {
         friend bool                operator<( const short& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const short& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const short& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const short& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const short& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const short& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const short& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const short& rhs ) { return lhs *= rhs; }
@@ -648,7 +648,7 @@ namespace stk {
         friend bool                operator<( const unsigned short& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const unsigned short& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const unsigned short& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const unsigned short& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const unsigned short& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const unsigned short& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const unsigned short& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const unsigned short& rhs ) { return lhs *= rhs; }
@@ -673,7 +673,7 @@ namespace stk {
         friend bool                operator<( const int& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const int& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const int& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const int& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const int& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const int& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const int& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const int& rhs ) { return lhs *= rhs; }
@@ -698,7 +698,7 @@ namespace stk {
         friend bool                operator<( const unsigned int& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const unsigned int& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const unsigned int& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const unsigned int& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const unsigned int& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const unsigned int& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const unsigned int& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const unsigned int& rhs ) { return lhs *= rhs; }
@@ -723,7 +723,7 @@ namespace stk {
         friend bool                operator<( const long& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const long& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const long& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const long& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const long& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const long& rhs ) { return lhs *= rhs; }
@@ -748,7 +748,7 @@ namespace stk {
         friend bool                operator<( const unsigned long& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const unsigned long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const unsigned long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const unsigned long& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const unsigned long& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const unsigned long& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const unsigned long& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const unsigned long& rhs ) { return lhs *= rhs; }
@@ -773,7 +773,7 @@ namespace stk {
         friend bool                operator<( const long long& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const long long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const long long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const long long& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const long long& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const long long& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const long long& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const long long& rhs ) { return lhs *= rhs; }
@@ -798,7 +798,7 @@ namespace stk {
         friend bool                operator<( const unsigned long long& x, const unsigned_integer<T>& y ) { return y > x; }
         friend bool                operator<=( const unsigned long long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y < x ); }
         friend bool                operator>=( const unsigned long long& x, const unsigned_integer<T>& y ) { return !static_cast<bool>( y > x ); }
-        friend bool                operator==( const unsigned long long& y, const unsigned_integer<T>& x ) { return x == y; }
+        friend bool                operator==( const unsigned long long& y, const unsigned_integer<T>& x ) { return x.operator==(y); }
         friend bool                operator!=( const unsigned long long& y, const unsigned_integer<T>& x ) { return !static_cast<bool>( x == y ); }
         friend bool                operator!=( const unsigned_integer<T>& y, const unsigned long long& x ) { return !static_cast<bool>( y == x ); }
         friend unsigned_integer<T> operator*( unsigned_integer<T> lhs, const unsigned long long& rhs ) { return lhs *= rhs; }

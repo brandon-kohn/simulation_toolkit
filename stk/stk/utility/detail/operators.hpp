@@ -26,7 +26,7 @@
 
 #if __cplusplus < 202002L
 #define STK_EQUALITY_COMPARABLE_OPERATORS(T, U)                                          \
-    friend bool operator==(const U& y, const T& x) { return x == y; }                    \
+    friend bool operator==(const U& y, const T& x) { return x.operator ==(y); }          \
     friend bool operator!=(const U& y, const T& x) { return !static_cast<bool>(x == y); }\
     friend bool operator!=(const T& y, const U& x) { return !static_cast<bool>(y == x); }\
 /***/
