@@ -28,14 +28,14 @@ namespace stk {
 		void exec(Fn&& fn)
 		{
 			auto lk = std::lock_guard<Mutex>{ m_mtx };
-			STK_WRITE_DETECT_RACE( locked_item_race_detector );
+			STK_EXCL_WRITER_DETECT_RACE( locked_item_race_detector );
 			fn( m_item );
 		}
 		
 		template<typename Fn>
 		void exec_unsafe(Fn&& fn)
 		{
-			STK_READ_DETECT_RACE( locked_item_race_detector );
+			STK_EXCL_READERS_DETECT_RACE( locked_item_race_detector );
 			fn( m_item );
 		}
 

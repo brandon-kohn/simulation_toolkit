@@ -9,3 +9,4 @@ install_test
 *.swp
 .vs
 /.vscode
+/out

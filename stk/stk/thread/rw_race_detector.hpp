@@ -54,29 +54,29 @@ struct rw_race_detector
 	std::atomic<rw_counter> inUse;
 };
 
-struct read_race_guard
+struct exclusive_reader_race_guard
 {
-	read_race_guard( rw_race_detector& d )
+	exclusive_reader_race_guard( rw_race_detector& d )
 		: detector( d )
 	{
 		auto expected = rw_counter{};
 		auto hasAsserted = false;
 		while( !detector.inUse.compare_exchange_weak( expected, expected.add_reader() ) ) {
-			GEOMETRIX_ASSERT( hasAsserted || expected.writers == 0 );
-			if( expected.writers ) {
+			GEOMETRIX_ASSERT( !hasAsserted || (expected.writers == 0 && expected.readers == 1) );
+			if( !hasAsserted && ( expected.writers || expected.readers != 1 ) ) {
 				hasAsserted = true;
 			}
 		}
 	}
 
-	~read_race_guard()
+	~exclusive_reader_race_guard()
 	{
 		rw_counter expected = { 1, 0 };
 		//! assert only once.
 		auto hasAsserted = false;
 		while( !detector.inUse.compare_exchange_weak( expected, expected.subtract_reader() ) ) {
-			GEOMETRIX_ASSERT( hasAsserted || expected.writers == 0 );
-			if( expected.writers ) {
+			GEOMETRIX_ASSERT( !hasAsserted || (expected.writers == 0 && expected.readers == 1) );
+			if( !hasAsserted && ( expected.writers || expected.readers != 1 ) ) {
 				hasAsserted = true;
 			}
 		}
@@ -85,28 +85,89 @@ struct read_race_guard
 	rw_race_detector& detector;
 };
 
-struct write_race_guard
+struct only_readers_race_guard
 {
-	write_race_guard( rw_race_detector& d )
+	only_readers_race_guard( rw_race_detector& d )
 		: detector( d )
 	{
 		auto expected = rw_counter{};
 		auto hasAsserted = false;
-		while( !detector.inUse.compare_exchange_weak( expected, expected.add_writer() ) ) {
-			GEOMETRIX_ASSERT( hasAsserted || (expected.readers == 0 && expected.writers == 0 ) );
-			if( expected.writers || expected.readers) {
+		while( !detector.inUse.compare_exchange_weak( expected, expected.add_reader() ) ) {
+			GEOMETRIX_ASSERT( !hasAsserted || expected.writers == 0 );
+			if( !hasAsserted && expected.writers ) {
 				hasAsserted = true;
 			}
 		}
 	}
 
-	~write_race_guard()
+	~only_readers_race_guard()
+	{
+		rw_counter expected = { 1, 0 };
+		//! assert only once.
+		auto hasAsserted = false;
+		while( !detector.inUse.compare_exchange_weak( expected, expected.subtract_reader() ) ) {
+			GEOMETRIX_ASSERT( !hasAsserted || expected.writers == 0 );
+			if( !hasAsserted && expected.writers ) {
+				hasAsserted = true;
+			}
+		}
+	}
+
+	rw_race_detector& detector;
+};
+
+struct exclusive_write_race_guard
+{
+	exclusive_write_race_guard( rw_race_detector& d )
+		: detector( d )
+	{
+		auto expected = rw_counter{};
+		auto hasAsserted = false;
+		while( !detector.inUse.compare_exchange_weak( expected, expected.add_writer() ) ) {
+			GEOMETRIX_ASSERT( !hasAsserted || (expected.readers == 0 && expected.writers == 1 ) );
+			if( !hasAsserted && ( expected.readers || expected.writers != 1 )) {
+				hasAsserted = true;
+			}
+		}
+	}
+
+	~exclusive_write_race_guard()
 	{
 		rw_counter expected = { 0, 1 };
 		auto hasAsserted = false;
 		while( !detector.inUse.compare_exchange_weak( expected, expected.subtract_writer() ) ) {
-			GEOMETRIX_ASSERT( hasAsserted || ( expected.readers == 0 && expected.writers == 1 ) );
-			if( expected.writers != 1 || expected.readers ) {
+			GEOMETRIX_ASSERT( !hasAsserted || ( expected.readers == 0 && expected.writers == 1 ) );
+			if( !hasAsserted && (expected.writers != 1 || expected.readers ) ) {
+				hasAsserted = true;
+			}
+		}
+	}
+
+	rw_race_detector& detector;
+};
+
+struct only_writers_race_guard
+{
+	only_writers_race_guard( rw_race_detector& d )
+		: detector( d )
+	{
+		auto expected = rw_counter{};
+		auto hasAsserted = false;
+		while( !detector.inUse.compare_exchange_weak( expected, expected.add_writer() ) ) {
+			GEOMETRIX_ASSERT( !hasAsserted || expected.readers == 0 );
+			if(!hasAsserted && expected.readers) {
+				hasAsserted = true;
+			}
+		}
+	}
+
+	~only_writers_race_guard()
+	{
+		rw_counter expected = { 0, 1 };
+		auto hasAsserted = false;
+		while( !detector.inUse.compare_exchange_weak( expected, expected.subtract_writer() ) ) {
+			GEOMETRIX_ASSERT( !hasAsserted || ( expected.readers == 0 ) );
+			if( !hasAsserted && expected.readers ) {
 				hasAsserted = true;
 			}
 		}
@@ -118,11 +179,16 @@ struct write_race_guard
 } // namespace stk::thread
 
 #ifndef NDEBUG
+//! Regular rw race check (many readers allowed or 1 writer).
 #	define STK_RW_RACE_DETECTOR( name ) stk::thread::rw_race_detector name
-#	define STK_READ_DETECT_RACE( name ) stk::thread::read_race_guard BOOST_PP_CAT( _____stk_____, BOOST_PP_CAT( name, __LINE__ ) )( name )
-#	define STK_WRITE_DETECT_RACE( name ) stk::thread::write_race_guard BOOST_PP_CAT( _____stk_____, BOOST_PP_CAT( name, __LINE__ ) )( name )
+#	define STK_EXCL_READER_DETECT_RACE( name ) stk::thread::exclusive_reader_race_guard BOOST_PP_CAT( _____stk_____, BOOST_PP_CAT( name, __LINE__ ) )( name )
+#	define STK_EXCL_READERS_DETECT_RACE( name ) stk::thread::only_readers_race_guard BOOST_PP_CAT( _____stk_____, BOOST_PP_CAT( name, __LINE__ ) )( name )
+#	define STK_EXCL_WRITER_DETECT_RACE( name ) stk::thread::exclusive_write_race_guard BOOST_PP_CAT( _____stk_____, BOOST_PP_CAT( name, __LINE__ ) )( name )
+#	define STK_EXCL_WRITERS_DETECT_RACE( name ) stk::thread::only_writers_race_guard BOOST_PP_CAT( _____stk_____, BOOST_PP_CAT( name, __LINE__ ) )( name )
 #else
 #	define STK_RW_RACE_DETECTOR( name )
-#	define STK_READ_DETECT_RACE( name )
-#	define STK_WRITE_DETECT_RACE( name )
+#	define STK_EXCL_READER_DETECT_RACE( name )
+#	define STK_EXCL_READERS_DETECT_RACE( name )
+#	define STK_EXCL_WRITER_DETECT_RACE( name )
+#	define STK_EXCL_WRITERS_DETECT_RACE( name )
 #endif
