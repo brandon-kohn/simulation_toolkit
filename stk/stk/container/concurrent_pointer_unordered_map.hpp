@@ -236,7 +236,6 @@ namespace stk { namespace unordered_map_detail {
                 m_map.erase(it.getKey());
                 it.next();
             };
-			quiesce();
         }
 
 		//! Iterator interface - iteration is not safe in the presence of inserts.

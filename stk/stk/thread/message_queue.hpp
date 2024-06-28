@@ -43,11 +43,21 @@ namespace stk {
 		}
 
 		template <typename Generator>
-		bool send( Generator&& gen, std::size_t count )
+		std::size_t send( Generator&& gen, std::size_t count )
 		{
 			static_assert( std::is_convertible<decltype(gen()), Message>::value, "message_queue<T>::send: Generator result type is not convertible to Message type T." );
 
+#ifdef STK_CONCURRENT_QUEUE_USE_EXPERIMENTAL
 			return m_q.generate_bulk( std::forward<Generator>(gen), count );
+#else
+			auto nSent = std::size_t{};
+			for( auto i = std::size_t{}; i < count; ++i ) {
+				if (auto res = m_q.enqueue(gen()); res) {
+					++nSent;
+				}
+			}
+			return nSent;
+#endif
 		}
 
 		bool receive( Message& value )
@@ -58,13 +68,55 @@ namespace stk {
 		template <typename Consumer>
 		bool receive( Consumer&& v )
 		{
+#ifdef STK_CONCURRENT_QUEUE_USE_EXPERIMENTAL
 			return m_q.try_consume( std::forward<Consumer>( v ) );
+#else
+			if constexpr( std::is_default_constructible<Message>::value ) {
+				Message msg;
+				if( m_q.try_dequeue( msg ) ) {
+					v( std::move( msg ) );
+					return true;
+				}
+			}
+			if constexpr( !std::is_default_constructible<Message>::value ) {
+				std::optional<Message> msg;
+				if( m_q.try_dequeue( msg ) && msg ) {
+					v( std::move( *msg ) );
+					return true;
+				} 
+			}
+			return false;
+#endif
 		}
 
 		template <typename Consumer>
 		std::size_t receive_all( Consumer&& v )
 		{
+#ifdef STK_CONCURRENT_QUEUE_USE_EXPERIMENTAL
 			return m_q.consume_bulk( v, m_q.size_approx() );
+#else
+			if constexpr( std::is_default_constructible<Message>::value ) {
+				thread_local std::vector<Message> items;
+				auto                              size = m_q.size_approx();
+				items.resize( size );
+				if( auto s = m_q.try_dequeue_bulk( items.begin(), size ); s ) {
+					for( auto i = std::size_t{}; i < s; ++i )
+						v( std::move(items[i]) );
+					return s;
+				}
+			}
+			if constexpr( !std::is_default_constructible<Message>::value ) {
+				thread_local std::vector<std::optional<Message>> items;
+				auto                              size = m_q.size_approx();
+				items.resize( size );
+				if( auto s = m_q.try_dequeue_bulk( items.begin(), size ); s ) {
+					for( auto i = std::size_t{}; i < s; ++i )
+						v( std::move(*items[i]) );
+					return s;
+				}
+			}
+			return 0;
+#endif
 		}
 
 		//! Only certain during quiescent periods (no producers or consumers active.)
@@ -73,7 +125,7 @@ namespace stk {
 		//! Only certain during quiescent periods (no producers or consumers active.)
 		void clear()
 		{
-			m_q.consume_bulk( +[]( Message&& ) {}, m_q.size_approx() );
+			receive_all( +[]( Message&& ) {} );
 		}
 
 	private:
