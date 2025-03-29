@@ -25,6 +25,22 @@ namespace stk::graph {
 
 	struct crs_graph
 	{
+		weight_t get_edge_weight( vertex_t u, vertex_t v ) const
+		{
+			std::size_t begin = row_starts[u];
+			std::size_t end = row_starts[u + 1];
+
+			for( std::size_t i = begin; i < end; ++i )
+			{
+				if( targets[i] == v )
+				{
+					return weights[i];
+				}
+			}
+
+			return std::numeric_limits<weight_t>::infinity(); // No edge found
+		}
+
 		std::vector<vertex_t>                targets;    //! target vertex indices
 		std::vector<weight_t>                weights;    //! edge weights
 		std::vector<std::size_t>             row_starts; //! row start offsets per vertex
