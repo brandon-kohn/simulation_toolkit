@@ -156,7 +156,6 @@ TEST(StoppableAstarTestSuite, stoppable_astar_search_ThreeNodeGraphSearchingFrom
     EXPECT_TRUE(visitorTerminated);
 }
 
-
 TEST(StoppableAstarTestSuite, stoppable_astar_search_tree_ThreeNodeGraphSearchingFromV1ToV2_VisitorProperlyTerminatesSearch)
 {
     using namespace boost;
@@ -200,3 +199,73 @@ TEST(StoppableAstarTestSuite, stoppable_astar_search_tree_ThreeNodeGraphSearchin
 
     EXPECT_TRUE(visitorTerminated);
 }
+
+#include "stk/graph/crs_graph.hpp"
+#include "stk/graph/dijkstras_shortest_path.hpp"
+#include "stk/graph/astar.hpp"
+
+using namespace stk::graph;
+
+namespace {
+
+	class CrsGraphTest : public ::testing::Test
+	{
+	protected:
+		void SetUp() override
+		{
+			constexpr std::size_t N = 5;
+			builder = std::make_unique<crs_graph_builder>( N, /*undirected=*/true );
+
+			builder->set_position( 0, 0.0f, 0.0f );
+			builder->set_position( 1, 1.0f, 0.0f );
+			builder->set_position( 2, 1.0f, 1.0f );
+			builder->set_position( 3, 0.0f, 1.0f );
+			builder->set_position( 4, 0.5f, 0.5f );
+
+			builder->add_edge( 0, 1, 1.0f );
+			builder->add_edge( 1, 2, 1.0f );
+			builder->add_edge( 2, 3, 1.0f );
+			builder->add_edge( 3, 0, 1.0f );
+			builder->add_edge( 0, 4, 0.7f );
+			builder->add_edge( 4, 2, 0.7f );
+
+			graph = builder->build();
+
+			vertex_mask.assign( 5, true );
+			edge_mask.assign( graph.targets.size(), true );
+		}
+
+		std::unique_ptr<crs_graph_builder> builder;
+		crs_graph                          graph;
+		std::vector<bool>                  vertex_mask;
+		std::vector<bool>                  edge_mask;
+	};
+
+	TEST_F( CrsGraphTest, DijkstraDistances )
+	{
+		auto [dist, preds] = dijkstra<stk::graph::d_ary_heap_policy<>>( graph, 0, vertex_mask, edge_mask );
+		EXPECT_NEAR( dist[0], 0.0f, 1e-5f );
+		EXPECT_NEAR( dist[1], 1.0f, 1e-5f );
+		EXPECT_NEAR( dist[2], 1.4f, 1e-5f ); // 0 -> 4 -> 2
+		EXPECT_NEAR( dist[3], 1.0f, 1e-5f );
+		EXPECT_NEAR( dist[4], 0.7f, 1e-5f );
+	}
+
+	TEST_F( CrsGraphTest, AStarMatchesDijkstra )
+	{
+		int  goal = 2;
+		auto heuristic = [&]( int v ) -> float
+		{
+			float dx = graph.positions[v].first - graph.positions[goal].first;
+			float dy = graph.positions[v].second - graph.positions[goal].second;
+			return dx * dx + dy * dy;
+		};
+
+		auto [dist_astar, preds_astar] = astar( graph, 0, goal, vertex_mask, edge_mask, heuristic );
+		auto [dist_dsp, preds_dsp] = dijkstra<stk::graph::d_ary_heap_policy<>>( graph, 0, vertex_mask, edge_mask );
+
+		for( std::size_t i = 0; i < dist_astar.size(); ++i )
+			EXPECT_NEAR( dist_astar[i], dist_dsp[i], 1e-5f );
+	}
+
+} // namespace
