@@ -23,8 +23,8 @@ namespace stk::graph {
 		const crs_graph&         graph,
 		vertex_t                 source,
 		vertex_t                 goal,
-		const std::vector<bool>& vertex_mask,
-		const std::vector<bool>& edge_mask,
+		const std::vector<std::uint8_t>& vertex_mask,
+		const std::vector<std::uint8_t>& edge_mask,
 		Heuristic&&              heuristic )
 	{
 		const std::size_t     num_vertices = graph.row_starts.size() - 1;
@@ -63,8 +63,9 @@ namespace stk::graph {
 				for( int j = 0; j < 8; ++j )
 				{
 					vertex_t v = graph.targets[begin + i + j];
-					curr_dists[j] = vertex_mask[v] ? distance[v] : std::numeric_limits<weight_t>::infinity();
-					heuristics[j] = vertex_mask[v] ? heuristic( v ) : 0.0f;
+					auto     vMask = vertex_mask[v];
+					curr_dists[j] = vMask ? distance[v] : std::numeric_limits<weight_t>::infinity();
+					heuristics[j] = vMask ? heuristic( v ) : 0.0f;
 				}
 
 				__m256 g_cand = _mm256_add_ps( g_u, wts );

@@ -80,10 +80,10 @@ namespace stk {
 		using namespace geometrix;
 		auto bounds = get_bounds(pgon, make_tolerance_policy());
 		auto traits = grid.get_traits();
-		auto imin = traits.get_x_index(std::max(std::get<e_xmin>(bounds), traits.get_min_x()));
-		auto imax = traits.get_x_index(std::min(std::get<e_xmax>(bounds), traits.get_max_x()));
-		auto jmin = traits.get_y_index(std::max(std::get<e_ymin>(bounds), traits.get_min_y()));
-		auto jmax = traits.get_y_index(std::min(std::get<e_ymax>(bounds), traits.get_max_y()));
+		auto imin = traits.get_x_index((std::max)(std::get<e_xmin>(bounds), traits.get_min_x()));
+		auto imax = traits.get_x_index((std::min)(std::get<e_xmax>(bounds), traits.get_max_x()));
+		auto jmin = traits.get_y_index((std::max)(std::get<e_ymin>(bounds), traits.get_min_y()));
+		auto jmax = traits.get_y_index((std::min)(std::get<e_ymax>(bounds), traits.get_max_y()));
 
 		for (auto i = imin; i <= imax; ++i)
 			for (auto j = jmin; j <= jmax; ++j)

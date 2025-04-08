@@ -51,7 +51,7 @@ namespace stk { namespace detail {
         typedef Key                                                key_type;
         typedef std::pair<const Key, Value>                        value_type;
         typedef Pred                                               key_compare;
-        typedef typename Alloc::template rebind<value_type>::other allocator_type;
+        using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<value_type> ;
         typedef boost::mpl::int_<MaxHeight>                        max_height;
         typedef boost::mpl::int_<MaxHeight-1>                      max_level;
         typedef boost::mpl::bool_<allowMultipleKeys>               allow_multiple_keys;
