@@ -39,3 +39,6 @@
 [submodule "marl"]
 	path = marl
 	url = https://github.com/brandon-kohn/marl.git
+[submodule "tinyspline"]
+	path = tinyspline
+	url = https://github.com/msteinbeck/tinyspline.git
