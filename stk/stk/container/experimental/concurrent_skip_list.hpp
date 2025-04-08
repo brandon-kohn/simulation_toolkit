@@ -144,7 +144,7 @@ namespace stk { namespace detail {
 
         private:
 
-            using node_allocator = typename allocator_type::template rebind<std::uint8_t>::other;   // allocator object for nodes is a byte allocator.
+            using node_allocator = typename std::allocator_traits<allocator_type>::template rebind_alloc<std::uint8_t>;   // allocator object for nodes is a byte allocator.
             node_allocator m_nodeAllocator;
             stk::thread::quiesce_memory_reclaimer m_reclaimer;
         };

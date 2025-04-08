@@ -5,6 +5,7 @@ cmake.build
 cmake.build.debug
 cmake.build.release
 cmake.test.install
+build
 install_test
 *.swp
 .vs

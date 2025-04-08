@@ -70,7 +70,8 @@ namespace stk { namespace detail {
                 value_type m_value;
             };
 
-            using node_allocator = typename allocator_type::template rebind<node>::other;
+			using node_allocator = typename std::allocator_traits<allocator_type>::template rebind_alloc<node>;
+
             using node_manager = node_deletion_manager<node, node_allocator>;
 
             using node_ptr = node*;
@@ -202,7 +203,7 @@ namespace stk { namespace detail {
             std::atomic<flags> state{false};
         };
 
-        using desc_allocator = typename allocator_type::template rebind<descriptor>::other;
+        using desc_allocator = typename std::allocator_traits<allocator_type>::template rebind_alloc<descriptor>;
         using desc_manager = stk::node_deletion_manager<descriptor, desc_allocator>;
 
         template <typename U>
