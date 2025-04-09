@@ -20,11 +20,11 @@ if ERRORLEVEL 1 goto error
 
 set INSTALL_PATH=%1
 set CMAKE_GENERATOR=%2
-set ARCHITECTURE=""
+set ARCHITECTURE=
 if "%~3" neq "" (set ARCHITECTURE=-A"%~3")
-
+echo the value of vcpkg_root is: %VCPKG_ROOT%
 REM Build the release
-cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR% %ARCHITECTURE%
+cmake -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake -H. -Bcmake.build.release -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR% %ARCHITECTURE%
 if ERRORLEVEL 1 goto error
 
 REM Build it
@@ -32,6 +32,7 @@ cmake --build "cmake.build.release" --config release --target install
 if ERRORLEVEL 1 goto error
 
 REM Build the debug
+
 cmake -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake  -H. -Bcmake.build.debug -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX="%INSTALL_PATH%" -G%CMAKE_GENERATOR% %ARCHITECTURE%
 if ERRORLEVEL 1 goto error
 
