@@ -130,7 +130,7 @@ namespace stk {
     {
         template <typename U>
         friend class unsigned_integer;
-        static_assert( boost::is_unsigned<T>::value, "unsigned_integer<T> type T must be unsigned." );
+        static_assert( std::is_unsigned<T>::value, "unsigned_integer<T> type T must be unsigned." );
 
     public:
         static constexpr T invalid = static_cast<T>( -1 );
