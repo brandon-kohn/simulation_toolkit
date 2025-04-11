@@ -1,4 +1,4 @@
-//! 
+//!
 //!  @file crs_graph.hpp
 //!  @brief compressed row storage graph.
 
@@ -15,6 +15,8 @@
 #include <queue>
 #include <tuple>
 #include <type_traits>
+
+#include <stk/utility/aligned_allocator.hpp>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/range/iterator_range.hpp>
@@ -45,11 +47,10 @@ namespace stk::graph {
 
 			return std::numeric_limits<weight_t>::infinity(); //! No edge found
 		}
-
-		std::vector<vertex_t>                targets;    //!  target vertex indices
-		std::vector<weight_t>                weights;    //!  edge weights
-		std::vector<std::size_t>             row_starts; //!  row start offsets per vertex
-		std::vector<std::pair<float, float>> positions;  //!  2D positions per vertex
+		std::vector<vertex_t, aligned_allocator<vertex_t>> targets;
+		std::vector<weight_t, aligned_allocator<weight_t>> weights;
+		std::vector<vertex_t, aligned_allocator<vertex_t>> row_starts;
+		std::vector<std::pair<float, float>>               positions; //!  2D positions per vertex
 	};
 
 	//!  Default priority queue policy using std::priority_queue
@@ -106,12 +107,12 @@ namespace stk::graph {
 
 		crs_graph build()
 		{
-			std::vector<std::size_t> row_starts( m_num_vertices + 1, 0 );
+			std::vector<vertex_t, stk::aligned_allocator<vertex_t>> row_starts( m_num_vertices + 1, 0 );
 			for( std::size_t u = 0; u < m_num_vertices; ++u )
 				row_starts[u + 1] = row_starts[u] + m_temp_adj[u].size();
 
-			std::vector<vertex_t> targets;
-			std::vector<weight_t> weights;
+			std::vector<vertex_t, stk::aligned_allocator<vertex_t>> targets;
+			std::vector<weight_t, stk::aligned_allocator<weight_t>> weights;
 			targets.reserve( row_starts.back() );
 			weights.reserve( row_starts.back() );
 
@@ -144,14 +145,13 @@ namespace stk::graph {
 	class boost_crs_builder
 	{
 	public:
-
 		template <typename BoostGraph>
-		static crs_graph build(const BoostGraph& bg)
+		static crs_graph build( const BoostGraph& bg )
 		{
 			//! Type aliases for convenience.
 			using vertex_descriptor = typename boost::graph_traits<BoostGraph>::vertex_descriptor;
 			using edge_descriptor = typename boost::graph_traits<BoostGraph>::edge_descriptor;
-			using weight_t = float;                    //! Change this if your weight type differs.
+			using weight_t = float; //! Change this if your weight type differs.
 			crs_graph cg;
 			//! Get number of vertices.
 			const size_t n = boost::num_vertices( bg );
@@ -206,7 +206,7 @@ namespace stk::graph {
 		template <typename T>
 		struct has_m_value<T, std::void_t<decltype( std::declval<T>().m_value )>> : std::true_type
 		{};
-	}//! namespace detail;
+	} // namespace detail
 
 	//! This function builds masks for vertices and edges from a given Boost graph.
 	//! VertexPred is a callable taking a vertex (of type vertex_descriptor) and returning bool.
@@ -219,7 +219,7 @@ namespace stk::graph {
 		using edge_descriptor = typename boost::graph_traits<BoostGraph>::edge_descriptor;
 
 		//! Build vertex mask.
-		const std::size_t    numVertices = boost::num_vertices( bg );
+		const std::size_t         numVertices = boost::num_vertices( bg );
 		std::vector<std::uint8_t> vertex_mask( numVertices, 0 );
 		for( auto v : boost::make_iterator_range( boost::vertices( bg ) ) )
 		{
@@ -229,7 +229,7 @@ namespace stk::graph {
 		}
 
 		//! Build edge mask.
-		const std::size_t    numEdges = boost::num_edges( bg );
+		const std::size_t         numEdges = boost::num_edges( bg );
 		std::vector<std::uint8_t> edge_mask( numEdges, 0 );
 		for( auto e : boost::make_iterator_range( boost::edges( bg ) ) )
 		{
@@ -247,5 +247,4 @@ namespace stk::graph {
 		return std::make_tuple( vertex_mask, edge_mask );
 	}
 
-}//! namespace stk::graph;
-
+} // namespace stk::graph
