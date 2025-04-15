@@ -1,720 +1,914 @@
 //
-//! Copyright © 2017
+//! Copyright © 2017-2025
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See
 //  accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
 //
-#ifndef STK_GRAPH_TEMPORARY_VERTEX_GRAPH_ADAPTOR_HPP
-#define STK_GRAPH_TEMPORARY_VERTEX_GRAPH_ADAPTOR_HPP
+#pragma once
 
-#include <stk/geometry/geometry_kernel.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/static_assert.hpp>
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/properties.hpp>
+#include <boost/graph/graph_concepts.hpp>
+#include <boost/graph/graph_utility.hpp>
+#include <boost/graph/compressed_sparse_row_graph.hpp>
 #include <boost/graph/adjacency_list.hpp>
-#include <boost/iterator/iterator_adaptor.hpp>
-#include <boost/container/flat_map.hpp>
-#include <stk/utility/boost_unique_ptr.hpp>
-#include <stk/utility/associative_insert.hpp>
 
-namespace stk {
+#include <boost/range/iterator_range.hpp>
+#include <boost/range/irange.hpp>
 
-    template <typename T, typename EnableIf=void> struct is_directed_adjacency_list : std::false_type {};
-    template <typename OutEdgeListS, typename VertexListS, typename VertexProperty, typename EdgeProperty, typename GraphProperty, typename EdgeListS>
-    struct is_directed_adjacency_list<boost::adjacency_list<OutEdgeListS, VertexListS, boost::directedS, VertexProperty, EdgeProperty, GraphProperty, EdgeListS>> : std::true_type {};
+#include <geometrix/utility/assert.hpp>
 
-    template <typename T, typename EnableIf = void> struct has_vector_vertex_list : std::false_type {};
-    template <typename OutEdgeListS, typename Directed, typename VertexProperty, typename EdgeProperty, typename GraphProperty, typename EdgeListS>
-    struct has_vector_vertex_list<boost::adjacency_list<OutEdgeListS, boost::vecS, Directed, VertexProperty, EdgeProperty, GraphProperty, EdgeListS>> : std::true_type {};
+#include <vector>
+#include <unordered_map>
+#include <cassert>
+#include <iterator>
+#include <type_traits>
+#include <variant>
 
-    namespace detail {
-        template <class NewVertexContainer, class Derived, class Config, class Base>
-        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& v, const NewVertexContainer&, const boost::adj_list_impl<Derived, Config, Base>&)
-        {
-            return &v;
-        }
+//------------------------------------------------------
+// In namespace stk::graph
+//------------------------------------------------------
+namespace stk::graph {
 
-        template <class NewVertexContainer, class Derived, class Config, class Base>
-        inline typename Config::vertex_descriptor create_descriptor(const typename Config::stored_vertex& /*v*/, const NewVertexContainer& ag, const boost::vec_adj_list_impl<Derived, Config, Base>& g_)
-        {
-            const Derived& g = static_cast<const Derived&>(g_);
-            return g.m_vertices.size() + ag.size();
-        }
+	//! ==========================================================================
+	//! Generic Directed Graph Check
+	//! ==========================================================================
+	template <typename Graph>
+	struct is_directed_graph : std::is_same<typename boost::graph_traits<Graph>::directed_category, boost::directed_tag>
+	{};
 
-        template <class Derived, class Config, class Base>
-        inline typename Config::stored_vertex& get_stored_vertex(const typename Config::vertex_descriptor v, const boost::adj_list_impl<Derived, Config, Base>&)
-        {
-            return *(static_cast<typename Config::stored_vertex*>(v));
-        }
+	template <typename Graph>
+	struct temporary_vertex_graph_adaptor;
 
-        template <class Graph, class Config, class Base>
-        inline typename Config::stored_vertex& get_stored_vertex(const typename Config::vertex_descriptor v, const boost::vec_adj_list_impl<Graph, Config, Base>& g_)
-        {
-            Graph& g = const_cast<Graph&>(static_cast<const Graph&>(g_));
-            return g.m_vertices[v];
-        }
+	template <typename Graph, typename Enable = void>
+	struct vertex_property_type_of_impl
+	{
+		static_assert( false, "define vertex_property_type_of_impl for the specified graph type" );
+	};
 
-        template <typename EdgeDescriptor, typename VertexDescriptor, typename EdgePropertyType, typename OutEdgeList>
-        inline std::pair<EdgeDescriptor, bool> create_edge(VertexDescriptor u, VertexDescriptor v, const EdgePropertyType& p, OutEdgeList& oel)
-        {
-            //! Note this only works for directed adjacency lists. Unidirection and bidirection are not supported.
-            using StoredEdge = typename OutEdgeList::value_type;
-            typename OutEdgeList::iterator i;
-            bool inserted;
-            boost::tie(i, inserted) = boost::graph_detail::push(oel, StoredEdge(v, p));
-            return std::make_pair(EdgeDescriptor(u, v, &(*i).get_property()), inserted);
-        }
+	template <typename ... Params>
+	struct vertex_property_type_of_impl<boost::adjacency_list<Params...>>
+	{
+		using type = typename boost::adjacency_list<Params...>::vertex_property_type;
+	};
 
-    }
+	template <typename ... Params>
+	struct vertex_property_type_of_impl<boost::compressed_sparse_row_graph<Params...>>
+	{
+		using type = typename boost::compressed_sparse_row_graph<Params...>::vertex_bundled;
+	};
 
-    struct temporary_vertex_adapted_graph_tag {};
+	// Primary template: fallback if Graph does not have an edge_property_type typedef.
+	template <typename Graph, typename Enable = void>
+	struct edge_property_type_of_impl
+	{
+		static_assert( false, "define edge_property_type_of_impl for the specified graph type" );
+	};
 
-    template <typename T>
-    struct temporary_vertex_graph_adaptor
-    {
-        static_assert(is_directed_adjacency_list<T>::value, "Can only be used with boost::adjacency_list which uses boost::directedS.");
+	template <typename ... Params>
+	struct edge_property_type_of_impl<boost::adjacency_list<Params...>>
+	{
+		using type = typename boost::adjacency_list<Params...>::edge_property_type;
+	};
 
-        using graph_t = T;
-        using vertex_descriptor = typename boost::graph_traits<T>::vertex_descriptor;
-        using edge_descriptor = typename boost::graph_traits<T>::edge_descriptor;
-        using stored_vertex = typename graph_t::stored_vertex;
-        using out_edge_list_type = decltype(stored_vertex::m_out_edges);
-        using stored_edge = typename out_edge_list_type::value_type;
-        using vertex_property_type = typename graph_t::vertex_property_type;
-        using edge_property_type = typename graph_t::edge_property_type;
-        using EdgeContainer = typename graph_t::EdgeContainer;
-        using out_edge_iterator = typename graph_t::out_edge_iterator;
-        using adjacency_iterator = typename boost::adjacency_iterator_generator<temporary_vertex_graph_adaptor<T>, vertex_descriptor, out_edge_iterator>::type;
-        using base_vertex_iterator = typename boost::graph_traits<graph_t>::vertex_iterator;
-        using new_vertex_iterator = typename std::vector<vertex_descriptor>::iterator;
-        class vertex_iterator : public boost::iterator_facade<vertex_iterator, vertex_descriptor, boost::bidirectional_traversal_tag, vertex_descriptor>
-        {
-        public:
-            vertex_iterator(base_vertex_iterator it = base_vertex_iterator(), base_vertex_iterator end = base_vertex_iterator(), new_vertex_iterator nit = new_vertex_iterator(), temporary_vertex_graph_adaptor<T>* pGraph = nullptr)
-            : mIT(it)
-            , mEnd(end)
-            , mNewIT(nit)
-            , mGraph(pGraph)
-            {}
+	template <typename ... Params>
+	struct edge_property_type_of_impl<boost::compressed_sparse_row_graph<Params...>>
+	{
+		using type = typename boost::compressed_sparse_row_graph<Params...>::edge_bundled;
+	};
 
-        private:
+	//------------------------------------------------------
+	//! vertex_property_type_of_impl and vertex_property_type_of
+	//------------------------------------------------------
+	template <typename Graph>
+	struct vertex_property_type_of
+	{
+		typedef typename vertex_property_type_of_impl<typename std::decay<Graph>::type>::type type;
+	};
 
-            vertex_descriptor dereference() const
-            {
-                GEOMETRIX_ASSERT(mNewIT != mGraph->mOrderedNewVertices.end());
-                if (mIT != mEnd)
-                    return *mIT;
-                return *mNewIT;
-            }
+	//------------------------------------------------------
+	//! edge_property_type_of_impl and edge_property_type_of
+	//------------------------------------------------------
+	template <typename Graph>
+	struct edge_property_type_of
+	{
+		typedef typename edge_property_type_of_impl<typename std::decay<Graph>::type>::type type;
+	};
 
-            bool equal(const vertex_iterator& other) const
-            {
-                GEOMETRIX_ASSERT(mGraph == other.mGraph);
-                return mIT == other.mIT && mNewIT == other.mNewIT;
-            }
+	//------------------------------------------------------
+	//! fused_vertex_iterator: Iterates over the union of (a) the original vertices
+	//! (as given by boost::vertices) and (b) indices for new vertices.
+	//------------------------------------------------------
+	template <typename Graph>
+	class fused_vertex_iterator : public boost::iterator_facade<fused_vertex_iterator<Graph>, typename boost::graph_traits<Graph>::vertex_descriptor, boost::forward_traversal_tag, typename boost::graph_traits<Graph>::vertex_descriptor>
+	{
+	public:
+		typedef temporary_vertex_graph_adaptor<Graph>                      adaptor_type;
+		typedef typename adaptor_type::vertex_descriptor                   vertex_descriptor;
+		typedef typename adaptor_type::edge_descriptor                     edge_descriptor;
+		typedef typename boost::graph_traits<Graph>::vertex_iterator       original_iterator;
+		typedef typename boost::integer_range<std::size_t>::const_iterator new_iterator;
 
-            void increment()
-            {
-                if (mIT != mEnd)
-                    ++mIT;
-                else
-                    ++mNewIT;
-            }
+		fused_vertex_iterator()
+			: m_adaptor( nullptr )
+		{}
 
-            void decrement()
-            {
-                if (mNewIT == mGraph->mOrderedNewVertices.begin())
-                    --mIT;
-                else
-                    --mNewIT;
-            }
+		fused_vertex_iterator( const adaptor_type* adaptor,
+			original_iterator                      orig_it,
+			original_iterator                      orig_end,
+			new_iterator                           new_it,
+			new_iterator                           new_end )
+			: m_adaptor( adaptor )
+			, m_orig_it( orig_it )
+			, m_orig_end( orig_end )
+			, m_new_it( new_it )
+			, m_new_end( new_end )
+		{}
 
-            base_vertex_iterator mIT;
-            base_vertex_iterator mEnd;
-            new_vertex_iterator mNewIT;
-            temporary_vertex_graph_adaptor<T>* mGraph;
+	private:
+		friend class boost::iterator_core_access;
+		vertex_descriptor dereference() const
+		{
+			if( m_orig_it != m_orig_end )
+				return m_adaptor->make_original_descriptor( *m_orig_it );
+			else
+				return m_adaptor->make_new_descriptor( *m_new_it );
+		}
+		void increment()
+		{
+			if( m_orig_it != m_orig_end )
+				++m_orig_it;
+			else
+			{
+				GEOMETRIX_ASSERT( m_new_it != m_new_end );
+				++m_new_it;
+			}
+		}
+		bool equal( fused_vertex_iterator const& other ) const
+		{
+			return ( m_orig_it == other.m_orig_it ) && ( m_new_it == other.m_new_it );
+		}
 
-            friend class boost::iterator_core_access;
-        };
-        using edge_iterator = boost::detail::adj_list_edge_iterator<vertex_iterator, out_edge_iterator, temporary_vertex_graph_adaptor<T>>;
-        using graph_tag = temporary_vertex_adapted_graph_tag;
-        using graph_property_type = typename graph_t::graph_property_type;
-        using vertex_bundled = typename graph_t::vertex_bundled;
-        using edge_bundled = typename graph_t::edge_bundled;
-        using graph_bundled = typename graph_t::graph_bundled;
-        using directed_category = typename graph_t::directed_category;
-        using new_vertex_map_t = boost::container::flat_map<vertex_descriptor, std::unique_ptr<stored_vertex>>;
+		const adaptor_type* m_adaptor;
+		original_iterator   m_orig_it, m_orig_end;
+		new_iterator        m_new_it, m_new_end;
+	};
 
-        static vertex_descriptor null_vertex() { return graph_t::null_vertex(); }
+	//------------------------------------------------------
+	//! fused_out_edge_iterator: Iterates over a vertex's out-edges by fusing
+	//! the underlying out edges from the original graph with the extra edges stored in the adaptor.
+	//------------------------------------------------------
+	template <typename Graph>
+	class fused_out_edge_iterator : public boost::iterator_facade<fused_out_edge_iterator<Graph>, typename temporary_vertex_graph_adaptor<Graph>::edge_descriptor, boost::forward_traversal_tag, typename temporary_vertex_graph_adaptor<Graph>::edge_descriptor>
+	{
+	public:
+		typedef temporary_vertex_graph_adaptor<Graph>                                                                  adaptor_type;
+		typedef typename adaptor_type::edge_descriptor                                                                 edge_descriptor;
+		typedef typename adaptor_type::vertex_descriptor                                                               vertex_descriptor;
+		typedef typename boost::graph_traits<Graph>::out_edge_iterator                                                 base_iterator;
+		typedef typename std::vector<std::pair<vertex_descriptor, typename adaptor_type::edge_property_type>>::const_iterator extra_iterator;
 
-        temporary_vertex_graph_adaptor(const graph_t& graph)
-            : mGraph(graph)
-        {}
+		fused_out_edge_iterator()
+			: m_adaptor( nullptr )
+		{}
 
-        temporary_vertex_graph_adaptor(const graph_t& graph, const vertex_property_type& newV, const std::vector<std::pair<vertex_descriptor, edge_property_type>>& newAdjacencies)
-        : mGraph(graph)
-        {
-            auto v = add_vertex(newV);
-            stored_vertex* vs = mAdaptedVertices.begin()->second.get();
-            for (const auto& item : newAdjacencies)
-                detail::create_edge<edge_descriptor>(v, item.first, item.second, vs->m_out_edges);
-        }
+		fused_out_edge_iterator( const adaptor_type* adaptor,
+			vertex_descriptor                        source,
+			base_iterator                            base_it,
+			base_iterator                            base_end,
+			extra_iterator                           extra_it,
+			extra_iterator                           extra_end )
+			: m_adaptor( adaptor )
+			, m_source( source )
+			, m_base_it( base_it )
+			, m_base_end( base_end )
+			, m_extra_it( extra_it )
+			, m_extra_end( extra_end )
+		{}
 
-        temporary_vertex_graph_adaptor(const temporary_vertex_graph_adaptor&) = delete;
-        temporary_vertex_graph_adaptor& operator=(const temporary_vertex_graph_adaptor&) = delete;
-        temporary_vertex_graph_adaptor(temporary_vertex_graph_adaptor&&) = delete;
-        temporary_vertex_graph_adaptor& operator=(temporary_vertex_graph_adaptor&&) = delete;
+	private:
+		friend class boost::iterator_core_access;
+		edge_descriptor dereference() const
+		{
+			if( m_base_it != m_base_end )
+			{
+				vertex_descriptor tgt = m_adaptor->make_original_descriptor( boost::target( *m_base_it, m_adaptor->graph() ) );
+				// Use boost::get to obtain the edge property.
+				const typename adaptor_type::edge_property_type* prop = &boost::get( boost::edge_all, m_adaptor->graph() )[*m_base_it];
+				return m_adaptor->make_edge_descriptor( m_source, tgt, prop );
+			}
+			else
+			{
+				return m_adaptor->make_edge_descriptor( m_source, m_extra_it->first, &m_extra_it->second );
+			}
+		}
+		void increment()
+		{
+			if( m_base_it != m_base_end )
+				++m_base_it;
+			else
+			{
+				GEOMETRIX_ASSERT( m_extra_it != m_extra_end );
+				++m_extra_it;
+			}
+		}
+		bool equal( fused_out_edge_iterator const& other ) const
+		{
+			return m_base_it == other.m_base_it && m_extra_it == other.m_extra_it;
+		}
 
-        vertex_descriptor add_vertex()
-        {
-            auto pStorage = boost::make_unique<stored_vertex>();
-            auto v = detail::create_descriptor(*pStorage, mOrderedNewVertices, mGraph);
-            mOrderedNewVertices.push_back(v);
-            mAdaptedVertices[v] = boost::move(pStorage);
-            return v;
-        }
+		const adaptor_type* m_adaptor;
+		vertex_descriptor   m_source;
+		base_iterator       m_base_it, m_base_end;
+		extra_iterator      m_extra_it, m_extra_end;
+	};
 
-        vertex_descriptor add_vertex(const vertex_property_type& p)
-        {
-            auto pStorage = boost::make_unique<stored_vertex>(p);
-            auto v = detail::create_descriptor(*pStorage, mOrderedNewVertices, mGraph);
-            mOrderedNewVertices.push_back(v);
-            mAdaptedVertices[v] = boost::move(pStorage);
-            return v;
-        }
+	//------------------------------------------------------
+	//! temporary_vertex_graph_adaptor
+	//! An adaptor that wraps an immutable directed graph and permits adding
+	//! temporary vertices and extra edges.
+	//------------------------------------------------------
+	template <typename Graph>
+	struct temporary_vertex_graph_adaptor
+	{
+		BOOST_STATIC_ASSERT( is_directed_graph<Graph>::value );
 
-        std::pair<edge_descriptor, bool> add_edge(vertex_descriptor u, vertex_descriptor v, const edge_property_type& p)
-        {
-            auto it = mAdaptedVertices.lower_bound(u);
-            stored_vertex* pSV = nullptr;
-            if (!map_lower_bound_contains(u, mAdaptedVertices, it))
-            {
-                //! assume it is a static vertex from the original graph.
-                auto pStorage = boost::make_unique<stored_vertex>(get_vertex_property(u));
-                pSV = pStorage.get();
-                auto& oldStorage = detail::get_stored_vertex(u, mGraph);
-                for (const auto& item : oldStorage.m_out_edges)
-                    pStorage->m_out_edges.emplace_back(item.get_target(), item.get_property());
-                mAdaptedVertices.insert(it, std::make_pair(u, std::move(pStorage)));
-            }
-            else
-                pSV = it->second.get();
+	public:
+		typedef Graph                                                  graph_t;
+		typedef typename boost::graph_traits<Graph>::vertex_descriptor original_vertex_descriptor;
 
-            return detail::create_edge<edge_descriptor>(u, v, p, pSV->m_out_edges);
-        }
+		static constexpr bool                                            using_integral = std::is_integral<original_vertex_descriptor>::value;
+		typedef typename std::conditional<using_integral,
+			original_vertex_descriptor,
+			std::variant<original_vertex_descriptor, std::size_t>>::type vertex_descriptor;
 
-        out_edge_list_type& out_edge_list(vertex_descriptor v)
-        {
-            auto it = mAdaptedVertices.find(v);
-            if (it == mAdaptedVertices.end())
-                return const_cast<graph_t&>(mGraph).out_edge_list(v);
+		typedef typename vertex_property_type_of<Graph>::type vertex_property_type;
+		typedef typename edge_property_type_of<Graph>::type   edge_property_type;
 
-            return it->second->m_out_edges;
-        }
+		//! The unified edge_descriptor holds the unified source/target and a pointer to the underlying edge property.
+		struct edge_descriptor
+		{
+			vertex_descriptor         source;
+			vertex_descriptor         target;
+			const edge_property_type* property;
+			edge_descriptor()
+				: property( nullptr )
+			{}
+			edge_descriptor( vertex_descriptor s, vertex_descriptor t, const edge_property_type* p )
+				: source( s )
+				, target( t )
+				, property( p )
+			{}
+		};
 
-        const out_edge_list_type& out_edge_list(vertex_descriptor v) const
-        {
-            auto it = mAdaptedVertices.find(v);
-            if (it == mAdaptedVertices.end())
-                return mGraph.out_edge_list(v);
 
-            return it->second->m_out_edges;
-        }
+		typedef fused_vertex_iterator<Graph>   vertex_iterator;
+		typedef fused_out_edge_iterator<Graph> out_edge_iterator;
 
-        vertex_iterator vertices_begin() const
-        {
-            auto its = boost::vertices(mGraph);
-            auto pThis = const_cast<temporary_vertex_graph_adaptor<T>*>(this);
-            return vertex_iterator(its.first, its.second, pThis->mOrderedNewVertices.begin(), pThis);
-        }
+		//-----------------------------------------
+		//! Constructors
+		//-----------------------------------------
+		temporary_vertex_graph_adaptor( const Graph& graph )
+			: mGraph( graph )
+		{}
 
-        vertex_iterator vertices_end() const
-        {
-            auto its = boost::vertices(mGraph);
-            auto pThis = const_cast<temporary_vertex_graph_adaptor<T>*>(this);
-            return vertex_iterator(its.second, its.second, pThis->mOrderedNewVertices.end(), pThis);
-        }
+		temporary_vertex_graph_adaptor( const Graph&                             graph,
+			const vertex_property_type&                                          newV,
+			const std::vector<std::pair<vertex_descriptor, edge_property_type>>& newAdjacencies )
+			: mGraph( graph )
+		{
+			vertex_descriptor v = add_vertex( newV );
+			for( auto const& adj : newAdjacencies )
+				add_edge( v, adj.first, adj.second );
+		}
 
-        std::size_t num_vertices() const { return boost::num_vertices(mGraph) + mOrderedNewVertices.size(); }
+		//-----------------------------------------
+		//! Vertex Functions
+		//-----------------------------------------
+		std::size_t num_vertices() const
+		{
+			return boost::num_vertices( mGraph ) + mNewVertexProperties.size();
+		}
 
-        edge_iterator edges_begin() const
-        {
-            return edge_iterator(vertices_begin(), vertices_begin(), vertices_end(), *this);
-        }
+		vertex_descriptor add_vertex( const vertex_property_type& p )
+		{
+			mNewVertexProperties.push_back( p );
+			mNewOutEdges.emplace_back();
+			return make_new_descriptor( num_vertices() - 1 );
+		}
 
-        edge_iterator edges_end() const
-        {
-            return edge_iterator(vertices_begin(), vertices_end(), vertices_end(), *this);
-        }
+		vertex_descriptor add_vertex()
+		{
+			return add_vertex( vertex_property_type() );
+		}
 
-        template <typename Reference, typename Tag>
-        Reference get_vertex_property_value(vertex_descriptor v, Tag t)
-        {
-            auto it = mAdaptedVertices.find(v);
-            if (it == mAdaptedVertices.end())
-                return boost::get_property_value(detail::get_stored_vertex(v, mGraph).m_property, t);
+		//-----------------------------------------
+		//! Edge Functions
+		//-----------------------------------------
+		std::pair<edge_descriptor, bool> add_edge( vertex_descriptor u, vertex_descriptor v, const edge_property_type& p )
+		{
+			if( is_new( u ) )
+			{
+				std::size_t idx = get_new_index( u );
+				GEOMETRIX_ASSERT( mNewOutEdges.size() > idx );
+				mNewOutEdges[idx].push_back( std::make_pair( v, p ) );
+				return std::make_pair( make_edge_descriptor( u, v, &p ), true );
+			}
+			else
+			{
+				mAdaptedOriginalEdges[get_original( u )].push_back( std::make_pair( v, p ) );
+				return std::make_pair( make_edge_descriptor( u, v, &p ), true );
+			}
+		}
 
-            return boost::get_property_value(it->second->m_property, t);
-        }
+		//-----------------------------------------
+		//! Out-Edge Iterator Support
+		//-----------------------------------------
+		std::pair<out_edge_iterator, out_edge_iterator> out_edge_range( vertex_descriptor v ) const
+		{
+			if( is_new( v ) )
+			{
+				std::size_t                                            idx = get_new_index( v );
+				typename boost::graph_traits<Graph>::out_edge_iterator base_it{}, base_end{};
+				GEOMETRIX_ASSERT( mNewOutEdges.size() > idx );
+				const auto& extra = mNewOutEdges[idx];
+				return std::make_pair(
+					out_edge_iterator( this, v, base_it, base_end, extra.begin(), extra.end() ),
+					out_edge_iterator( this, v, base_it, base_end, extra.end(), extra.end() ) );
+			}
+			else
+			{
+				original_vertex_descriptor orig = get_original( v );
+				auto                       underlying_range = boost::out_edges( orig, mGraph );
+				auto                       itAdapt = mAdaptedOriginalEdges.find( orig );
+				const auto&                extra = ( itAdapt != mAdaptedOriginalEdges.end() ) ? itAdapt->second : empty_extra_edges();
+				return std::make_pair(
+					out_edge_iterator( this, v, underlying_range.first, underlying_range.second, extra.begin(), extra.end() ),
+					out_edge_iterator( this, v, underlying_range.second, underlying_range.second, extra.end(), extra.end() ) );
+			}
+		}
 
-        const vertex_property_type& get_vertex_property(vertex_descriptor v) const
-        {
-            auto it = mAdaptedVertices.find(v);
-            if (it == mAdaptedVertices.end())
-                return detail::get_stored_vertex(v, mGraph).m_property;
+		//-----------------------------------------
+		//! Vertex Iterator Support
+		//-----------------------------------------
+		std::pair<vertex_iterator, vertex_iterator> vertices() const
+		{
+			auto [orig_begin, orig_end] = boost::vertices( mGraph );
+			auto newIndices = new_indices();
+			return std::make_pair(
+				vertex_iterator( this, orig_begin, orig_end, newIndices.begin(), newIndices.end() ),
+				vertex_iterator( this, orig_end, orig_end, newIndices.end(), newIndices.end() ) );
+		}
+		vertex_iterator vertices_begin() const { return vertices().first; }
+		vertex_iterator vertices_end() const { return vertices().second; }
 
-            return it->second->m_property;
-        }
+		//-----------------------------------------
+		//! New Vertex Indices Helper
+		//-----------------------------------------
+		boost::integer_range<std::size_t> new_indices() const
+		{
+			auto oSize = boost::num_vertices( mGraph );
+			return boost::irange( oSize, oSize + mNewVertexProperties.size() );
+		}
 
-        const vertex_property_type& operator[](vertex_descriptor v) const
-        {
-            return get_vertex_property(v);
-        }
+		//-----------------------------------------
+		//! Unified Vertex Descriptor Helpers
+		//-----------------------------------------
+		vertex_descriptor make_new_descriptor( std::size_t idx ) const
+		{
+			if constexpr( using_integral )
+				return idx;
+			else
+				return vertex_descriptor( idx );
+		}
+		vertex_descriptor make_original_descriptor( const original_vertex_descriptor& v ) const
+		{
+			if constexpr( using_integral )
+				return v;
+			else
+				return vertex_descriptor( v );
+		}
+		bool is_new( const vertex_descriptor& v ) const
+		{
+			if constexpr( using_integral )
+				return v >= boost::num_vertices( mGraph );
+			else
+				return std::holds_alternative<std::size_t>( v );
+		}
+		std::size_t get_new_index( const vertex_descriptor& v ) const
+		{
+			if constexpr( using_integral )
+				return v - boost::num_vertices( mGraph );
+			else
+				return std::get<std::size_t>( v );
+		}
+		original_vertex_descriptor get_original( const vertex_descriptor& v ) const
+		{
+			if constexpr( using_integral )
+				return v;
+			else
+				return std::get<original_vertex_descriptor>( v );
+		}
 
-        const edge_property_type& get_edge_property(edge_descriptor e) const
-        {
-            return *(edge_property_type const*)e.get_property();
-        }
+		//-----------------------------------------
+		//! Synthesize an edge_descriptor.
+		//-----------------------------------------
+		edge_descriptor make_edge_descriptor( vertex_descriptor u, vertex_descriptor v, const edge_property_type* p ) const
+		{
+			return edge_descriptor( u, v, p );
+		}
 
-        const edge_property_type& operator[](edge_descriptor e) const
-        {
-            return get_edge_property(e);
-        }
+		//-----------------------------------------
+		//! Helper: Provide a reference to an empty extra-edge vector.
+		//-----------------------------------------
+		static const std::vector<std::pair<vertex_descriptor, edge_property_type>>& empty_extra_edges()
+		{
+			static const std::vector<std::pair<vertex_descriptor, edge_property_type>> empty;
+			return empty;
+		}
 
-        bool is_adapted_vertex(vertex_descriptor v) const { return mAdaptedVertices.find(v) != mAdaptedVertices.end(); }
-        std::vector<vertex_descriptor> const& get_new_vertices() const { return mOrderedNewVertices; }
+		//-----------------------------------------
+		//! Property Access Operators
+		//-----------------------------------------
+		//! For vertex properties, if the vertex is original, use the underlying graph's
+		//! property map (via boost::get(boost::vertex_all, ...)); for new vertices, use
+		//! the stored property.
+		const vertex_property_type& operator[]( const vertex_descriptor& v ) const
+		{
+			if( is_new( v ) )
+				return mNewVertexProperties[get_new_index( v )];
+			else
+				return graph()[get_original( v )];
+		}
 
-    private:
+		//! For unified edge descriptors, the property pointer was stored during construction.
+		const edge_property_type& operator[]( const edge_descriptor& ed ) const
+		{
+			return *( ed.property );
+		}
 
-        friend class vertex_iterator;
+		//! For original edge descriptors, delegate to the underlying graph's property map.
+		// (These overloads are less-used since free-function get() is provided below.)
+		/*
+		const typename edge_property_type& operator[]( const typename boost::graph_traits<Graph>::edge_descriptor& e ) const
+		{
+		    return boost::get( boost::edge_all, graph() )[e];
+		}
+		*/
 
-        const graph_t&                  mGraph;
-        new_vertex_map_t                mAdaptedVertices;
-        std::vector<vertex_descriptor>  mOrderedNewVertices;
-    };
+		//-----------------------------------------
+		//! Public accessor to the underlying graph.
+		//-----------------------------------------
+		const Graph& graph() const { return mGraph; }
 
-}//! namespace stk;
+	private:
+		// Grant friendship to fused_out_edge_iterator so it can call graph()
+		template <typename G>
+		friend class fused_out_edge_iterator;
 
+		// The underlying graph (immutable).
+		const Graph& mGraph;
+		// Storage for new vertices.
+		std::vector<vertex_property_type> mNewVertexProperties;
+		// Extra out-edges for new vertices.
+		std::vector<std::vector<std::pair<vertex_descriptor, edge_property_type>>> mNewOutEdges;
+		// Extra edges added for original vertices.
+		typedef std::unordered_map<original_vertex_descriptor,
+			std::vector<std::pair<vertex_descriptor, edge_property_type>>>
+							   adapted_edges_map_type;
+		adapted_edges_map_type mAdaptedOriginalEdges;
+	};
+
+} // namespace stk::graph
+
+// --------------------------------------------------------------------------
+//! Boost Graph Free Function Overloads and Traits
+// --------------------------------------------------------------------------
 namespace boost {
 
-    template <typename T>
-    struct graph_traits<stk::temporary_vertex_graph_adaptor<T>>
-    {
-    private:
-        using adapted_t = stk::temporary_vertex_graph_adaptor<T>;
+	template <typename Graph>
+	struct graph_traits<stk::graph::temporary_vertex_graph_adaptor<Graph>>
+	{
+		typedef stk::graph::temporary_vertex_graph_adaptor<Graph> adaptor_type;
+		typedef typename adaptor_type::vertex_descriptor          vertex_descriptor;
+		typedef typename adaptor_type::edge_descriptor            edge_descriptor;
+		typedef boost::directed_tag                               directed_category;
+		typedef allow_parallel_edge_tag                           edge_parallel_category;
+		typedef boost::incidence_graph_tag                        traversal_category;
+		typedef std::size_t                                       vertices_size_type;
+		typedef std::size_t                                       edges_size_type;
+		typedef std::size_t                                       degree_size_type;
 
-    public:
+		typedef typename adaptor_type::vertex_iterator   vertex_iterator;
+		typedef typename adaptor_type::out_edge_iterator out_edge_iterator;
+	};
 
-        using vertex_descriptor = typename graph_traits<T>::vertex_descriptor;
-        using edge_descriptor = typename graph_traits<T>::edge_descriptor;
+	template <typename Graph>
+	inline std::size_t num_vertices( const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		return g.num_vertices();
+	}
 
-        using adjacency_iterator = typename adapted_t::adjacency_iterator;
-        using out_edge_iterator = typename adapted_t::out_edge_iterator;
-        using vertex_iterator = typename adapted_t::vertex_iterator;
-        using edge_iterator = typename adapted_t::edge_iterator;
+	template <typename Graph>
+	inline std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_iterator,
+		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_iterator>
+	vertices( stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		return g.vertices();
+	}
 
-        using directed_category = directed_tag;
-        using edge_parallel_category = allow_parallel_edge_tag; // not sure here
-        using traversal_category = typename graph_traits<T>::traversal_category;
-        using vertices_size_type = std::size_t;
-        using edges_size_type = std::size_t;
-        using degree_size_type = std::size_t;
-    };
+	template <typename Graph>
+	inline std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::out_edge_iterator,
+		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::out_edge_iterator>
+	out_edges( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                             g )
+	{
+		return g.out_edge_range( v );
+	}
 
-    // O(1)
-    template <typename T>
-    inline typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor add_vertex(stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        return g.add_vertex();
-    }
-    // O(1)
-    template <typename T>
-    inline typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor add_vertex(const typename stk::temporary_vertex_graph_adaptor<T>::vertex_property_type& p, stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        return g.add_vertex(p);
-    }
-    // O(V)
-    template <typename T>
-    inline typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor vertex(typename stk::temporary_vertex_graph_adaptor<T>::vertices_size_type n, const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        auto i = vertices(g).first;
-        while (n--) ++i; // std::advance(i, n); (not VC++ portable)
-        return *i;
-    }
+	template <typename Graph>
+	inline std::size_t out_degree( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                                                 g )
+	{
+		auto r = out_edges( v, g );
+		return std::distance( r.first, r.second );
+	}
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> add_edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, const typename stk::temporary_vertex_graph_adaptor<T>::edge_property_type& p, stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        return g.add_edge(u, v, p);
-    }
+	template <typename Graph>
+	inline std::size_t degree( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                                             g )
+	{
+		return out_degree( v, g );
+	}
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> add_edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        typename stk::temporary_vertex_graph_adaptor<T>::edge_property_type p;
-        return g.add_edge(u, v, p);
-    }
+	template <typename Graph>
+	inline typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor
+	source( const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor& e,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>& /*g*/ )
+	{
+		return e.source;
+	}
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator, typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator> out_edges(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g_)
-    {
-        typedef typename stk::temporary_vertex_graph_adaptor<T>::out_edge_iterator out_edge_iterator;
-        auto& g = const_cast<stk::temporary_vertex_graph_adaptor<T>&>(g_);
-        return std::make_pair(out_edge_iterator(g.out_edge_list(u).begin(), u), out_edge_iterator(g.out_edge_list(u).end(), u));
-    }
+	template <typename Graph>
+	inline typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor
+	target( const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor& e,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>& /*g*/ )
+	{
+		return e.target;
+	}
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::adjacency_iterator, typename stk::temporary_vertex_graph_adaptor<T>::adjacency_iterator> adjacent_vertices(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        using adjacency_iterator = typename stk::temporary_vertex_graph_adaptor<T>::adjacency_iterator;
-        auto edges = out_edges(u, g);
-        return std::make_pair(adjacency_iterator(edges.first, &g), adjacency_iterator(edges.second, &g));
-    }
+	//----------------------------------------------------------------------
+	//! global_edge_iterator: Iterates over all the edges (joining each vertex’s out-edges)
+	//----------------------------------------------------------------------
+	template <typename Graph>
+	class global_edge_iterator : public boost::iterator_facade<global_edge_iterator<Graph>, typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, boost::forward_traversal_tag, typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor>
+	{
+	public:
+		typedef stk::graph::temporary_vertex_graph_adaptor<Graph> adaptor_type;
+		typedef typename adaptor_type::vertex_iterator            vertex_iterator;
+		typedef typename adaptor_type::edge_descriptor            edge_descriptor;
+		typedef typename adaptor_type::vertex_descriptor          vertex_descriptor;
+		typedef typename adaptor_type::out_edge_iterator          out_edge_iterator;
 
-    template <typename Directed, typename Vertex, typename T>
-    inline Vertex source(const detail::edge_base<Directed, Vertex>& e, const stk::temporary_vertex_graph_adaptor<T>&)
-    {
-        return e.m_source;
-    }
+		global_edge_iterator()
+			: m_adaptor( nullptr )
+		{}
 
-    template <typename Directed, typename Vertex, typename T>
-    inline Vertex target(const detail::edge_base<Directed, Vertex>& e, const stk::temporary_vertex_graph_adaptor<T>&)
-    {
-        return e.m_target;
-    }
+		global_edge_iterator( const adaptor_type* adaptor,
+			vertex_iterator                       v_current,
+			vertex_iterator                       v_end )
+			: m_adaptor( adaptor )
+			, m_v_current( v_current )
+			, m_v_end( v_end )
+		{
+			advance_to_valid();
+		}
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::vertex_iterator, typename stk::temporary_vertex_graph_adaptor<T>::vertex_iterator> vertices(const stk::temporary_vertex_graph_adaptor<T>& g_)
-    {
-        auto& g = const_cast<stk::temporary_vertex_graph_adaptor<T>&>(g_);
-        return std::make_pair(g.vertices_begin(), g.vertices_end());
-    }
+	private:
+		friend class boost::iterator_core_access;
+		void advance_to_valid()
+		{
+			while( m_v_current != m_v_end )
+			{
+				auto range = m_adaptor->out_edge_range( *m_v_current );
+				m_current_edge = range.first;
+				m_current_edge_end = range.second;
+				if( m_current_edge != m_current_edge_end )
+					return;
+				++m_v_current;
+			}
+		}
+		void increment()
+		{
+			++m_current_edge;
+			if( m_current_edge == m_current_edge_end )
+			{
+				GEOMETRIX_ASSERT( m_v_current != m_v_end );
+				++m_v_current;
+				advance_to_valid();
+			}
+		}
+		edge_descriptor dereference() const
+		{
+			return *m_current_edge;
+		}
+		bool equal( global_edge_iterator const& other ) const
+		{
+			return ( m_v_current == other.m_v_current ) && ( m_v_current == m_v_end || m_current_edge == other.m_current_edge );
+		}
 
-    template <typename T>
-    inline std::size_t num_vertices(const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        return g.num_vertices();
-    }
+		const adaptor_type* m_adaptor;
+		vertex_iterator     m_v_current, m_v_end;
+		out_edge_iterator   m_current_edge, m_current_edge_end;
+	};
 
-    template <typename T>
-    inline std::size_t out_degree(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        return g.out_edge_list(u).size();
-    }
+	template <typename Graph>
+	inline std::pair<global_edge_iterator<Graph>, global_edge_iterator<Graph>>
+	edges( const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		auto                        v_range = g.vertices();
+		global_edge_iterator<Graph> begin( &g, v_range.first, v_range.second );
+		global_edge_iterator<Graph> end( &g, v_range.second, v_range.second );
+		return std::make_pair( begin, end );
+	}
 
-    template <typename T>
-    inline std::size_t degree(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        return g.out_edge_list(u).size();
-    }
+	//----------------------------------------------------------------------
+	//! Overloads for boost::add_edge()
+	//!----------------------------------------------------------------------
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor, bool> edge(typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor u, typename stk::temporary_vertex_graph_adaptor<T>::vertex_descriptor v, const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        using StoredEdge = typename stk::temporary_vertex_graph_adaptor<T>::stored_edge;
-        const auto& el = g.out_edge_list(u);
-        auto it = graph_detail::find(el, StoredEdge(v));
-        return std::make_pair(typename stk::temporary_vertex_graph_adaptor<T>::edge_descriptor(u, v, (it == el.end() ? 0 : &(*it).get_property())),(it != el.end()));
-    }
+	// Canonical overload when both vertices are provided as unified descriptors.
+	template <typename Graph>
+	inline std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>
+	add_edge( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor   u,
+		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor         v,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_property_type& p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                    g )
+	{
+		return g.add_edge( u, v, p );
+	}
 
-    template <typename T>
-    inline std::pair<typename stk::temporary_vertex_graph_adaptor<T>::edge_iterator, typename stk::temporary_vertex_graph_adaptor<T>::edge_iterator> edges(const stk::temporary_vertex_graph_adaptor<T>& g_)
-    {
-        auto& g = const_cast<stk::temporary_vertex_graph_adaptor<T>&>(g_);
-        return std::make_pair(g.edges_begin(), g.edges_end());
-    }
+	// The following overloads convert from original to unified vertex descriptors.
+	template <typename Graph>
+	inline auto add_edge( typename boost::graph_traits<Graph>::vertex_descriptor              u,
+		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor         v,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_property_type& p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                    g )
+		-> typename std::enable_if<!stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral,
+			std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>>::type
+	{
+		auto unified_u = g.make_original_descriptor( u );
+		return g.add_edge( unified_u, v, p );
+	}
 
-    //=========================================================================
-    // Vertex Property Maps
+	template <typename Graph>
+	inline auto add_edge( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor u,
+		typename boost::graph_traits<Graph>::vertex_descriptor                                          v,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_property_type&           p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                              g )
+		-> typename std::enable_if<!stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral,
+			std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>>::type
+	{
+		auto unified_v = g.make_original_descriptor( v );
+		return g.add_edge( u, unified_v, p );
+	}
 
-    template <class Graph, class ValueType, class Reference, class Tag>
-    struct adapted_graph_vertex_property_map : public boost::put_get_helper<Reference, adapted_graph_vertex_property_map<Graph, ValueType, Reference, Tag>>
-    {
-        typedef ValueType value_type;
-        typedef Reference reference;
-        typedef typename Graph::vertex_descriptor key_type;
-        typedef boost::lvalue_property_map_tag category;
-        inline adapted_graph_vertex_property_map(const Graph* pGraph = nullptr, Tag tag = Tag())
-        : mGraphPtr(pGraph)
-        , mTag(tag)
-        {}
+	template <typename Graph>
+	inline auto add_edge( typename boost::graph_traits<Graph>::vertex_descriptor              u,
+		typename boost::graph_traits<Graph>::vertex_descriptor                                v,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_property_type& p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                    g )
+		-> typename std::enable_if<!stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral,
+			std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>>::type
+	{
+		auto unified_u = g.make_original_descriptor( u );
+		auto unified_v = g.make_original_descriptor( v );
+		return g.add_edge( unified_u, unified_v, p );
+	}
 
-        inline reference operator[](key_type v) const
-        {
-            auto pGraph = const_cast<Graph*>(mGraphPtr);
-            return pGraph->template get_vertex_property_value<reference>(v, mTag);
-        }
+	// Overloads for edge(u, v, g) -- returns the edge if one exists.
+	template <typename Graph>
+	inline std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>
+	edge( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor u,
+		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor   v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                        g )
+	{
+		using adaptor_type = stk::graph::temporary_vertex_graph_adaptor<Graph>;
+		using edge_descriptor = typename adaptor_type::edge_descriptor;
+		auto range = boost::out_edges( u, g );
+		for( auto it = range.first; it != range.second; ++it )
+		{
+			if( boost::target( *it, g ) == v )
+				return std::make_pair( *it, true );
+		}
+		return std::make_pair( edge_descriptor(), false );
+	}
 
-        inline Reference operator()(key_type v) const
-        {
-            return this->operator[](v);
-        }
+	// Overloads for edge() when one or both vertex descriptors are original.
+	template <typename Graph>
+	inline auto edge( typename boost::graph_traits<Graph>::vertex_descriptor          u,
+		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                      g )
+		-> typename std::enable_if<!stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral,
+			std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>>::type
+	{
+		auto unified_u = g.make_original_descriptor( u );
+		return edge( unified_u, v, g );
+	}
 
-        const Graph*    mGraphPtr;
-        Tag             mTag;
-    };
+	template <typename Graph>
+	inline auto edge( typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor u,
+		typename boost::graph_traits<Graph>::vertex_descriptor                                      v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                                    g )
+		-> typename std::enable_if<!stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral,
+			std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>>::type
+	{
+		auto unified_v = g.make_original_descriptor( v );
+		return edge( u, unified_v, g );
+	}
 
-    template <class Graph, class Property, class PropRef>
-    struct adapted_graph_vertex_all_properties_map : public boost::put_get_helper<PropRef, adapted_graph_vertex_all_properties_map<Graph, Property, PropRef>>
-    {
-        typedef Property value_type;
-        typedef PropRef reference;
-        typedef typename Graph::vertex_descriptor key_type;
-        typedef boost::lvalue_property_map_tag category;
-        inline adapted_graph_vertex_all_properties_map(const Graph* pGraph= nullptr, vertex_all_t = vertex_all_t())
-        : mGraphPtr(pGraph)
-        {}
+	template <typename Graph>
+	inline auto edge( typename boost::graph_traits<Graph>::vertex_descriptor u,
+		typename boost::graph_traits<Graph>::vertex_descriptor               v,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&             g )
+		-> typename std::enable_if<!stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral,
+			std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor, bool>>::type
+	{
+		auto unified_u = g.make_original_descriptor( u );
+		auto unified_v = g.make_original_descriptor( v );
+		return edge( unified_u, unified_v, g );
+	}
 
-        inline PropRef operator[](key_type v) const
-        {
-            auto pGraph = const_cast<Graph*>(mGraphPtr);
-            return pGraph->get_vertex_property(v);
-        }
+} // namespace boost
 
-        inline PropRef operator()(key_type v) const
-        {
-            return this->operator[](v);
-        }
+// --------------------------------------------------------------------------
+//! temporary_vertex_graph_vertex_property_map
+//! (Used when boost::get() is called with a pointer-to-member for a vertex property.)
+// --------------------------------------------------------------------------
+template <typename Graph, typename PropPtr>
+struct temporary_vertex_graph_vertex_property_map
+{
+	typedef stk::graph::temporary_vertex_graph_adaptor<Graph>                                    Adaptor;
+	typedef typename Adaptor::vertex_descriptor                                                  key_type;
+	typedef decltype( ( *(Adaptor*)nullptr )[*( (key_type*)nullptr )].*std::declval<PropPtr>() ) value_type;
+	typedef value_type                                                                           reference;
+	typedef boost::lvalue_property_map_tag                                                       category;
 
-        const Graph*    mGraphPtr;
-    };
+	temporary_vertex_graph_vertex_property_map( Adaptor* g, PropPtr p )
+		: m_g( g )
+		, m_prop( p )
+	{}
 
-    template <class Property, class Vertex>
-    struct adapted_graph_vertex_id_map : public boost::put_get_helper<Vertex, adapted_graph_vertex_id_map<Property, Vertex>>
-    {
-        typedef Vertex value_type;
-        typedef Vertex key_type;
-        typedef Vertex reference;
-        typedef boost::readable_property_map_tag category;
+	reference operator[]( const key_type& k ) const
+	{
+		return ( ( *m_g )[k] ).*m_prop;
+	}
 
-        adapted_graph_vertex_id_map() { }
-        template <class Graph>
-        adapted_graph_vertex_id_map(const Graph&, vertex_index_t) { }
-        value_type operator[](key_type v) const { return v; }
-        value_type operator()(key_type v) const { return v; }
-    };
+	Adaptor* m_g;
+	PropPtr  m_prop;
+};
 
-    struct adapted_graph_vertex_id_pa
-    {
-        template <class Tag, class Graph, class Property>
-        struct bind_
-        {
-            using vertex_t = typename Graph::vertex_descriptor;
-            typedef adapted_graph_vertex_id_map<Property, vertex_t> type;
-            typedef adapted_graph_vertex_id_map<Property, vertex_t> const_type;
-        };
-    };
+// --------------------------------------------------------------------------
+//! temporary_vertex_graph_edge_property_map
+//! (Used when boost::get() is called with a pointer-to-member for an edge property.)
+// --------------------------------------------------------------------------
+template <typename Graph, typename PropPtr>
+struct temporary_vertex_graph_edge_property_map
+{
+	typedef stk::graph::temporary_vertex_graph_adaptor<Graph>                                    Adaptor;
+	typedef typename Adaptor::edge_descriptor                                                    key_type;
+	typedef decltype( ( *(Adaptor*)nullptr )[*( (key_type*)nullptr )].*std::declval<PropPtr>() ) value_type;
+	typedef value_type                                                                           reference;
+	typedef boost::lvalue_property_map_tag                                                       category;
 
-    struct adapted_graph_any_vertex_pa
-    {
-        template <class Tag, class Graph, class Property>
-        struct bind_
-        {
-            typedef typename property_value<Property, Tag>::type value_type;
-            typedef value_type& reference;
-            typedef const value_type& const_reference;
+	temporary_vertex_graph_edge_property_map( Adaptor* g, PropPtr p )
+		: m_g( g )
+		, m_prop( p )
+	{}
 
-            typedef adapted_graph_vertex_property_map<Graph, value_type, reference, Tag> type;
-            typedef adapted_graph_vertex_property_map<Graph, value_type, const_reference, Tag> const_type;
-        };
-    };
+	reference operator[]( const key_type& k ) const
+	{
+		return ( ( *m_g )[k] ).*m_prop;
+	}
 
-    struct adapted_graph_all_vertex_pa
-    {
-        template <class Tag, class Graph, class Property>
-        struct bind_
-        {
-            typedef typename Graph::vertex_descriptor Vertex;
-            typedef adapted_graph_vertex_all_properties_map<Graph, Property, Property&> type;
-            typedef adapted_graph_vertex_all_properties_map<Graph, Property, const Property&> const_type;
-        };
-    };
+	Adaptor* m_g;
+	PropPtr  m_prop;
+};
 
-    namespace detail {
-        template <class Tag, class Graph, class Property, class EnableIf=void>
-        struct adapted_graph_choose_vertex_pa : adapted_graph_any_vertex_pa::template bind_<Tag, Graph, Property>
-        {};
+// --------------------------------------------------------------------------
+//! Free function overloads for boost::get() with temporary_vertex_graph_adaptor.
+//! These allow using pointer-to-member get() syntax such as:
+//!    auto pm = boost::get(&VertexProperties::label, adaptor);
+//! and then using: pm[v] to yield the desired property.
+// --------------------------------------------------------------------------
+namespace boost {
 
-        template <class Graph, class Property>
-        struct adapted_graph_choose_vertex_pa<vertex_all_t, Graph, Property> : adapted_graph_all_vertex_pa::template bind_<vertex_all_t, Graph, Property>
-        {};
+	template <typename Graph, typename PropPtr>
+	inline temporary_vertex_graph_vertex_property_map<Graph, PropPtr>
+	get( PropPtr p, stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		return temporary_vertex_graph_vertex_property_map<Graph, PropPtr>( &g, p );
+	}
 
-        template <class Graph, class Property>
-        struct adapted_graph_choose_vertex_pa<vertex_index_t, Graph, Property, typename std::enable_if<stk::has_vector_vertex_list<typename Graph::graph_t>::value>::type> : adapted_graph_vertex_id_pa::template bind_<vertex_index_t, Graph, Property>
-        {};
-    } // namespace detail
+	template <typename Graph, typename PropPtr>
+	inline temporary_vertex_graph_vertex_property_map<Graph, PropPtr>
+	get( PropPtr p, const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		return temporary_vertex_graph_vertex_property_map<Graph, PropPtr>( const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
+	}
 
-    //=========================================================================
-    // Edge Property Map
+	template <typename Graph, typename PropPtr>
+	inline temporary_vertex_graph_edge_property_map<Graph, PropPtr>
+	get( PropPtr p, stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>( &g, p );
+	}
 
-    template <class Directed, class Value, class Ref, class Vertex, class Property, class Tag>
-    struct adapted_graph_edge_property_map : public put_get_helper<Ref, adapted_graph_edge_property_map<Directed, Value, Ref, Vertex, Property, Tag>>
-    {
-        Tag tag;
-        explicit adapted_graph_edge_property_map(Tag tag = Tag()) : tag(tag) {}
+	template <typename Graph, typename PropPtr>
+	inline temporary_vertex_graph_edge_property_map<Graph, PropPtr>
+	get( PropPtr p, const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	{
+		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>( const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
+	}
 
-        typedef Value value_type;
-        typedef Ref reference;
-        typedef detail::edge_desc_impl<Directed, Vertex> key_type;
-        typedef boost::lvalue_property_map_tag category;
-        inline Ref operator[](key_type e) const
-        {
-            Property& p = *(Property*)e.get_property();
-            return get_property_value(p, tag);
-        }
-        inline Ref operator()(key_type e) const
-        {
-            return this->operator[](e);
-        }
-    };
+	//----------------------------------------------------------------------
+	//! Overloads for boost::get() for property maps on temporary_vertex_graph_adaptor
+	//!----------------------------------------------------------------------
 
-    template <class Directed, class Property, class PropRef, class PropPtr, class Vertex>
-    struct adapted_graph_edge_all_properties_map : public put_get_helper<PropRef, adapted_graph_edge_all_properties_map<Directed, Property, PropRef, PropPtr, Vertex>>
-    {
-        explicit adapted_graph_edge_all_properties_map(edge_all_t = edge_all_t()) {}
-        typedef Property value_type;
-        typedef PropRef reference;
-        typedef detail::edge_desc_impl<Directed, Vertex> key_type;
-        typedef boost::lvalue_property_map_tag category;
-        inline PropRef operator[](key_type e) const
-        {
-            return *(PropPtr)e.get_property();
-        }
-        inline PropRef operator()(key_type e) const
-        {
-            return this->operator[](e);
-        }
-    };
+	// For vertex property maps, when a pointer-to-member is provided,
+	// if the key is a unified vertex descriptor...
+	template <typename Graph, typename PropPtr, typename std::enable_if<stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral == false, int>::type = 0>
+	inline auto get( PropPtr                                                                 p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                   g,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor& key )
+		-> decltype( ( g[key] ).*p )
+	{
+		return ( g[key] ).*p;
+	}
+	template <typename Graph, typename PropPtr, typename std::enable_if<stk::graph::temporary_vertex_graph_adaptor<Graph>::using_integral == false, int>::type = 0>
+	inline auto get( PropPtr                                                                 p,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                             g,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_descriptor& key )
+		-> decltype( ( g[key] ).*p )
+	{
+		return ( g[key] ).*p;
+	}
 
-    // Edge Property Maps
+	// For the original vertex descriptor keys, use boost::get on the underlying graph:
+	template <typename Graph, typename PropPtr>
+	inline auto get( PropPtr                                          p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&            g,
+		const typename boost::graph_traits<Graph>::vertex_descriptor& key )
+		-> decltype( g[key].*p )
+	{
+		return g[key].*p;
+	}
+	template <typename Graph, typename PropPtr>
+	inline auto get( PropPtr                                          p,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&      g,
+		const typename boost::graph_traits<Graph>::vertex_descriptor& key )
+		-> decltype( g[key].*p )
+	{
+		return g[key].*p;
+	}
 
-    namespace detail {
-        struct adapted_graph_any_edge_pmap
-        {
-            template <class Graph, class Property, class Tag>
-            struct bind_
-            {
-                typedef typename property_value<Property, Tag>::type value_type;
-                typedef value_type& reference;
-                typedef const value_type& const_reference;
+	// For edge property maps on unified edge descriptors:
+	template <typename Graph, typename PropPtr>
+	inline auto get( PropPtr                                                               p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                 g,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor& key )
+		-> decltype( ( g[key] ).*p )
+	{
+		return ( g[key] ).*p;
+	}
+	template <typename Graph, typename PropPtr>
+	inline auto get( PropPtr                                                               p,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&                           g,
+		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor& key )
+		-> decltype( g[key].*p )
+	{
+		return g[key].*p;
+	}
 
-                typedef adapted_graph_edge_property_map<typename Graph::directed_category, value_type, reference, typename Graph::vertex_descriptor, Property, Tag> type;
-                typedef adapted_graph_edge_property_map<typename Graph::directed_category, value_type, const_reference, typename Graph::vertex_descriptor, const Property, Tag> const_type;
-            };
-        };
-        struct adapted_graph_all_edge_pmap
-        {
-            template <class Graph, class Property, class Tag>
-            struct bind_
-            {
-                typedef adapted_graph_edge_all_properties_map<typename Graph::directed_category, Property, Property&, Property*, typename Graph::vertex_descriptor> type;
-                typedef adapted_graph_edge_all_properties_map<typename Graph::directed_category, Property, const Property&, const Property*, typename Graph::vertex_descriptor> const_type;
-            };
-        };
-
-        template <class Tag>
-        struct adapted_graph_choose_edge_pmap_helper
-        {
-            typedef adapted_graph_any_edge_pmap type;
-        };
-        template <>
-        struct adapted_graph_choose_edge_pmap_helper<edge_all_t>
-        {
-            typedef adapted_graph_all_edge_pmap type;
-        };
-        template <class Tag, class Graph, class Property>
-        struct adapted_graph_choose_edge_pmap : adapted_graph_choose_edge_pmap_helper<Tag>::type::template bind_<Graph, Property, Tag>
-        {};
-        struct adapted_graph_edge_property_selector
-        {
-            template <class Graph, class Property, class Tag>
-            struct bind_ : adapted_graph_choose_edge_pmap<Tag, Graph, Property> {};
-        };
-    } // namespace detail
-
-    template <>
-    struct edge_property_selector<stk::temporary_vertex_adapted_graph_tag>
-    {
-        typedef detail::adapted_graph_edge_property_selector type;
-    };
-
-    // Vertex Property Maps
-
-    struct adapted_graph_vertex_property_selector
-    {
-        template <class Graph, class Property, class Tag>
-        struct bind_ : detail::adapted_graph_choose_vertex_pa<Tag, Graph, Property>
-        {};
-    };
-
-    template <>
-    struct vertex_property_selector<stk::temporary_vertex_adapted_graph_tag>
-    {
-        typedef adapted_graph_vertex_property_selector type;
-    };
-
-    namespace detail {
-        template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get_dispatch(stk::temporary_vertex_graph_adaptor<T>&, Property p, boost::edge_property_tag)
-        {
-            typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type PA;
-            return PA(p);
-        }
-
-        template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>,Property>::const_type get_dispatch(const stk::temporary_vertex_graph_adaptor<T>&, Property p, boost::edge_property_tag)
-        {
-            typedef stk::temporary_vertex_graph_adaptor<T> Graph;
-            typedef typename boost::property_map<Graph, Property>::const_type PA;
-            return PA(p);
-        }
-
-        template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get_dispatch(stk::temporary_vertex_graph_adaptor<T>& g, Property p, boost::vertex_property_tag)
-        {
-            typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type PA;
-            return PA(&g, p);
-        }
-
-        template <typename T, typename Property>
-        inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type get_dispatch(const stk::temporary_vertex_graph_adaptor<T>& g, Property p, boost::vertex_property_tag)
-        {
-            typedef typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type PA;
-            return PA(&g, p);
-        }
-
-    } // namespace detail
-
-    // Implementation of the PropertyGraph interface
-    template <typename T, typename Property>
-    inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::type get(Property p, stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        typedef typename detail::property_kind_from_graph<stk::temporary_vertex_graph_adaptor<T>, Property>::type Kind;
-        return detail::get_dispatch(g, p, Kind());
-    }
-
-    template <typename T, typename Property>
-    inline typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type get(Property p, const stk::temporary_vertex_graph_adaptor<T>& g)
-    {
-        typedef typename detail::property_kind_from_graph<stk::temporary_vertex_graph_adaptor<T>, Property>::type Kind;
-        return detail::get_dispatch(g, p, Kind());
-    }
-
-    template <typename T, typename Property, typename Key>
-    inline typename boost::property_traits<typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>,Property>::type>::reference get(Property p, stk::temporary_vertex_graph_adaptor<T>& g, const Key& key)
-    {
-        return get(get(p, g), key);
-    }
-
-    template <typename T, typename Property, typename Key>
-    inline typename boost::property_traits< typename boost::property_map<stk::temporary_vertex_graph_adaptor<T>, Property>::const_type >::reference get(Property p, const stk::temporary_vertex_graph_adaptor<T>& g, const Key& key)
-    {
-        return get(get(p, g), key);
-    }
-
-}//! namespace boost
-
-#endif //! STK_GRAPH_TEMPORARY_VERTEX_GRAPH_ADAPTOR_HPP
-
+	// For original edge descriptors, use boost::get on the underlying graph:
+	template <typename Graph, typename PropPtr>
+	inline auto get( PropPtr                                        p,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&          g,
+		const typename boost::graph_traits<Graph>::edge_descriptor& key )
+		-> decltype( g[key].*p )
+	{
+		return g[key].*p;
+	}
+	template <typename Graph, typename PropPtr>
+	inline auto get( PropPtr                                        p,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&    g,
+		const typename boost::graph_traits<Graph>::edge_descriptor& key )
+		-> decltype( g[key].*p )
+	{
+		return g[key].*p;
+	}
+} // namespace boost

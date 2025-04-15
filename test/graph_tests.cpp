@@ -9,6 +9,7 @@
 #include "stk/graph/crs_graph_builders.hpp"
 #include "stk/graph/dijkstras_shortest_path.hpp"
 #include "stk/graph/boost_adapters.hpp"
+#include "stk/graph/temporary_vertex_graph_adaptor.hpp"
 #include <stk/utility/compressed_integer_pair.hpp>
 
 #include <boost/graph/compressed_sparse_row_graph.hpp>
@@ -92,6 +93,7 @@ namespace {
 		stk::graph::vertex_t>;
 	using CSRVertex = BoostCSRGraph::vertex_descriptor;
 	using CSREdge = BoostCSRGraph::edge_descriptor;
+	using CSREdgeProperty = BoostCSRGraph::edge_bundled;
 
 	// Define a Boost adjacency_list graph type.
 	using BoostAdjListGraph = boost::adjacency_list<
@@ -377,4 +379,11 @@ TEST( DSPPerformanceTest, CompareBoostCSRAdjListAndCRS )
 	bool match = ( boostCSRCosts_final[lastIndex] == boostAdjCosts_final[lastIndex] ) && ( boostCSRCosts_final[lastIndex] == crs_adp_Dist_final[lastIndex] ) && ( boostCSRCosts_final[lastIndex] == crsDist_final[lastIndex] );
 	std::clog << "All Dijkstra results match: " << ( match ? "Yes" : "No" ) << "\n";
 	std::clog.flush();
+}
+
+TEST( TemporaryVertexGraphAdaptorTests, TestStaticAssert )
+{
+	using namespace stk::graph;
+
+	static_assert( std::is_same_v<edge_property_type_of<BoostCSRGraph>::type, EdgeProperties> );
 }
