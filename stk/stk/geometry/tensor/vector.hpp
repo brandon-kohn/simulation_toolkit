@@ -19,12 +19,14 @@
 #include <geometrix/tensor/index_operator_vector_access_policy.hpp>
 
 #include <geometrix/tensor/vector.hpp>
+#include <geometrix/arithmetic/vector/normalize.hpp>
 
 namespace stk {
 
 using vector2 = geometrix::vector<units::length, 2>;
 using vector3 = geometrix::vector<units::length, 3>;
 using dimensionless2 = geometrix::vector<units::dimensionless, 2>;
+using direction2 = geometrix::vector<units::dimensionless, 2>;
 using velocity2 = geometrix::vector<units::speed, 2>;
 using acceleration2 = geometrix::vector<units::acceleration, 2>;
 using force2 = geometrix::vector<units::force, 2>;
@@ -35,6 +37,19 @@ inline dimensionless2 make_dimensionless(const T& expr)
 {
     using namespace geometrix;
     return dimensionless2{ get<0>(expr).value(), get<1>(expr).value() };
+}
+
+template <typename T>
+inline direction2 make_direction(const T& expr)
+{
+    using namespace geometrix;
+	using m2_t = decltype(magnitude_sqrd(std::declval<T>()));
+	if( auto m2 = magnitude_sqrd( expr ); !make_tolerance_policy().equals( m2, constants::one<m2_t>() ) )
+	{
+		using std::sqrt;
+		return make_dimensionless( expr / sqrt(m2) );
+	}
+    return make_dimensionless(expr);
 }
 
 }//! namespace stk;
