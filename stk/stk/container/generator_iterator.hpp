@@ -28,11 +28,11 @@ namespace stk {
 		class generator_iterator
 			: public boost::iterators::iterator_facade<
 				  generator_iterator<Generator>,
-				  typename boost::result_of<Generator()>::type,
+				  decltype(std::declval<Generator>()()),
 				  boost::iterators::single_pass_traversal_tag,
-				  typename boost::result_of<Generator()>::type const&>
+				  typename decltype(std::declval<Generator>()()) const&>
 		{
-			using result_type = typename boost::result_of<Generator()>::type;
+			using result_type = decltype(std::declval<Generator>()());
 			typedef boost::iterators::iterator_facade<
 				generator_iterator<Generator>,
 				result_type,
