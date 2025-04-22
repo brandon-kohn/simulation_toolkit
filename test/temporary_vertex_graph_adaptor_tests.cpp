@@ -140,11 +140,11 @@ struct GraphBuilder<CSR_Graph>
 
 		// Construct the CSR graph.
 		// The constructor parameters:
-		//   - boost::edges_are_sorted: a tag that the edge list is sorted.
-		//   - number of vertices,
-		//   - begin and end iterators for the edge list,
-		//   - begin iterator for edge properties,
-		//   - begin and end iterators for vertex properties.
+		//   * boost::edges_are_sorted: a tag that the edge list is sorted.
+		//   * number of vertices,
+		//   * begin and end iterators for the edge list,
+		//   * begin iterator for edge properties,
+		//   * begin and end iterators for vertex properties.
 		// (If your edges are not sorted, you might need to sort or use a different constructor.)
 		auto ng = CSR_Graph(
 			boost::edges_are_unsorted_multi_pass,
@@ -462,4 +462,169 @@ TYPED_TEST( DynamicNavigationTestSuite, num_vertices_TwoOldTwoNew_Returns4 )
 
 	auto result = boost::num_vertices( ag );
 	EXPECT_EQ( 4, result );
+}
+
+#include <boost/graph/compressed_sparse_row_graph.hpp>
+#include <boost/graph/filtered_graph.hpp>
+
+// Dummy vertex and edge property types for testing
+struct DummyVertex
+{
+	int id;
+};
+
+struct DummyEdge
+{
+	double weight;
+};
+
+// Vertex predicate: keep only vertices with even id
+template <typename G>
+struct EvenVertexPred
+{
+	const G* graph;
+	EvenVertexPred() = default; // Default constructor for filtered graph
+	EvenVertexPred( const G& g )
+		: graph( &g )
+	{}
+
+	bool operator()( typename boost::graph_traits<G>::vertex_descriptor v ) const
+	{
+		return ( ( *graph )[v].id % 2 ) == 0;
+	}
+};
+
+// Edge predicate: keep only edges whose source and target satisfy the vertex predicate
+template <typename G>
+struct EdgePred
+{
+	const G*    graph;
+	EdgePred() = default; // Default constructor for filtered graph
+	EdgePred( const G& g )
+		: graph( &g )
+	{}
+
+	bool operator()( typename boost::graph_traits<G>::edge_descriptor e ) const
+	{
+		return ( *graph )[e].weight > 1.0;
+	}
+};
+
+TEST( TemporaryAdaptorCSRFilterTest, BasicFilteredBehavior )
+{
+	using CSR = boost::compressed_sparse_row_graph<
+		boost::directedS,
+		DummyVertex,
+		DummyEdge>;
+
+	static_assert( std::is_same_v<CSR::vertex_descriptor, std::size_t>, "Vertex descriptor should be size_t" );
+
+	// Build base CSR graph: 4 vertices (id=0..3) in a ring
+	std::vector<std::size_t> sources = { 0, 1, 2, 3 };
+	std::vector<std::size_t> targets = { 2, 2, 3, 0 };
+	std::vector<DummyEdge>   eprops = { { 1.6 }, { 0.5 }, { 1.6 }, { 1.5 } };
+
+	CSR csr(
+		boost::construct_inplace_from_sources_and_targets,
+		sources,
+		targets,
+		eprops,
+		eprops.size() );
+
+	csr[0].id = 0;
+	csr[1].id = 1;
+	csr[2].id = 2;
+	csr[3].id = 3;
+
+	// Wrap in temporary vertex adaptor
+	stk::graph::temporary_vertex_graph_adaptor<CSR> ag( csr );
+
+	using TVG = stk::graph::temporary_vertex_graph_adaptor<CSR>;
+
+	// Define filtered graph: even_numbered vertices only
+	EvenVertexPred<TVG> vpred( ag );
+	EdgePred<TVG>       epred( ag );
+	using Filtered = boost::filtered_graph<TVG, EdgePred<TVG>, EvenVertexPred<TVG>>;
+	Filtered fg( ag, epred, vpred );
+
+	auto             verts = boost::vertices( fg );
+	std::vector<int> degs;
+	for( auto it = verts.first; it != verts.second; ++it )
+		degs.push_back( boost::out_degree( *it, fg ) );
+	EXPECT_EQ( degs.size(), 2 );
+	// Vertex 0 has out_edge to 2: degree 1
+	// Vertex 2 has out_edge to ? (3 filtered out): degree 0
+	EXPECT_EQ( degs[0], 1 );
+	EXPECT_EQ( degs[1], 0 );
+}
+
+TYPED_TEST( DynamicNavigationTestSuite, vertex_property_accessors )
+{
+	using Graph = typename TestFixture::Graph;
+
+	// Build base graph.
+	auto                          p1 = point2{ 0. * boost::units::si::meters, 0. * boost::units::si::meters };
+	std::vector<VertexProperties> vertices{
+		VertexProperties( p1, false, VertexType::Target )
+	};
+	std::vector<std::tuple<std::size_t, std::size_t, EdgeProperties>> edges; // empty
+
+	Graph g = GraphBuilder<Graph>::build( vertices, edges );
+
+	// Wrap, and add one new vertex with a different type.
+	auto                                              p2 = point2{ 1. * boost::units::si::meters, 0. * boost::units::si::meters };
+	stk::graph::temporary_vertex_graph_adaptor<Graph> ag(
+		g,
+		VertexProperties( p2, true, VertexType::Obstacle ),
+		{} );
+	auto new_v = ag.new_indices()[0];
+
+	// old vertex 0 
+	// bundled
+	const auto& vp0_bundled = ag[0];
+	EXPECT_EQ( vp0_bundled.type, VertexType::Target );
+	// property_map
+	auto vp0_map = boost::get( &VertexProperties::type, ag, 0 );
+	EXPECT_EQ( vp0_map, VertexType::Target );
+
+	// new vertex
+	// bundled
+	const auto& vpn_bundled = ag[new_v];
+	EXPECT_EQ( vpn_bundled.type, VertexType::Obstacle );
+	// property_map
+	auto vpn_map = boost::get( &VertexProperties::type, ag, new_v );
+	EXPECT_EQ( vpn_map, VertexType::Obstacle );
+}
+
+TYPED_TEST( DynamicNavigationTestSuite, edge_property_accessors )
+{
+	using Graph = typename TestFixture::Graph;
+
+	// Build a base graph with two vertices and one edge.
+	auto                                                              p1 = point2{ 0. * boost::units::si::meters, 0. * boost::units::si::meters };
+	auto                                                              p2 = point2{ 1. * boost::units::si::meters, 0. * boost::units::si::meters };
+	std::vector<VertexProperties>                                     vertices{ VertexProperties( p1 ), VertexProperties( p2 ) };
+	double                                                            weight = geometrix::point_point_distance( p1, p2 ).value();
+	std::vector<std::tuple<std::size_t, std::size_t, EdgeProperties>> edges{
+		std::make_tuple( 0, 1, EdgeProperties( weight, EdgeType::Virtual ) )
+	};
+	Graph g = GraphBuilder<Graph>::build( vertices, edges );
+
+	// Wrap and add one new edge from old vertex 0 to old vertex 1
+	stk::graph::temporary_vertex_graph_adaptor<Graph> ag( g );
+	auto                                              epr = EdgeProperties{ 3.14, EdgeType::Real };
+	auto                                              edge_pair = boost::add_edge( 0, 1, epr, ag );
+	ASSERT_TRUE( edge_pair.second );
+	auto ed = edge_pair.first;
+
+	// bundled
+	const auto& ep_bundled = ag[ed];
+	EXPECT_DOUBLE_EQ( ep_bundled.weight, 3.14 );
+	EXPECT_EQ( ep_bundled.type, EdgeType::Real );
+
+	// property_map
+	auto w_map = boost::get( &EdgeProperties::weight, ag, ed );
+	auto t_map = boost::get( &EdgeProperties::type, ag, ed );
+	EXPECT_DOUBLE_EQ( w_map, 3.14 );
+	EXPECT_EQ( t_map, EdgeType::Real );
 }

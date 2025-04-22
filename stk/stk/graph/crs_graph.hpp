@@ -1,6 +1,6 @@
 //!
-//!  @file crs_graph.hpp
-//!  @brief compressed row storage graph.
+//! @file crs_graph.hpp
+//! @brief compressed row storage graph.
 
 #pragma once
 
@@ -26,7 +26,7 @@
 
 namespace stk::graph {
 
-	//!  Use 32-bits for each type for cache locality.
+	//! Use 32-bits for each type for cache locality.
 	using vertex_t = std::uint32_t;
 	using weight_t = float;
 
@@ -50,17 +50,17 @@ namespace stk::graph {
 		std::vector<vertex_t, aligned_allocator<vertex_t>> targets;
 		std::vector<weight_t, aligned_allocator<weight_t>> weights;
 		std::vector<vertex_t, aligned_allocator<vertex_t>> row_starts;
-		std::vector<std::pair<float, float>>               positions; //!  2D positions per vertex
+		std::vector<std::pair<float, float>>               positions; //! 2D positions per vertex
 	};
 
-	//!  Default priority queue policy using std::priority_queue
+	//! Default priority queue policy using std::priority_queue
 	struct default_priority_queue_policy
 	{
 		template <typename T, typename Compare>
 		using type = std::priority_queue<T, std::vector<T>, Compare>;
 	};
 
-	//!  Boost d-ary heap policy (e.g., binary, 4-ary, etc.)
+	//! Boost d-ary heap policy (e.g., binary, 4-ary, etc.)
 	template <unsigned Arity = 4>
 	struct d_ary_heap_policy
 	{
@@ -68,18 +68,18 @@ namespace stk::graph {
 		using type = boost::heap::d_ary_heap<T, boost::heap::arity<Arity>, boost::heap::compare<Compare>>;
 	};
 
-	//!  Boost Fibonacci heap policy
+	//! Boost Fibonacci heap policy
 	struct fibonacci_heap_policy
 	{
 		template <typename T, typename Compare>
 		using type = boost::heap::fibonacci_heap<T, boost::heap::compare<Compare>>;
 	};
 
-	//!  Customizable priority queue policy wrapper for Dijkstra/A*
+	//! Customizable priority queue policy wrapper for Dijkstra/A*
 	template <typename T, typename Compare, typename Policy = default_priority_queue_policy>
 	using priority_queue_t = typename Policy::template type<T, Compare>;
 
-	//!  Helper alias for (f, node) style entries
+	//! Helper alias for (f, node) style entries
 	template <typename Policy = default_priority_queue_policy>
 	using weight_queue_t = priority_queue_t<std::pair<weight_t, vertex_t>, std::greater<>, Policy>;
 
