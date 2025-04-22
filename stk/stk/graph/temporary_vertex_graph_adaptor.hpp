@@ -237,10 +237,13 @@ namespace stk::graph {
 	struct temporary_vertex_graph_adaptor
 	{
 		BOOST_STATIC_ASSERT( is_directed_graph<Graph>::value );
+		using self = temporary_vertex_graph_adaptor;
 
 	public:
-		typedef Graph                                                  graph_t;
-		typedef typename boost::graph_traits<Graph>::vertex_descriptor original_vertex_descriptor;
+		typedef Graph                                graph_t;
+		typedef boost::graph_traits<Graph>           traits_t;
+		typedef typename traits_t::vertex_descriptor original_vertex_descriptor;
+		typedef typename traits_t::edge_descriptor   original_edge_descriptor;
 
 		static constexpr bool                                            using_integral = std::is_integral<original_vertex_descriptor>::value;
 		typedef typename std::conditional<using_integral,
@@ -266,9 +269,23 @@ namespace stk::graph {
 			{}
 		};
 
-
-		typedef fused_vertex_iterator<Graph>   vertex_iterator;
+		// IncidenceGraph requirements
 		typedef fused_out_edge_iterator<Graph> out_edge_iterator;
+		typedef typename traits_t::degree_size_type degree_size_type;
+
+		// Graph requirements
+		typedef typename traits_t::directed_category      directed_category;
+		typedef typename traits_t::edge_parallel_category edge_parallel_category;
+		typedef typename traits_t::traversal_category     traversal_category;
+
+		// AdjacencyGraph requirements
+		typedef typename boost::adjacency_iterator_generator<self, vertex_descriptor, out_edge_iterator>::type adjacency_iterator;
+
+		// VertexListGraph requirements
+		typedef fused_vertex_iterator<Graph>   vertex_iterator;
+		typedef typename traits_t::vertices_size_type vertices_size_type;
+
+		static vertex_descriptor null_vertex() { return traits_t::null_vertex(); }
 
 		//-----------------------------------------
 		//! Constructors
@@ -434,11 +451,13 @@ namespace stk::graph {
 
 		//-----------------------------------------
 		//! Property Access Operators
+		//! Bundled properties support
 		//-----------------------------------------
 		//! For vertex properties, if the vertex is original, use the underlying graph's
 		//! property map (via boost::get(boost::vertex_all, ...)); for new vertices, use
 		//! the stored property.
-		const vertex_property_type& operator[]( const vertex_descriptor& v ) const
+		typename boost::graph::detail::bundled_result<Graph, original_vertex_descriptor>::type const&
+			operator[]( const vertex_descriptor& v ) const
 		{
 			if( is_new( v ) )
 				return mNewVertexProperties[get_new_index( v )];
@@ -447,19 +466,11 @@ namespace stk::graph {
 		}
 
 		//! For unified edge descriptors, the property pointer was stored during construction.
-		const edge_property_type& operator[]( const edge_descriptor& ed ) const
+		typename boost::graph::detail::bundled_result<Graph, original_edge_descriptor>::type const&
+		operator[]( const edge_descriptor& ed ) const
 		{
 			return *( ed.property );
 		}
-
-		//! For original edge descriptors, delegate to the underlying graph's property map.
-		// (These overloads are less-used since free-function get() is provided below.)
-		/*
-		const typename edge_property_type& operator[]( const typename boost::graph_traits<Graph>::edge_descriptor& e ) const
-		{
-		    return boost::get( boost::edge_all, graph() )[e];
-		}
-		*/
 
 		//-----------------------------------------
 		//! Public accessor to the underlying graph.
@@ -490,9 +501,34 @@ namespace stk::graph {
 //! Boost Graph Free Function Overloads and Traits
 // --------------------------------------------------------------------------
 namespace boost {
+	
+	// Do not instantiate these unless needed
+	template <typename Graph>
+	struct vertex_property_type<stk::graph::temporary_vertex_graph_adaptor<Graph>> : vertex_property_type<Graph>
+	{};
 
 	template <typename Graph>
-	struct graph_traits<stk::graph::temporary_vertex_graph_adaptor<Graph>>
+	struct edge_property_type<stk::graph::temporary_vertex_graph_adaptor<Graph>> : edge_property_type<Graph>
+	{};
+
+	template <typename Graph>
+	struct graph_property_type<stk::graph::temporary_vertex_graph_adaptor<Graph>> : graph_property_type<Graph>
+	{};
+
+	template <typename Graph>
+	struct vertex_bundle_type<stk::graph::temporary_vertex_graph_adaptor<Graph>> : vertex_bundle_type<Graph>
+	{};
+
+	template <typename Graph>
+	struct edge_bundle_type<stk::graph::temporary_vertex_graph_adaptor<Graph>> : edge_bundle_type<Graph>
+	{};
+
+	template <typename Graph>
+	struct graph_bundle_type<stk::graph::temporary_vertex_graph_adaptor<Graph>> : graph_bundle_type<Graph>
+	{};
+
+	template <typename Graph>
+	struct graph_traits<stk::graph::temporary_vertex_graph_adaptor<Graph>> : graph_traits<Graph>
 	{
 		typedef stk::graph::temporary_vertex_graph_adaptor<Graph> adaptor_type;
 		typedef typename adaptor_type::vertex_descriptor          vertex_descriptor;

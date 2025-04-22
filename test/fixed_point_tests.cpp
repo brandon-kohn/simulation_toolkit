@@ -1,6 +1,8 @@
 
 #include <geometrix/numeric/fixed_point.hpp>
+#include <geometrix/arithmetic/scalar_arithmetic.hpp>
 #include <geometrix/numeric/boost_units_quantity_fixed_point.hpp>
+#include <geometrix/arithmetic/cmath.hpp>
 #include <gtest/gtest.h>
 #include <cstdint>
 
@@ -12,6 +14,18 @@ using fixed_point_3_traits = geometrix::fixed_point_traits
 >;
 
 using fixed_point3 = geometrix::fixed_point<fixed_point_3_traits>;
+
+TEST(fixed_point_suite, test_is_numeric_is_scalar_and_type_at)
+{
+	static_assert(geometrix::is_numeric<fixed_point3>::value, "fixed_point3 should be numeric type");
+	static_assert(geometrix::is_scalar<fixed_point3>::value, "fixed_point3 should be a scalar");
+	static_assert(std::is_same_v<geometrix::type_at<fixed_point3>::type, fixed_point3>, "fixed_point3 is scalar and thus type_at should be identity.");
+	using std::abs;
+	fixed_point3 sut(-123.4567);
+
+	auto v = abs( sut );
+	EXPECT_EQ(123.457, v);
+}
 
 TEST(fixed_point_suite, construct_from_double)
 {
