@@ -51,19 +51,19 @@ namespace stk::graph {
 		static_assert( false, "define vertex_property_type_of_impl for the specified graph type" );
 	};
 
-	template <typename ... Params>
+	template <typename... Params>
 	struct vertex_property_type_of_impl<boost::adjacency_list<Params...>>
 	{
 		using type = typename boost::adjacency_list<Params...>::vertex_property_type;
 	};
 
-	template <typename ... Params>
+	template <typename... Params>
 	struct vertex_property_type_of_impl<boost::compressed_sparse_row_graph<Params...>>
 	{
 		using type = typename boost::compressed_sparse_row_graph<Params...>::vertex_bundled;
 	};
 
-	template <typename G, typename ... Params>
+	template <typename G, typename... Params>
 	struct vertex_property_type_of_impl<boost::filtered_graph<G, Params...>>
 		: vertex_property_type_of_impl<G>
 	{
@@ -76,19 +76,19 @@ namespace stk::graph {
 		static_assert( false, "define edge_property_type_of_impl for the specified graph type" );
 	};
 
-	template <typename ... Params>
+	template <typename... Params>
 	struct edge_property_type_of_impl<boost::adjacency_list<Params...>>
 	{
 		using type = typename boost::adjacency_list<Params...>::edge_property_type;
 	};
 
-	template <typename ... Params>
+	template <typename... Params>
 	struct edge_property_type_of_impl<boost::compressed_sparse_row_graph<Params...>>
 	{
 		using type = typename boost::compressed_sparse_row_graph<Params...>::edge_bundled;
 	};
 
-	template <typename G, typename ... Params>
+	template <typename G, typename... Params>
 	struct edge_property_type_of_impl<boost::filtered_graph<G, Params...>>
 		: edge_property_type_of_impl<G>
 	{
@@ -179,10 +179,10 @@ namespace stk::graph {
 	class fused_out_edge_iterator : public boost::iterator_facade<fused_out_edge_iterator<Graph>, typename temporary_vertex_graph_adaptor<Graph>::edge_descriptor, boost::forward_traversal_tag, typename temporary_vertex_graph_adaptor<Graph>::edge_descriptor>
 	{
 	public:
-		typedef temporary_vertex_graph_adaptor<Graph>                                                                  adaptor_type;
-		typedef typename adaptor_type::edge_descriptor                                                                 edge_descriptor;
-		typedef typename adaptor_type::vertex_descriptor                                                               vertex_descriptor;
-		typedef typename boost::graph_traits<Graph>::out_edge_iterator                                                 base_iterator;
+		typedef temporary_vertex_graph_adaptor<Graph>                                                                         adaptor_type;
+		typedef typename adaptor_type::edge_descriptor                                                                        edge_descriptor;
+		typedef typename adaptor_type::vertex_descriptor                                                                      vertex_descriptor;
+		typedef typename boost::graph_traits<Graph>::out_edge_iterator                                                        base_iterator;
 		typedef typename std::vector<std::pair<vertex_descriptor, typename adaptor_type::edge_property_type>>::const_iterator extra_iterator;
 
 		fused_out_edge_iterator()
@@ -279,7 +279,7 @@ namespace stk::graph {
 		};
 
 
-		typedef fused_vertex_iterator<Graph>   vertex_iterator;
+		typedef fused_vertex_iterator<Graph> vertex_iterator;
 		//! IncidenceGraph requirements
 		typedef fused_out_edge_iterator<Graph> out_edge_iterator;
 
@@ -287,7 +287,7 @@ namespace stk::graph {
 		typedef void in_edge_iterator;
 
 		//! EdgeListGraph requirements
-		typedef typename boost::graph_traits<Graph>::edge_iterator edge_iterator;
+		typedef typename boost::graph_traits<Graph>::edge_iterator    edge_iterator;
 		typedef typename boost::graph_traits<Graph>::degree_size_type degree_size_type;
 
 		//-----------------------------------------
@@ -829,37 +829,104 @@ struct temporary_vertex_graph_edge_property_map
 // --------------------------------------------------------------------------
 namespace boost {
 
-	template <typename Graph, typename PropPtr>
+	// Trait to extract class_type and member_type from a PMF
+	template <class>
+	struct member_pointer_traits;
+
+	template <class C, class M>
+	struct member_pointer_traits<M C::*>
+	{
+		using class_type = C;
+		using member_type = M;
+	};
+
+	// vertex-property overload
+	// clang-format off
+	template
+	<
+		typename Graph,
+		typename PropPtr,
+		typename Traits = typename boost::member_pointer_traits<PropPtr>,
+		typename = std::enable_if_t
+		<
+			std::is_same_v
+			<
+				typename Traits::class_type,
+				typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_property_type
+			>
+		>
+	>
 	inline temporary_vertex_graph_vertex_property_map<Graph, PropPtr>
 	get( PropPtr p, stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
 	{
 		return temporary_vertex_graph_vertex_property_map<Graph, PropPtr>( &g, p );
 	}
 
-	template <typename Graph, typename PropPtr>
+	template
+	<
+		typename Graph,
+		typename PropPtr,
+		typename Traits = typename boost::member_pointer_traits<PropPtr>,
+		typename = std::enable_if_t
+		<
+			std::is_same_v
+			<
+				typename Traits::class_type,
+				typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_property_type
+			>
+		>
+	>
 	inline temporary_vertex_graph_vertex_property_map<Graph, PropPtr>
 	get( PropPtr p, const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
 	{
-		return temporary_vertex_graph_vertex_property_map<Graph, PropPtr>( const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
+		return temporary_vertex_graph_vertex_property_map<Graph, PropPtr>(
+			const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
 	}
 
-	template <typename Graph, typename PropPtr>
+	// edge-property overload
+	template
+	<
+		typename Graph,
+		typename PropPtr,
+		typename Traits = typename boost::member_pointer_traits<PropPtr>,
+		typename = std::enable_if_t
+		<
+			std::is_same_v
+			<
+				typename Traits::class_type,
+				typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_property_type
+			>
+		>
+	>
 	inline temporary_vertex_graph_edge_property_map<Graph, PropPtr>
 	get( PropPtr p, stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
 	{
 		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>( &g, p );
 	}
 
-	template <typename Graph, typename PropPtr>
+	template
+	<
+		typename Graph,
+		typename PropPtr,
+		typename Traits = typename boost::member_pointer_traits<PropPtr>,
+		typename = std::enable_if_t
+		<
+			std::is_same_v
+			<
+				typename Traits::class_type,
+				typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_property_type
+			>
+		>
+	>
 	inline temporary_vertex_graph_edge_property_map<Graph, PropPtr>
 	get( PropPtr p, const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
 	{
-		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>( const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
+		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>(
+			const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
 	}
+	// clang-format on
 
-	//----------------------------------------------------------------------
 	//! Overloads for boost::get() for property maps on temporary_vertex_graph_adaptor
-	//!----------------------------------------------------------------------
 
 	// For vertex property maps, when a pointer-to-member is provided,
 	// if the key is a unified vertex descriptor...
