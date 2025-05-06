@@ -17,6 +17,7 @@
 #include <boost/graph/graph_utility.hpp>
 #include <boost/graph/compressed_sparse_row_graph.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/property_map/function_property_map.hpp>
 
 #include <boost/range/iterator_range.hpp>
 #include <boost/range/irange.hpp>
@@ -924,6 +925,38 @@ namespace boost {
 		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>(
 			const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
 	}
+
+	template<typename Graph>
+	inline auto
+	get(vertex_index_t /*tag*/,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>& g)
+	{
+		using Adaptor   = stk::graph::temporary_vertex_graph_adaptor<Graph>;
+		using VD        = typename Adaptor::vertex_descriptor;
+		using OrigVD    = typename Adaptor::original_vertex_descriptor;
+
+		//! A little lambda that extracts a 0-based index from any VD:
+		auto idxfn = [&](VD v) -> std::size_t {
+			if constexpr( Adaptor::using_integral )
+			{
+				//! if VD is already integral, that's the index
+				return static_cast<std::size_t>(v);
+			}
+			else
+			{
+				//! VD is variant<OrigVD, size_t>
+				if (std::holds_alternative<std::size_t>(v))
+					return std::get<std::size_t>(v);
+				else
+					return static_cast<std::size_t>(
+						std::get<OrigVD>(v)
+					);
+			}
+		};
+
+		return make_function_property_map<VD, std::size_t>(idxfn);
+	}
+
 	// clang-format on
 
 	//! Overloads for boost::get() for property maps on temporary_vertex_graph_adaptor
