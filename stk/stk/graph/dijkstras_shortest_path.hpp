@@ -38,65 +38,61 @@ namespace stk::graph {
 		{
 			auto [dist_u, u] = open.top();
 			open.pop();
-			if( !vertex_mask[u] )
-				continue;
-
-			std::size_t begin = graph.row_starts[u];
-			std::size_t end = graph.row_starts[u + 1];
-			std::size_t len = end - begin;
-
-			std::size_t i = 0;
-			for( ; i + 8 <= len; i += 8 )
+			if( vertex_mask[u] )
 			{
-				__m256   dist_vec = _mm256_set1_ps( dist_u );
-				__m256   wts = _mm256_loadu_ps( &graph.weights[begin + i] );
-				weight_t curr_dists[8];
-				uint8_t  cached_mask[8]; // Cache for the vertex mask for these 8 edges
+				std::size_t begin = graph.row_starts[u];
+				std::size_t end = graph.row_starts[u + 1];
+				std::size_t len = end - begin;
 
-				// Cache the mask values and load the current distances in one pass
-				for( auto j = 0ULL; j < 8; ++j )
+				std::size_t i = 0;
+				for( ; i + 8 <= len; i += 8 )
 				{
-					auto v = graph.targets[begin + i + j];
-					cached_mask[j] = vertex_mask[v]; // Assume vertex_mask is a vector<uint8_t>
-					curr_dists[j] = cached_mask[j] ? distance[v] : std::numeric_limits<weight_t>::infinity();
-				}
+					__m256   dist_vec = _mm256_set1_ps( dist_u );
+					__m256   wts = _mm256_loadu_ps( &graph.weights[begin + i] );
+					weight_t curr_dists[8];
+					uint8_t  cached_mask[8]; // Cache for the vertex mask for these 8 edges
 
-				__m256 dists = _mm256_loadu_ps( curr_dists );
-				__m256 new_dists = _mm256_add_ps( dist_vec, wts );
-				__m256 mask = _mm256_cmp_ps( new_dists, dists, _CMP_LT_OS );
-
-				// Use the cached mask values later to decide whether to update
-				for( auto j = 0ULL; j < 8; ++j )
-				{
-					auto v = graph.targets[begin + i + j];
-					// Use cached_mask[j] rather than another call to vertex_mask[v]
-					if( edge_mask[begin + i + j] && cached_mask[j] )
+					// Cache the mask values and load the current distances in one pass
+					for( auto j = 0ULL; j < 8; ++j )
 					{
-						if( ( (weight_t*)&mask )[j] )
+						auto v = graph.targets[begin + i + j];
+						cached_mask[j] = vertex_mask[v]; // Assume vertex_mask is a vector<uint8_t>
+						curr_dists[j] = cached_mask[j] ? distance[v] : std::numeric_limits<weight_t>::infinity();
+					}
+
+					__m256 dists = _mm256_loadu_ps( curr_dists );
+					__m256 new_dists = _mm256_add_ps( dist_vec, wts );
+					__m256 mask = _mm256_cmp_ps( new_dists, dists, _CMP_LT_OS );
+
+					// Use the cached mask values later to decide whether to update
+					for( auto j = 0ULL; j < 8; ++j )
+					{
+						// Use cached_mask[j] rather than another call to vertex_mask[v]
+						if( edge_mask[begin + i + j] && cached_mask[j] && ( (weight_t*)&mask )[j] )
 						{
-							distance[v] = ( (weight_t*)&new_dists )[j];
+							auto v = graph.targets[begin + i + j];
 							predecessor[v] = u;
+							distance[v] = ( (weight_t*)&new_dists )[j];
 							open.emplace( distance[v], v );
 						}
 					}
 				}
-			}
 
-
-			for( ; i < len; ++i )
-			{
-				std::size_t ei = begin + i;
-				vertex_t    v = graph.targets[ei];
-				weight_t    w = graph.weights[ei];
-				if( !edge_mask[ei] || !vertex_mask[v] )
-					continue;
-
-				weight_t alt = dist_u + w;
-				if( alt < distance[v] )
+				for( ; i < len; ++i )
 				{
-					distance[v] = alt;
-					predecessor[v] = u;
-					open.emplace( alt, v );
+					std::size_t ei = begin + i;
+					vertex_t    v = graph.targets[ei];
+					weight_t    w = graph.weights[ei];
+					if( edge_mask[ei] && vertex_mask[v] )
+					{
+						weight_t alt = dist_u + w;
+						if( alt < distance[v] )
+						{
+							distance[v] = alt;
+							predecessor[v] = u;
+							open.emplace( alt, v );
+						}
+					}
 				}
 			}
 		}
