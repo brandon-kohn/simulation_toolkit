@@ -63,6 +63,12 @@ namespace stk::graph {
 		using type = typename boost::compressed_sparse_row_graph<Params...>::vertex_bundled;
 	};
 
+	template <typename G, typename ... Params>
+	struct vertex_property_type_of_impl<boost::filtered_graph<G, Params...>>
+		: vertex_property_type_of_impl<G>
+	{
+	};
+
 	// Primary template: fallback if Graph does not have an edge_property_type typedef.
 	template <typename Graph, typename Enable = void>
 	struct edge_property_type_of_impl
@@ -80,6 +86,12 @@ namespace stk::graph {
 	struct edge_property_type_of_impl<boost::compressed_sparse_row_graph<Params...>>
 	{
 		using type = typename boost::compressed_sparse_row_graph<Params...>::edge_bundled;
+	};
+
+	template <typename G, typename ... Params>
+	struct edge_property_type_of_impl<boost::filtered_graph<G, Params...>>
+		: edge_property_type_of_impl<G>
+	{
 	};
 
 	//------------------------------------------------------
@@ -269,23 +281,19 @@ namespace stk::graph {
 			{}
 		};
 
-		// IncidenceGraph requirements
+
+		typedef fused_vertex_iterator<Graph>   vertex_iterator;
+		//! IncidenceGraph requirements
 		typedef fused_out_edge_iterator<Graph> out_edge_iterator;
 		typedef typename traits_t::degree_size_type degree_size_type;
 
-		// Graph requirements
-		typedef typename traits_t::directed_category      directed_category;
-		typedef typename traits_t::edge_parallel_category edge_parallel_category;
-		typedef typename traits_t::traversal_category     traversal_category;
+		//! BidirectionalGraph requirements
+		typedef void in_edge_iterator;
 
-		// AdjacencyGraph requirements
-		typedef typename boost::adjacency_iterator_generator<self, vertex_descriptor, out_edge_iterator>::type adjacency_iterator;
+		//! EdgeListGraph requirements
+		typedef typename boost::graph_traits<Graph>::edge_iterator edge_iterator;
+		typedef typename boost::graph_traits<Graph>::degree_size_type degree_size_type;
 
-		// VertexListGraph requirements
-		typedef fused_vertex_iterator<Graph>   vertex_iterator;
-		typedef typename traits_t::vertices_size_type vertices_size_type;
-
-		static vertex_descriptor null_vertex() { return traits_t::null_vertex(); }
 
 		//-----------------------------------------
 		//! Constructors
@@ -542,6 +550,8 @@ namespace boost {
 
 		typedef typename adaptor_type::vertex_iterator   vertex_iterator;
 		typedef typename adaptor_type::out_edge_iterator out_edge_iterator;
+		typedef typename adaptor_type::in_edge_iterator  in_edge_iterator;
+		typedef typename adaptor_type::edge_iterator     edge_iterator;
 	};
 
 	template <typename Graph>
@@ -553,7 +563,7 @@ namespace boost {
 	template <typename Graph>
 	inline std::pair<typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_iterator,
 		typename stk::graph::temporary_vertex_graph_adaptor<Graph>::vertex_iterator>
-	vertices( stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	vertices( const stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
 	{
 		return g.vertices();
 	}
