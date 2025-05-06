@@ -38,9 +38,6 @@ namespace stk::graph {
 	//! ==========================================================================
 	//! Generic Directed Graph Check
 	//! ==========================================================================
-	template <typename Graph>
-	struct is_directed_graph : std::is_same<typename boost::graph_traits<Graph>::directed_category, boost::directed_tag>
-	{};
 
 	template <typename Graph>
 	struct temporary_vertex_graph_adaptor;
@@ -248,7 +245,7 @@ namespace stk::graph {
 	template <typename Graph>
 	struct temporary_vertex_graph_adaptor
 	{
-		BOOST_STATIC_ASSERT( is_directed_graph<Graph>::value );
+		BOOST_STATIC_ASSERT( boost::is_incidence_graph<Graph>::value );
 		using self = temporary_vertex_graph_adaptor;
 
 	public:

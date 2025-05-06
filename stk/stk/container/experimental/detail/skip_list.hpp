@@ -19,8 +19,6 @@
 
 #include <geometrix/utility/assert.hpp>
 
-#include <boost/iterator.hpp>
-#include <boost/iterator/iterator_facade.hpp>
 #include <boost/mpl/int.hpp>
 #include <stk/thread/tiny_atomic_spin_lock.hpp>
 #include <stk/utility/scope_exit.hpp>
@@ -32,6 +30,7 @@
 #include <mutex>
 #include <type_traits>
 #include <memory>
+#include <iterator>
 
 //! A concurrent skip list implementation details.
 #define STK_SKIP_LIST_MAX_HEIGHT 64
