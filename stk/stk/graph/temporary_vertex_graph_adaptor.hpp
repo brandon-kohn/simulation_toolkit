@@ -17,6 +17,7 @@
 #include <boost/graph/graph_utility.hpp>
 #include <boost/graph/compressed_sparse_row_graph.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/property_map/function_property_map.hpp>
 
 #include <boost/range/iterator_range.hpp>
 #include <boost/range/irange.hpp>
@@ -797,14 +798,19 @@ struct temporary_vertex_graph_vertex_property_map
 {
 	typedef stk::graph::temporary_vertex_graph_adaptor<Graph>                                    Adaptor;
 	typedef typename Adaptor::vertex_descriptor                                                  key_type;
-	typedef decltype( ( *(Adaptor*)nullptr )[*( (key_type*)nullptr )].*std::declval<PropPtr>() ) value_type;
-	typedef value_type                                                                           reference;
+	typedef decltype( ( *(Adaptor*)nullptr )[*( (key_type*)nullptr )].*std::declval<PropPtr>() ) reference;
+	using value_type = std::decay_t<reference>;
 	typedef boost::lvalue_property_map_tag                                                       category;
 
 	temporary_vertex_graph_vertex_property_map( Adaptor* g, PropPtr p )
 		: m_g( g )
 		, m_prop( p )
 	{}
+
+	reference operator()( const key_type& k ) const
+	{
+		return ( ( *m_g )[k] ).*m_prop;
+	}
 
 	reference operator[]( const key_type& k ) const
 	{
@@ -822,23 +828,25 @@ struct temporary_vertex_graph_vertex_property_map
 template <typename Graph, typename PropPtr>
 struct temporary_vertex_graph_edge_property_map
 {
-	typedef stk::graph::temporary_vertex_graph_adaptor<Graph>                                    Adaptor;
-	typedef typename Adaptor::edge_descriptor                                                    key_type;
-	typedef decltype( ( *(Adaptor*)nullptr )[*( (key_type*)nullptr )].*std::declval<PropPtr>() ) value_type;
-	typedef value_type                                                                           reference;
-	typedef boost::lvalue_property_map_tag                                                       category;
+	typedef stk::graph::temporary_vertex_graph_adaptor<Graph>                         Adaptor;
+	typedef typename Adaptor::edge_descriptor                                         key_type;
+	typedef decltype( (*std::declval<key_type>().property).*std::declval<PropPtr>() ) reference;
+	using value_type = std::decay_t<reference>;
+	typedef boost::lvalue_property_map_tag                                            category;
 
-	temporary_vertex_graph_edge_property_map( Adaptor* g, PropPtr p )
-		: m_g( g )
-		, m_prop( p )
+	temporary_vertex_graph_edge_property_map(PropPtr p )
+		: m_prop( p )
 	{}
 
+	reference operator()( const key_type& k ) const
+	{
+		return ( *k.property ).*m_prop;
+	}
 	reference operator[]( const key_type& k ) const
 	{
-		return ( ( *m_g )[k] ).*m_prop;
+		return ( *k.property ).*m_prop;
 	}
 
-	Adaptor* m_g;
 	PropPtr  m_prop;
 };
 
@@ -849,6 +857,28 @@ struct temporary_vertex_graph_edge_property_map
 //! and then using: pm[v] to yield the desired property.
 // --------------------------------------------------------------------------
 namespace boost {
+
+	template <typename G>
+	struct property_map< stk::graph::temporary_vertex_graph_adaptor<G>, vertex_index_t>
+	{
+		using Vertex = typename stk::graph::temporary_vertex_graph_adaptor<G>::vertex_descriptor;
+		typedef typed_identity_property_map< Vertex > type;
+		typedef type const_type;
+	};
+
+	template <typename Graph, typename Property, typename Key>
+	inline auto get( const temporary_vertex_graph_vertex_property_map<Graph, Property>& pm, const Key& key )
+		-> decltype( pm.operator()( key ) )
+	{
+		return pm.operator()( key );
+	}
+	
+	template <typename Graph, typename Property, typename Key>
+	inline auto get( const temporary_vertex_graph_edge_property_map<Graph, Property>& pm, const Key& key )
+		-> decltype( pm.operator()( key ) )
+	{
+		return pm.operator()( key );
+	}
 
 	// Trait to extract class_type and member_type from a PMF
 	template <class>
@@ -920,9 +950,9 @@ namespace boost {
 		>
 	>
 	inline temporary_vertex_graph_edge_property_map<Graph, PropPtr>
-	get( PropPtr p, stk::graph::temporary_vertex_graph_adaptor<Graph>& g )
+	get( PropPtr p, stk::graph::temporary_vertex_graph_adaptor<Graph>& )
 	{
-		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>( &g, p );
+		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>( p );
 	}
 
 	template
@@ -945,6 +975,14 @@ namespace boost {
 		return temporary_vertex_graph_edge_property_map<Graph, PropPtr>(
 			const_cast<stk::graph::temporary_vertex_graph_adaptor<Graph>*>( &g ), p );
 	}
+
+	template<typename Graph>
+	inline typename property_map<stk::graph::temporary_vertex_graph_adaptor<Graph>, vertex_index_t>::type
+	get(vertex_index_t /*tag*/, const stk::graph::temporary_vertex_graph_adaptor<Graph>& g)
+	{
+		return typename property_map<stk::graph::temporary_vertex_graph_adaptor<Graph>, vertex_index_t>::type();
+	}
+
 	// clang-format on
 
 	//! Overloads for boost::get() for property maps on temporary_vertex_graph_adaptor
@@ -989,11 +1027,11 @@ namespace boost {
 	// For edge property maps on unified edge descriptors:
 	template <typename Graph, typename PropPtr>
 	inline auto get( PropPtr                                                               p,
-		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                 g,
+		stk::graph::temporary_vertex_graph_adaptor<Graph>&                                 ,
 		const typename stk::graph::temporary_vertex_graph_adaptor<Graph>::edge_descriptor& key )
-		-> decltype( ( g[key] ).*p )
+		-> decltype( ((*key.property) ).*p )
 	{
-		return ( g[key] ).*p;
+		return ( (*key.property) ).*p;
 	}
 	template <typename Graph, typename PropPtr>
 	inline auto get( PropPtr                                                               p,
@@ -1015,10 +1053,11 @@ namespace boost {
 	}
 	template <typename Graph, typename PropPtr>
 	inline auto get( PropPtr                                        p,
-		const stk::graph::temporary_vertex_graph_adaptor<Graph>&    g,
+		const stk::graph::temporary_vertex_graph_adaptor<Graph>&    ,
 		const typename boost::graph_traits<Graph>::edge_descriptor& key )
-		-> decltype( g[key].*p )
+		-> decltype( (*key.property).*p )
 	{
-		return g[key].*p;
+		return (*key.property).*p;
 	}
+
 } // namespace boost

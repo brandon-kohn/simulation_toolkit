@@ -595,7 +595,7 @@ TYPED_TEST( DynamicNavigationTestSuite, vertex_property_accessors )
 	auto vpn_map = boost::get( &VertexProperties::type, ag, new_v );
 	EXPECT_EQ( vpn_map, VertexType::Obstacle );
 
-	auto idx_map = boost::get(boost::vertex_index, ag);
+	auto idx_map = boost::get( boost::vertex_index, ag );
 }
 
 TYPED_TEST( DynamicNavigationTestSuite, edge_property_accessors )
