@@ -15,6 +15,7 @@
 
 #include "point.hpp"
 #include <geometrix/primitive/polyline.hpp>
+#include <geometrix/primitive/small_polyline.hpp>
 
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/range/adaptor/reversed.hpp>
@@ -24,6 +25,10 @@ namespace stk {
 
 using polyline2 = geometrix::polyline<point2>;
 using polyline3 = geometrix::polyline<point3>;
+template <std::size_t N>
+using small_polyline2 = geometrix::small_polyline<point2, N>;
+template <std::size_t N>
+using small_polyline3 = geometrix::small_polyline<point3, N>;
 
 template <typename Result, typename Polyline>
 inline Result make_polyline(const Polyline& pline)

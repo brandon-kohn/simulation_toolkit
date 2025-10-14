@@ -349,15 +349,9 @@ namespace stk {
 	                m_pollingCnd.notify_all();
                 }
 
-                //GEOMETRIX_ASSERT(number_threads() == 0);
-
                 for (auto& t : m_threads) {
                     if (t.joinable()) {
-//#ifdef BOOST_MSVC
-//                        t.detach();//! Joining here hangs on some platforms. Detaching should be safe as the pool is done.
-//#else
                         t.join();
-//#endif
                     }
                 }
             }
@@ -497,8 +491,8 @@ namespace stk {
 
             std::uint32_t get_rnd_queue_index() const
             {
-                static STK_THREAD_LOCAL_POD std::size_t id = 0;
-                auto idx = (++id % (m_threads.size() - 1)) + 1;
+				static STK_THREAD_LOCAL_POD std::uint32_t id = 0;
+				std::uint32_t                             idx = ( ++id % ( m_threads.size() - 1 ) ) + 1;
                 GEOMETRIX_ASSERT(idx > 0 && idx < m_threads.size());
                 return idx;
             }

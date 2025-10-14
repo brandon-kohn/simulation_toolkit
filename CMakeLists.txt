@@ -9,13 +9,14 @@ if(APPLE)
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
  
 # Prevent GoogleTest from overriding our compiler/linker options
 # when building with Visual Studio
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_EXPLICIT_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "")
-set(Boost_NO_BOOST_CMAKE ON CACHE BOOL "" FORCE) 
+#set(Boost_NO_BOOST_CMAKE OFF CACHE BOOL "" FORCE) 
 if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
     message(STATUS "Forcing msvc runtime to ${FORCE_MSVC_RUNTIME}")
     include(cmake/stk_force_msvc_runtime.cmake)

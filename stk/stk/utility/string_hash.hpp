@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstdint>
+#include <concepts>
 #include <boost/config.hpp>
 
 namespace stk {
@@ -26,8 +27,8 @@ namespace stk {
 		template <typename T>
 		struct hash_traits<T, typename std::enable_if<std::is_integral<T>::value && sizeof(T) == 8>::type>
 		{
-			BOOST_STATIC_CONSTEXPR std::uint64_t prime = 1099511628211u;
-			BOOST_STATIC_CONSTEXPR std::uint64_t offset_basis = 14695981039346656037u;
+			BOOST_STATIC_CONSTEXPR std::uint64_t prime = 1099511628211ull;
+			BOOST_STATIC_CONSTEXPR std::uint64_t offset_basis = 14695981039346656037ull;
 		};
 
 	}//! namespace detail;

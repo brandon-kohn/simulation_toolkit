@@ -9,9 +9,16 @@
 #pragma once
 
 #include <stk/thread/detail/lazy_ptr.hpp>
-#include <boost/mpl/inherit.hpp>
 
 namespace stk {
+		
+	enum class basic_lazy_ptr_state
+	{
+		null = 0,
+		valid = 1,
+		building = 2,
+		failed = 3
+	};
 
 	template <typename T, typename Deleter = std::default_delete<T>, typename ExceptHandler = default_except_handler>
 	class basic_lazy_ptr;
@@ -76,15 +83,7 @@ namespace stk {
 			}
 		}
 
-		T* try_get()
-		{
-			auto* ptr = get_atomic().load( std::memory_order_relaxed );
-			if( BOOST_LIKELY( ptr && ptr != get_build_code() && ptr != get_fail_code() ) )
-				return ptr;
-			return nullptr;
-		}
-
-		const T* try_get() const
+		T* try_get() const
 		{
 			auto* ptr = get_atomic().load( std::memory_order_relaxed );
 			if( BOOST_LIKELY( ptr && ptr != get_build_code() && ptr != get_fail_code() ) )
@@ -93,32 +92,12 @@ namespace stk {
 		}
 
 		template <typename Init>
-		T* get( Init&& init )
+		T* get( Init&& init ) const
 		{
 			return get_or_build( std::forward<Init>( init ) );
 		}
 
-		template <typename Init>
-		const T* get( Init&& init ) const
-		{
-			return get_or_build( std::forward<Init>( init ) );
-		}
-
-		//! try_get should only be called when another thread has started a build or set the fail code.
-		bool is_tryable() const
-		{
-			auto ptr = get_atomic().load( std::memory_order_relaxed );
-			return ptr != nullptr;
-		}
-
-		enum class basic_lazy_ptr_state
-		{
-			null = 0,
-			valid = 1,
-			building = 2,
-			failed = 3
-		};
-		bool get_state() const
+		basic_lazy_ptr_state get_state() const
 		{
 			auto ptr = get_atomic().load( std::memory_order_relaxed );
 			if( ptr )
@@ -138,51 +117,15 @@ namespace stk {
 		//! If returns a fail-state, could be used to try again?
 		pointer_type release() noexcept
 		{
-			GEOMETRIX_ASSERT( get_state() != basic_lazy_ptr_state::building );
-			if( get_state() != basic_lazy_ptr_state::building )
-				return get_atomic().exchange( nullptr );
+			auto* ptr = get_atomic().exchange( nullptr );
+			// Never return build or fail codes
+			if( ptr != get_build_code() && ptr != get_fail_code() )
+				return ptr;
 			return nullptr;
 		}
 
 	protected:
-		//! Returns either the built item or a nullptr if not built. Does not wait for another thread to build. Useful?
-		template <typename Init>
-		T* try_get_or_build( Init&& init ) const
-		{
-			T* expected = get_atomic().load( std::memory_order_relaxed );
-			if( BOOST_LIKELY( expected && expected != get_build_code() && expected != get_fail_code() ) )
-				return expected;
-
-			if( expected == nullptr )
-			{
-				if( get_atomic().compare_exchange_strong( expected, get_build_code() ) )
-				{
-					T* ptr = nullptr;
-					try
-					{
-						ptr = init();
-					}
-					catch( ... )
-					{
-						get_atomic().store( get_fail_code() );
-						get_except_handler()( std::current_exception() );
-						return nullptr;
-					}
-					get_atomic().store( ptr );
-					return ptr;
-				}
-			}
-
-			//! It's either being built, failed, or valid now.
-			GEOMETRIX_ASSERT( expected != nullptr );
-
-			if( ( expected = get_atomic().load( std::memory_order_relaxed ) ) == get_build_code() )
-				return nullptr;
-
-			GEOMETRIX_ASSERT( expected != nullptr && expected != get_build_code() );
-			return BOOST_LIKELY( expected != get_fail_code() ) ? expected : nullptr;
-		}
-
+		
 		//! Returns either the built item or a nullptr is there is a fail code.
 		template <typename Init>
 		T* get_or_build( Init&& init ) const
@@ -206,6 +149,7 @@ namespace stk {
 						throw;
 					}
 					get_atomic().store( ptr );
+					get_atomic().notify_all();
 					return ptr;
 				}
 			}
@@ -213,19 +157,25 @@ namespace stk {
 			//! It's either being built, failed, or valid now.
 			GEOMETRIX_ASSERT( expected != nullptr );
 
-			//! Busy wait for the thread to construct it.
-			while( ( expected = get_atomic().load( std::memory_order_relaxed ) ) == get_build_code() )
-				std::this_thread::yield();
-
-			GEOMETRIX_ASSERT( expected != nullptr && expected != get_build_code() );
-			return BOOST_LIKELY( expected != get_fail_code() ) ? expected : nullptr;
+			return wait_for_build();
 		}
 
 		T* wait_for_build() const
 		{
 			T* ptr = nullptr;
+			int           spin_count = 0;
+			constexpr int max_spin = 16;
 			while( ( ptr = get_atomic().load( std::memory_order_relaxed ) ) == get_build_code() )
-				std::this_thread::yield();
+			{
+				if( spin_count++ < max_spin )
+				{
+					std::this_thread::yield();
+				}
+				else
+				{
+					get_atomic().wait( get_build_code() );
+				}
+			}
 
 			GEOMETRIX_ASSERT( ptr != get_build_code() );
 			return ptr != get_fail_code() ? ptr : nullptr;
@@ -272,11 +222,9 @@ namespace stk {
 			return ptr;
 		}
 
-		T*       get() { return base_type::get_or_build( m_init ); }
-		const T* get() const { return base_type::get_or_build( m_init ); }
-		T*       try_get() { return base_type::try_get(); }
-		const T* try_get() const { return base_type::try_get(); }
-		T*       release() { return base_type::release(); }
+		T* get() const { return base_type::get_or_build( m_init ); }
+		T* try_get() const { return base_type::try_get(); }
+		T* release() { return base_type::release(); }
 
 	private:
 		std::function<T*()> m_init;
@@ -319,11 +267,9 @@ namespace stk {
 			return ptr;
 		}
 
-		T*       get() { return lazy_base::get_or_build( Init ); }
-		const T* get() const { return lazy_base::get_or_build( Init ); }
-		T*       try_get() { return lazy_base::try_get(); }
-		const T* try_get() const { return lazy_base::try_get(); }
-		T*       release() { return lazy_base::release(); }
+		T* get() const { return lazy_base::get_or_build( Init ); }
+		T* try_get() const { return lazy_base::try_get(); }
+		T* release() { return lazy_base::release(); }
 	};
 
 }//! namespace stk;

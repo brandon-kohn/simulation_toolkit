@@ -277,6 +277,11 @@ namespace stk::graph {
 				, target( t )
 				, property( p )
 			{}
+
+			bool operator==( const edge_descriptor& other ) const
+			{
+				return source == other.source && target == other.target;
+			}
 		};
 
 
