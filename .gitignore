@@ -12,3 +12,4 @@ install
 .vs
 /.vscode
 /out
+/vcpkg_installed

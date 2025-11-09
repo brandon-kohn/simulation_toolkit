@@ -1,0 +1,32 @@
+{
+  "name": "simulation-toolkit",
+  "version": "1.0.0",
+  "description": "Simulation Toolkit - A comprehensive C++ simulation framework with geometry, concurrency, and mathematical utilities",
+  "homepage": "https://github.com/brandon-kohn/simulation_toolkit",
+  "license": "BSL-1.0",
+  "dependencies": [
+    "boost-thread",
+    "boost-system", 
+    "boost-serialization",
+    "boost-filesystem",
+    "boost-chrono",
+    "boost-atomic",
+    "boost-units",
+    "boost-test",
+    "boost-format",
+    "boost-unordered",
+    "boost-numeric-conversion",
+    "boost-rational",
+    "boost-multi-array",
+    "boost-geometry",
+    "boost-dll",
+    "boost-scope-exit",
+    "boost-graph",
+    "boost-heap",
+    "boost-context",
+    "boost-interval",
+    "boost-optional",
+    "gtest",
+    "libcds"
+  ]
+}

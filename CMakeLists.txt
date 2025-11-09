@@ -9,13 +9,14 @@ if(APPLE)
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set_source_files_properties(stk/utility/synthetic_work.hpp PROPERTIES COMPILE_FLAGS "/FAcs")
 
  
 # Prevent GoogleTest from overriding our compiler/linker options
 # when building with Visual Studio
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_EXPLICIT_STATIC_LIBS ON CACHE BOOL "" FORCE)
-set(BUILD_TESTS OFF CACHE BOOL "")
+set(BUILD_TESTS ON CACHE BOOL "")
 #set(Boost_NO_BOOST_CMAKE OFF CACHE BOOL "" FORCE) 
 if(NOT "${FORCE_MSVC_RUNTIME}" STREQUAL "")
     message(STATUS "Forcing msvc runtime to ${FORCE_MSVC_RUNTIME}")
@@ -53,10 +54,6 @@ else()
                                                                                                                        std::free(foo);")
 endif()
 
-if(${STK_HAS_CONSTEXPR})
-    set(BUILD_LIBCDS ON CACHE INTERNAL "")
-endif()
-
 add_subdirectory(geometrix)
 add_subdirectory(stk)
 add_subdirectory(ska)
@@ -67,10 +64,6 @@ add_subdirectory(poly2tri)
 add_subdirectory(junction)
 add_subdirectory(entt)
 add_subdirectory(doctest)
-if(BUILD_LIBCDS)
-    message(STATUS "Building LibCDS...")
-    add_subdirectory(libcds)
-endif()
 if(NOT (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0.0"))
     add_subdirectory(rpmalloc)
 endif()

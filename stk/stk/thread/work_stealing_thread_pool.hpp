@@ -342,7 +342,6 @@ namespace stk {
 
             ~work_stealing_thread_pool()
             {
-                //while (number_threads()) 
 				{
                     auto lk = unique_lock<mutex_type>{ m_pollingMtx };
 					set_done(true);
