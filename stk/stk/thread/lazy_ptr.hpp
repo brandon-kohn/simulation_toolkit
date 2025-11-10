@@ -57,11 +57,33 @@ namespace stk {
 			, m_state{}
 		{}
 
-		//! no move or copy.
+		basic_lazy_ptr( basic_lazy_ptr&& other ) noexcept
+			: base_t( std::move( static_cast<base_t&>( other ) ) )
+		{
+			auto ptr = other.m_state.exchange( nullptr, std::memory_order_relaxed );
+			m_state.store( ptr, std::memory_order_relaxed );
+		}
+
+		basic_lazy_ptr& operator=( basic_lazy_ptr&& other ) noexcept
+		{
+			if( this != &other )
+			{
+				//! destroy current value if valid
+				auto* ptr = m_state.exchange( nullptr, std::memory_order_relaxed );
+				if( ptr && ptr != get_build_code() && ptr != get_fail_code() )
+					get_deleter()( ptr );
+
+				base_t::operator=( std::move( static_cast<base_t&>( other ) ) );
+
+				auto new_ptr = other.m_state.exchange( nullptr, std::memory_order_relaxed );
+				m_state.store( new_ptr, std::memory_order_relaxed );
+			}
+			return *this;
+		}
+		
+		//! no copy.
 		basic_lazy_ptr( const basic_lazy_ptr& ) = delete;
 		basic_lazy_ptr& operator=( const basic_lazy_ptr& ) = delete;
-		basic_lazy_ptr( basic_lazy_ptr&& ) = delete;
-		basic_lazy_ptr& operator=( basic_lazy_ptr&& ) = delete;
 
 		//! if base type, cannot delete from base ptr.
 		~basic_lazy_ptr()

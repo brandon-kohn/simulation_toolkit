@@ -243,11 +243,23 @@ TEST_F( work_stealing_thread_pool_fixture, concurrent_maps_read_heavy_mixture )
 TEST_F( work_stealing_thread_pool_fixture, DependencyGraph )
 {
 	using namespace stk::thread;
-	auto*              a = exec.submit( [] { printf( "Load\n" ); } );
+	auto* a = exec.submit( [] { printf( "Load\n" ); } );
 	std::vector<task*> mids;
 	for( int i = 0; i < 8; ++i )
 		mids.push_back( exec.submit_after( [i] { printf( "Compute %d\n", i ); }, a ) );
 	auto* join = exec.submit_after( mids, [] { printf( "Compose\n" ); } );
+	exec.wait( join );
+
+	EXPECT_TRUE( !pool.has_outstanding_tasks() );
+}
+
+TEST_F( work_stealing_thread_pool_fixture, DependencyGraphVariadic )
+{
+	using namespace stk::thread;
+	auto* a = exec.submit( [] { printf( "A\n" ); } );
+	auto* b = exec.submit( [] { printf( "B\n" ); } );
+	auto* c = exec.submit( [] { printf( "C\n" ); } );
+	auto* join = exec.submit_after( [] { printf( "D\n" ); }, a, b, c );
 	exec.wait( join );
 
 	EXPECT_TRUE( !pool.has_outstanding_tasks() );
