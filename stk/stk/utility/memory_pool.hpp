@@ -187,8 +187,9 @@ namespace stk {
 	template <typename U>
 	inline void deallocate_to_pool( U* v )
 	{
-		auto* pool = memory_pool_base<typename std::decay<U>::type>::get_pool( v );
+		using value_type = typename std::decay<U>::type;
+		auto* pool = memory_pool_base<value_type>::get_pool( v );
 		GEOMETRIX_ASSERT( pool != nullptr );
-		pool->deallocate( v );
+		pool->deallocate( const_cast<value_type*>(v) );
 	}
 }//! namespace stk;

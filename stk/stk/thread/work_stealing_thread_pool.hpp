@@ -315,6 +315,12 @@ namespace stk {
 			{
 				return thread_traits::is_ready( f );
 			}
+            
+            template <typename T, typename ... Args>
+            static future<T> make_ready_future( Args&& ... args )
+			{
+				return thread_traits::make_ready_future<T>( std::forward<Args>(args)... );
+			}
 
             work_stealing_thread_pool(std::uint32_t nthreads = boost::thread::hardware_concurrency() - 1, bool bindToProcs = false)
                 : m_threads(nthreads)

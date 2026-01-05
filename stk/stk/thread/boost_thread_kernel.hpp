@@ -57,6 +57,12 @@ struct boost_thread_traits
     {
         return f.wait_for(boost::chrono::seconds(0)) == boost::future_status::ready;
     }
+	
+    template <typename T, typename ... Args>
+    static future_type<T> make_ready_future(Args&& ... args)
+    {
+		return boost::make_ready_future<T>( std::forward<Args>( args )... );
+    }
 };
 
 }}//! namespace stk::thread;
