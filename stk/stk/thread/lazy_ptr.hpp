@@ -11,7 +11,7 @@
 #include <stk/thread/detail/lazy_ptr.hpp>
 
 namespace stk {
-		
+
 	enum class basic_lazy_ptr_state
 	{
 		null = 0,
@@ -51,7 +51,6 @@ namespace stk {
 		}
 
 	public:
-
 		basic_lazy_ptr( Deleter const& d = Deleter{}, ExceptHandler const& e = ExceptHandler{} )
 			: base_t{ d, e }
 			, m_state{}
@@ -80,7 +79,7 @@ namespace stk {
 			}
 			return *this;
 		}
-		
+
 		//! no copy.
 		basic_lazy_ptr( const basic_lazy_ptr& ) = delete;
 		basic_lazy_ptr& operator=( const basic_lazy_ptr& ) = delete;
@@ -113,10 +112,18 @@ namespace stk {
 			return nullptr;
 		}
 
+		//! Gets the value as soon as it is built (blocks on condition variable if not the builder.)
 		template <typename Init>
 		T* get( Init&& init ) const
 		{
 			return get_or_build( std::forward<Init>( init ) );
+		}
+
+		//! Gets the value as soon as it is built (prediodically check build state if not the builder and calls WaitPolicy::operator().)
+		template <typename Init, typename WaitPolicy>
+		T* get( Init&& init, WaitPolicy&& waitPolicy ) const
+		{
+			return get_or_build( std::forward<Init>( init ), std::forward<WaitPolicy>( waitPolicy ) );
 		}
 
 		basic_lazy_ptr_state get_state() const
@@ -147,7 +154,6 @@ namespace stk {
 		}
 
 	protected:
-		
 		//! Returns either the built item or a nullptr is there is a fail code.
 		template <typename Init>
 		T* get_or_build( Init&& init ) const
@@ -182,9 +188,46 @@ namespace stk {
 			return wait_for_build();
 		}
 
+		template <typename Init, typename WaitPolicy>
+		T* get_or_build( Init&& init, WaitPolicy&& waitPolicy ) const
+		{
+			T* expected = get_atomic().load( std::memory_order_relaxed );
+			if( BOOST_LIKELY( expected && expected != get_build_code() && expected != get_fail_code() ) )
+				return expected;
+
+			if( expected == nullptr )
+			{
+				if( get_atomic().compare_exchange_strong( expected, get_build_code() ) )
+				{
+					T* ptr = nullptr;
+					try
+					{
+						ptr = init();
+					}
+					catch( ... )
+					{
+						get_atomic().store( get_fail_code() );
+						throw;
+					}
+					get_atomic().store( ptr );
+					get_atomic().notify_all();
+					return ptr;
+				}
+			}
+
+			//! It's either being built, failed, or valid now.
+			GEOMETRIX_ASSERT( expected != nullptr );
+
+			while( get_state() == basic_lazy_ptr_state::building )
+			{
+				waitPolicy(); //! custom backoff
+			}
+			return try_get();
+		}
+
 		T* wait_for_build() const
 		{
-			T* ptr = nullptr;
+			T*            ptr = nullptr;
 			int           spin_count = 0;
 			constexpr int max_spin = 16;
 			while( ( ptr = get_atomic().load( std::memory_order_relaxed ) ) == get_build_code() )
@@ -253,14 +296,14 @@ namespace stk {
 	};
 
 	//! In case where initializer is an empty class, shrink this.
-	template <typename T, T* (*Init)(), typename Deleter = std::default_delete<T>, typename ExceptHandler = default_except_handler>
+	template <typename T, T* ( *Init )(), typename Deleter = std::default_delete<T>, typename ExceptHandler = default_except_handler>
 	class lazy_lean_ptr : private basic_lazy_ptr<T, Deleter, ExceptHandler>
 	{
 		using lazy_base = basic_lazy_ptr<T, Deleter, ExceptHandler>;
 
 	public:
 		lazy_lean_ptr( const Deleter& d = Deleter{}, const ExceptHandler& e = ExceptHandler{} )
-			: lazy_base(d, e) 
+			: lazy_base( d, e )
 		{}
 
 		T* operator->()
@@ -294,5 +337,4 @@ namespace stk {
 		T* release() { return lazy_base::release(); }
 	};
 
-}//! namespace stk;
-
+} // namespace stk

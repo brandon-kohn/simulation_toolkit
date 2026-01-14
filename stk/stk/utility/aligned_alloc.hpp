@@ -24,7 +24,7 @@
             return _mm_malloc(size, align);
         }
 
-        inline void free(void *p)
+        inline void (free)(void *p)
         {
             _mm_free(p);
         }
