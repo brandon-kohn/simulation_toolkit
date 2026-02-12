@@ -609,6 +609,34 @@ TEST( timing, work_stealing_pool_parallel_apply_payload_40us )
 	EXPECT_NE( sink.load( std::memory_order_relaxed ), 0ULL );
 }
 
+#ifdef WIN32
+#include <stk/thread/win_wait_on_address_wait_policy.hpp>
+using win_pool_t = stk::thread::work_stealing_thread_pool<mc_queue_traits, stk::thread::boost_thread_traits, stk::thread::default_threadpool_tag, stk::thread::win_wait_on_address_policy<stk::thread::boost_thread_traits>>;
+TEST( timing, work_stealing_pool_parallel_apply_payload_40us_win_futex )
+{
+	using namespace stk::thread;
+
+	win_pool_t pool{ static_cast<std::uint32_t>( (std::max)( 1u, std::thread::hardware_concurrency() - 1 ) ) };
+
+	//! “How about 40 microseconds?”
+	constexpr std::int64_t   payload_ns = 40'000; //! 40us
+	constexpr std::ptrdiff_t nItems = 20000;      //! tune to get stable timings
+
+	std::atomic<std::uint64_t> sink{ 0 };
+
+	{
+		//! parallel_apply is used throughout existing tests :contentReference[oaicite:6]{index=6}
+		GEOMETRIX_MEASURE_SCOPE_TIME( "ws_pool/parallel_apply payload_40us(win_futex)" );
+		pool.parallel_apply( nItems, [&]( std::ptrdiff_t i )
+			{
+            spin_for_ns(payload_ns);
+            sink.fetch_add(static_cast<std::uint64_t>(i), std::memory_order_relaxed); } );
+	}
+
+	EXPECT_NE( sink.load( std::memory_order_relaxed ), 0ULL );
+}
+#endif
+
 TEST( timing, work_stealing_pool_send_round_robin_payload_40us )
 {
 	using namespace stk::thread;
@@ -773,6 +801,95 @@ TEST( timing, ws_pool_burst_latency_40us_5_10_20 )
 		ASSERT_GT( p50, 0.0 );
 	}
 }
+
+#ifdef WIN32
+TEST( timing, ws_pool_burst_latency_40us_5_10_20_win_futex )
+{
+	using namespace stk::thread;
+
+	using pool_t = win_pool_t;
+	pool_t pool{ static_cast<std::uint32_t>(
+		(std::max)( 1u, std::thread::hardware_concurrency() - 1 ) ) };
+
+	const std::uint64_t cycles_per_us = calibrate_cycles_per_us();
+	const std::uint64_t cycles_40us = cycles_per_us * 40;
+
+	using future_t = pool_t::template future<void>;
+
+	const int burst_sizes[] = { 5, 10, 20 };
+
+	constexpr int warmup_bursts = 200;
+	constexpr int measure_bursts = 2000;
+
+	for( int nTasks : burst_sizes )
+	{
+		std::vector<future_t> fs( static_cast<std::size_t>( nTasks ) );
+
+		//! Warmup (no measurement)
+		for( int b = 0; b < warmup_bursts; ++b )
+		{
+			for( int i = 0; i < nTasks; ++i )
+				fs[static_cast<std::size_t>( i )] = pool.send( [=]() -> void
+					{ spin_cycles( cycles_40us ); } );
+			for( auto& f : fs )
+				f.wait();
+		}
+
+		//! Measure per-burst makespan
+		std::vector<double> burst_us;
+		burst_us.reserve( measure_bursts );
+
+		for( int b = 0; b < measure_bursts; ++b )
+		{
+			const auto t0 = clock_type::now();
+
+			for( int i = 0; i < nTasks; ++i )
+				fs[static_cast<std::size_t>( i )] = pool.send( [=]() -> void
+					{ spin_cycles( cycles_40us ); } );
+
+			for( auto& f : fs )
+				f.wait();
+
+			const auto   t1 = clock_type::now();
+			const double us = std::chrono::duration<double, std::micro>( t1 - t0 ).count();
+			burst_us.push_back( us );
+		}
+
+		const double p50 = percentile_us( burst_us, 50.0 );
+		const double p90 = percentile_us( burst_us, 90.0 );
+		const double p99 = percentile_us( burst_us, 99.0 );
+
+		//! Sequential baseline for comparison (same burst sizes)
+		const auto s0 = clock_type::now();
+		for( int b = 0; b < measure_bursts; ++b )
+			for( int i = 0; i < nTasks; ++i )
+				spin_cycles( cycles_40us );
+		const auto s1 = clock_type::now();
+
+		const double seq_total_us = std::chrono::duration<double, std::micro>( s1 - s0 ).count();
+		const double seq_per_burst_us = seq_total_us / static_cast<double>( measure_bursts );
+
+		const double speedup_p50 = seq_per_burst_us / p50;
+
+		std::cout
+			<< "[BurstLatency40us] nTasks=" << nTasks
+			<< " seq_per_burst_us=" << seq_per_burst_us
+			<< " p50_us=" << p50
+			<< " p90_us=" << p90
+			<< " p99_us=" << p99
+			<< " speedup_p50=" << speedup_p50
+			<< "\n";
+
+		RecordProperty( ( "burst_" + std::to_string( nTasks ) + "_seq_per_burst_us" ).c_str(), seq_per_burst_us );
+		RecordProperty( ( "burst_" + std::to_string( nTasks ) + "_p50_us" ).c_str(), p50 );
+		RecordProperty( ( "burst_" + std::to_string( nTasks ) + "_p90_us" ).c_str(), p90 );
+		RecordProperty( ( "burst_" + std::to_string( nTasks ) + "_p99_us" ).c_str(), p99 );
+		RecordProperty( ( "burst_" + std::to_string( nTasks ) + "_speedup_p50" ).c_str(), speedup_p50 );
+
+		ASSERT_GT( p50, 0.0 );
+	}
+}
+#endif
 
 TEST( timing, ws_pool_small_burst_40us_SANITY_CHECK )
 {
