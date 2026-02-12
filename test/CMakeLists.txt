@@ -122,7 +122,6 @@ if(Boost_FOUND)
             hash_grid_tests
             concurrent_vector_tests
             concurrent_list_tests
-            rpmalloc_tests
             message_queue_tests
             memory_tests 
             )
@@ -140,8 +139,8 @@ if(Boost_FOUND)
 			elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 				target_compile_options(${test} PRIVATE /arch:AVX2)
 			endif()
-            target_compile_definitions(${test} PRIVATE -DJUNCTION_STATIC_LIB -DTURF_STATIC_LIB -DRPMALLOC_STATIC_LIB -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
-            target_link_libraries(${test} GTest::gtest GTest::gtest_main stk geometrix exact_static turf_static junction_static clipper_static poly2tri_static rpmalloc_static ${Boost_LIBRARIES})
+            target_compile_definitions(${test} PRIVATE -DJUNCTION_STATIC_LIB -DTURF_STATIC_LIB -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
+            target_link_libraries(${test} GTest::gtest GTest::gtest_main stk geometrix exact_static turf_static junction_static clipper_static poly2tri_static ${Boost_LIBRARIES})
             add_test(NAME ${test} COMMAND ${test})
             set_property(TEST ${test} PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
         endforeach()
