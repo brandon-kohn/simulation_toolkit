@@ -65,7 +65,7 @@ namespace stk::thread {
 				//! WaitOnAddress compares the value at Address to CompareAddress bytes; it sleeps while equal.
 				std::uint32_t compare = expected;
 				(void)WaitOnAddress(
-					reinterpret_cast<volatile void*>( &ctx.epoch ),
+					reinterpret_cast<volatile std::uint32_t*>( &ctx.epoch ),
 					&compare,
 					sizeof( compare ),
 					0xFFFFFFFFu );
