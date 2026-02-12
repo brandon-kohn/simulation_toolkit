@@ -390,7 +390,7 @@ namespace thread {
 			return thread_traits::template make_ready_future<T>( std::forward<Args>( args )... );
 		}
 
-		work_stealing_thread_pool( std::uint32_t nthreads = boost::thread::hardware_concurrency() - 1, bool bindToProcs = false )
+		work_stealing_thread_pool( std::uint32_t nthreads = (std::max<int>)(2, boost::thread::hardware_concurrency() - 1), bool bindToProcs = false )
 			: m_threads( nthreads )
 			, m_stopThread( nthreads )
 			, m_poolQ( 1024 )
@@ -400,7 +400,7 @@ namespace thread {
 			init( bindToProcs );
 		}
 
-		work_stealing_thread_pool( std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = boost::thread::hardware_concurrency() - 1, bool bindToProcs = false )
+		work_stealing_thread_pool( std::function<void()> onThreadStart, std::function<void()> onThreadStop, std::uint32_t nthreads = (std::max<int>)(2, boost::thread::hardware_concurrency() - 1), bool bindToProcs = false )
 			: m_threads( nthreads )
 			, m_stopThread( nthreads )
 			, m_poolQ( 1024 )

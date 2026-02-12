@@ -2,6 +2,9 @@
 
 #include <boost/config.hpp>
 #include <cstdint>
+#include <cstddef>
+#include <type_traits>
+#include <utility>
 
 #ifndef STK_CACHE_LINE_SIZE
 	#include <new>

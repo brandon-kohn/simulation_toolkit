@@ -222,7 +222,7 @@ namespace stk {
 		using value_type = typename std::decay<U>::type;
 		auto* pool = memory_pool_base<value_type>::get_pool( v );
 		GEOMETRIX_ASSERT( pool != nullptr );
-		pool->deallocate( const_cast<value_type*>(v) );
+		pool->deallocate( v );
 	}
 
 	template <typename U>
