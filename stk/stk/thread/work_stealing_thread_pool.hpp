@@ -21,6 +21,7 @@
 #include <stk/thread/thread_local_pod.hpp>
 #include <stk/utility/scope_exit.hpp>
 #include <stk/utility/none.hpp>
+#include <stk/random/xoroshiro128plus_generator.hpp>
 #include <stk/thread/bind/bind_processor.hpp>
 #include <stk/thread/cache_line_padding.hpp>
 #include <stk/compiler/warnings.hpp>
@@ -126,18 +127,6 @@ namespace thread {
 		template <typename T>
 		using unique_lock = typename Traits::template unique_lock<T>;
 		using counter = task_counter;
-
-		static stk::detail::random_xor_shift_generator create_generator()
-		{
-			std::random_device rd;
-			return stk::detail::random_xor_shift_generator( rd() );
-		}
-
-		static std::uint32_t get_rnd()
-		{
-			static auto rnd = create_generator();
-			return rnd();
-		}
 
 		void worker_thread( std::uint32_t tIndex, bool bindToProcs, std::false_type ) //! Q has queue_info
 		{
@@ -500,6 +489,36 @@ namespace thread {
 #endif
 		}
 
+		//! No-future variants: always use send_no_future + counter completion.
+		//! These do NOT allocate futures and are typically much faster for small tasks.
+		template <typename Range, typename TaskFn>
+		void parallel_for_no_future( Range&& range, TaskFn&& task ) BOOST_NOEXCEPT
+		{
+			auto nthreads = number_threads();
+			auto npartitions = nthreads * nthreads;
+			parallel_for_no_future_impl( std::forward<Range>( range ), std::forward<TaskFn>( task ), nthreads, npartitions );
+		}
+
+		template <typename TaskFn>
+		void parallel_apply_no_future( std::ptrdiff_t count, TaskFn&& task ) BOOST_NOEXCEPT
+		{
+			auto nthreads = number_threads();
+			auto npartitions = nthreads * nthreads;
+			parallel_apply_no_future_impl( count, std::forward<TaskFn>( task ), nthreads, npartitions );
+		}
+
+		template <typename Range, typename TaskFn>
+		void parallel_for_no_future( Range&& range, TaskFn&& task, std::size_t npartitions ) BOOST_NOEXCEPT
+		{
+			parallel_for_no_future_impl( std::forward<Range>( range ), std::forward<TaskFn>( task ), number_threads(), npartitions );
+		}
+
+		template <typename TaskFn>
+		void parallel_apply_no_future( std::ptrdiff_t count, TaskFn&& task, std::size_t npartitions ) BOOST_NOEXCEPT
+		{
+			parallel_apply_no_future_impl( count, std::forward<TaskFn>( task ), number_threads(), npartitions );
+		}
+
 		std::uint32_t number_threads() const BOOST_NOEXCEPT
 		{
 			return m_nThreads.load( std::memory_order_relaxed );
@@ -555,6 +574,18 @@ namespace thread {
 					++it;
 			}
 		}
+		
+		template <typename Pred>
+		void work_until( Pred&& pred ) BOOST_NOEXCEPT
+		{
+			auto          tid = get_thread_id();
+			fun_wrapper   tsk;
+			std::uint32_t lastStolenIndex = 0;
+			while( !pred() )
+			{
+				do_work_impl( tsk, lastStolenIndex, tid );
+			}
+		}
 
 		std::uint32_t get_rnd_queue_index() const
 		{
@@ -587,13 +618,16 @@ namespace thread {
 		}
 
 	private:
-		void do_work_impl( fun_wrapper& tsk, std::uint32_t& lastStolenIndex, std::uint32_t tid ) BOOST_NOEXCEPT
+
+		bool do_work_impl( fun_wrapper& tsk, std::uint32_t& lastStolenIndex, std::uint32_t tid ) BOOST_NOEXCEPT
 		{
 			if( pop_task_from_pool_queue( tsk ) || try_steal( lastStolenIndex, tsk ) )
 			{
 				tsk();
 				m_nTasksOutstanding.decrement( tid );
+				return true;
 			}
+			return false;
 		}
 
 		void init( bool bindToProcs )
@@ -645,14 +679,15 @@ namespace thread {
 			fs.reserve( npartitions );
 			std::size_t njobs = 0;
 			partition_work( count, npartitions, [nthreads, &njobs, &fs, &task, this]( std::ptrdiff_t from, std::ptrdiff_t to ) -> void
-				{
-                    std::uint32_t threadID = static_cast<std::uint32_t>(++njobs % nthreads + 1);
-                    fs.emplace_back(send(threadID, [&task, from, to]() -> void
-                    {
-                        for (auto i = from; i != to; ++i) {
-                            task(i);
-                        }
-                    })); } );
+			{
+				std::uint32_t threadID = static_cast<std::uint32_t>(++njobs % nthreads + 1);
+				fs.emplace_back(send(threadID, [&task, from, to]() -> void
+                {
+                    for (auto i = from; i != to; ++i) {
+                        task(i);
+                    }
+                }));
+			} );
 
 			wait_or_work( fs );
 		}
@@ -669,16 +704,18 @@ namespace thread {
 			counter       consumed( nthreads + 1 );
 			std::uint32_t njobs = 0;
 			partition_work( range, npartitions, [nthreads, &consumed, &njobs, &task, this]( iterator_t from, iterator_t to ) -> void
-				{
+			{
                     ++njobs;
                     std::uint32_t threadID = njobs % nthreads + 1;
                     send_no_future(threadID, [&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
-                                   {
-                                       STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
-                                       for (auto i = from; i != to; ++i) {
-                                           task(*i);
-                                       }
-                                   }); } );
+                    {
+                        STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
+                        for (auto i = from; i != to; ++i) 
+						{
+                            task(*i);
+                        }
+                    });
+			} );
 
 			wait_for( [&consumed, njobs]() BOOST_NOEXCEPT
 				{ return consumed.count() == njobs; } );
@@ -693,19 +730,82 @@ namespace thread {
 			task_counter  consumed( nthreads + 1 );
 			std::uint32_t njobs = 0;
 			partition_work( count, npartitions, [nthreads, &consumed, &njobs, &task, this]( std::ptrdiff_t from, std::ptrdiff_t to ) -> void
-				{
-                    ++njobs;
-                    std::uint32_t threadID = njobs % nthreads + 1;
-                    send_no_future(threadID, [&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
-                                   {
-                                       STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
-                                       for (auto i = from; i != to; ++i) {
-                                           task(i);
-                                       }
-                                   }); } );
+			{
+				++njobs;
+                std::uint32_t threadID = njobs % nthreads + 1;
+                send_no_future(threadID, [&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
+                {
+					STK_SCOPE_EXIT(consumed.increment(get_thread_id()));
+					for (auto i = from; i != to; ++i)
+					{
+						task(i);
+                    }
+                }); 
+			} );
 
 			wait_for( [&consumed, njobs]() BOOST_NOEXCEPT
 				{ return consumed.count() == njobs; } );
+		}
+
+		template <typename Range, typename TaskFn>
+		void parallel_for_no_future_impl( Range&& range, TaskFn&& task, std::size_t nthreads, std::size_t npartitions ) BOOST_NOEXCEPT
+		{
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+			static_assert( BOOST_NOEXCEPT( task( *std::begin( range ) ) ) || true, "parallel_for_no_future: prefer noexcept task for best behavior" );
+#endif
+
+			using iterator_t = typename boost::range_iterator<Range>::type;
+
+			counter       consumed( nthreads + 1 );
+			std::uint32_t njobs = 0;
+
+			partition_work( range, npartitions, [nthreads, &consumed, &njobs, &task, this]( iterator_t from, iterator_t to ) -> void
+			{
+				++njobs;
+				const std::uint32_t threadID = (njobs % static_cast<std::uint32_t>(nthreads)) + 1;
+
+				send_no_future( threadID,
+					[&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
+					{
+						for( auto i = from; i != to; ++i )
+							task( *i );
+
+						consumed.increment( get_thread_id() );
+					} );
+			} );
+
+			//! While waiting, help execute work from pool/steal (same behavior as wait_for)
+			work_until( [&consumed, njobs]() BOOST_NOEXCEPT
+				{ return consumed.count() == static_cast<std::int64_t>( njobs ); } );
+		}
+
+		template <typename TaskFn>
+		void parallel_apply_no_future_impl( std::ptrdiff_t count, TaskFn&& task, std::size_t nthreads, std::size_t npartitions ) BOOST_NOEXCEPT
+		{
+#ifndef BOOST_NO_CXX11_NOEXCEPT
+			static_assert( BOOST_NOEXCEPT( task( 0 ) ) || true, "parallel_apply_no_future: prefer noexcept task for best behavior" );
+#endif
+
+			counter       consumed( nthreads + 1 );
+			std::uint32_t njobs = 0;
+
+			partition_work( count, npartitions, [nthreads, &consumed, &njobs, &task, this]( std::ptrdiff_t from, std::ptrdiff_t to ) -> void
+			{
+				++njobs;
+				const std::uint32_t threadID = (njobs % static_cast<std::uint32_t>(nthreads)) + 1;
+
+				send_no_future( threadID,
+					[&consumed, &task, from, to]() BOOST_NOEXCEPT -> void
+					{
+						for( auto i = from; i != to; ++i )
+							task( i );
+
+						consumed.increment( get_thread_id() );
+					} );
+			} );
+
+			work_until( [&consumed, njobs]() BOOST_NOEXCEPT {
+				return consumed.count() == static_cast<std::int64_t>( njobs ); } );
 		}
 
 		template <typename Task>
@@ -796,8 +896,7 @@ namespace thread {
 		std::function<void()>   m_onThreadStop;
 	};
 
-}
-} // namespace stk::thread
+}} // namespace stk::thread
 STK_WARNING_POP()
 
 #endif // STK_THREAD_WORK_STEALING_THREAD_POOL_HPP
