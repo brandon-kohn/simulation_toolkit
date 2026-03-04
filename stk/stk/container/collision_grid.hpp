@@ -103,6 +103,7 @@ namespace stk {
 
         using cell_type = Cell;
         using cell_alloc = CellAllocator;
+        using grid_type = stk::concurrent_hash_grid_2d<cell_type, geometrix::grid_traits<stk::units::length>, cell_alloc>;
 
         template <typename GridTraits>
         collision_grid( GridTraits&& traits, CellAllocator&& cellAlloc = CellAllocator{} )
@@ -148,6 +149,10 @@ namespace stk {
 			using namespace geometrix;
 			visit_impl(std::forward<Geometry>(geometry), radius, std::forward<Visitor>(visitor), detail::modify_cell_accessor{ m_grid }, typename geometrix::geometry_tag_of<Geometry>::type());
 		}
+
+		const grid_type& get_grid() const { return m_grid; }
+		grid_type&       get_grid() { return m_grid; }
+		void             clear() { m_grid.clear(); }
 
     protected:
 		
@@ -258,8 +263,6 @@ namespace stk {
             for(auto& h : holes)
                 visit_impl(h, radius, std::forward<Visitor>(visitor), std::forward<CellAccessor>(accessor), geometrix::geometry_tags::polygon_tag{} );
 		}
-
-        using grid_type = stk::concurrent_hash_grid_2d<cell_type, geometrix::grid_traits<stk::units::length>, cell_alloc>;
 
         mutable junction::QSBR m_qsbr;
         mutable grid_type      m_grid;

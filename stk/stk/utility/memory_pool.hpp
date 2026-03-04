@@ -1,5 +1,5 @@
 //
-//! Copyright Â© 2022
+//! Copyright © 2022
 
 //! Brandon Kohn
 //
