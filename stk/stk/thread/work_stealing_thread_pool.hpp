@@ -1,5 +1,5 @@
 //
-//! Copyright Â© 2017
+//! Copyright © 2017
 //! Brandon Kohn
 //
 //  Distributed under the Boost Software License, Version 1.0. (See

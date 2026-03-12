@@ -38,6 +38,7 @@ if(Boost_FOUND)
     target_link_libraries(pimpl_tests GTest::gtest GTest::gtest_main stk ska geometrix exact_static ${Boost_LIBRARIES})
     add_test(NAME pimpl_tests COMMAND pimpl_tests)
     set_property(TEST pimpl_tests PROPERTY ENVIRONMENT "PATH=${Boost_LIBRARY_DIRS};$ENV{PATH}" )
+    set( TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 
     set(tests
         exact_tests
@@ -59,11 +60,12 @@ if(Boost_FOUND)
         compound_id_tests
         serialization_tests
         graph_tests
+        owned_ptr_tests
        )
 
     foreach(test ${tests})
         add_executable(${test} ${test}.cpp)
-        target_compile_definitions(${test} PRIVATE -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB)
+        target_compile_definitions(${test} PRIVATE -DPOLY2TRI_STATIC_LIB -DCLIPPER_STATIC_LIB -DTEST_DIR="${TEST_DIR}")
         if(MSVC)
             target_compile_options(${test} PRIVATE /W4 -wd4251 -wd4127)
         else()
