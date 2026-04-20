@@ -391,7 +391,7 @@ namespace stk::thread {
 		{
 			handles_.push_back(
 				tasks_.submit(
-					[this, fn = std::forward<F>( f )]() noexcept mutable
+					[this, fn = std::forward<F>( f )]() mutable noexcept 
 					{
 						if( cancel_on_exception_ && has_exception_.load( std::memory_order_acquire ) )
 							return;

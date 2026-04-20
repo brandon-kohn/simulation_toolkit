@@ -193,7 +193,7 @@ namespace stk {
 						auto gen = [&]()
 						{ return &*it++; };
 						base_t::m_q.generate_bulk( gen, growSize );
-						m_totalElements.fetch_add( growSize, std::memory_order_release );
+						base_t::m_totalElements.fetch_add( growSize, std::memory_order_release );
 					}
 				}
 				m_isExpanding.store( false, std::memory_order_release );
