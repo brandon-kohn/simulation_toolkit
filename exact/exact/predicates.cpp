@@ -1439,6 +1439,21 @@ namespace exact {
 
 		return oriented_collinear;
 	}
+	
+    geometrix::orientation_type orientation(const boost::array<double, 2>& a, const boost::array<double, 2>& b, const boost::array<double, 2>& c)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
+
+		auto r = orient2d(a.data(), b.data(), c.data());
+
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
+
+		return oriented_collinear;
+	}
 
 	geometrix::orientation_type orientation(const stk::point2& a, const stk::point2& b, const stk::point2& c)
 	{
@@ -1504,6 +1519,21 @@ namespace exact {
 	}
 
 	geometrix::orientation_type in_circumcircle(const std::array<double, 2>& a, const std::array<double, 2>& b, const std::array<double, 2>& c, const std::array<double, 2>& d)
+	{
+		using namespace geometrix;
+		GEOMETRIX_ASSERT(isInitialized);
+
+		auto r = incircle(a.data(), b.data(), c.data(), d.data());
+
+		if (r > 0.0)
+			return oriented_left;
+		if (r < 0.0)
+			return oriented_right;
+
+		return oriented_collinear;
+	}
+	
+    geometrix::orientation_type in_circumcircle(const boost::array<double, 2>& a, const boost::array<double, 2>& b, const boost::array<double, 2>& c, const boost::array<double, 2>& d)
 	{
 		using namespace geometrix;
 		GEOMETRIX_ASSERT(isInitialized);
